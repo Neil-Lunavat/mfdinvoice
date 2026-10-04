@@ -1,0 +1,468 @@
+/* The boundary between the window and the app, as types. The app's side is `client/src/client/hands/window.py`.
+
+   Two directions:
+     the app tells the window   → `Push`, delivered to the listener passed to `App.listen`
+     the window asks the app    → the methods of `App`, each returning a promise
+
+   Everything the window draws comes from the app's local store (`Snapshot`), so the window renders straight away and
+   never waits on the network. */
+
+export type Registrar = 'CAMS' | 'KFINTECH';
+
+/** The one status vocabulary. Both registrars are mapped onto these words. */
+export type Status =
+  | 'Not submitted' | 'Fetched' | 'Signed' | 'Checked' | 'Needs your attention' | 'Submitted'
+  | 'Waiting approval' | 'Approved' | 'Paid' | 'Rejected' | 'Mismatch';
+
+/** A hard day. A required update is separate: it blocks everything. */
+export type Condition = 'normal' | 'offline' | 'down';
+
+// --- what the window reads: the app's local store --------------------------------------------------------------
+
+export interface Snapshot {
+  version: string;                 // the app's own version, e.g. "0.9.2"
+  condition: Condition;
+  update: UpdateInfo | null;       // this app must update, and no run is going here: nothing else is usable
+  account: Account | null;         // null: signed out on this PC
+  arns: ArnSummary[];              // every ARN on the account, in the switcher's order
+  arn: string;                     // the selected ARN; '' when none is set up yet
+  today: string;                   // ISO date on this PC
+  profile: Profile | null;         // the selected ARN's details
+  month: Month | null;             // this month, for the selected ARN
+  year: MonthRow[];                // the financial year's months, newest first
+  notes: Note[];                   // the bell, newest first
+  activity: ActivityEntry[];       // Settings › History, newest first. Never edited.
+  fy: string;                      // the financial year the months are in, "2026-27"
+  run: RunInProgress | null;       // a run the app believes is still going for this ARN
+  clash: Clash | null;             // the CAMS email moved away from the mailbox; kept by the app until settled
+  plan: Plan | null;               // what the account's plan says, as the website last said it; null before it has
+  deleting: string;                // signed out because the account's deletion was asked for: the ISO time it goes; else ''
+}
+
+/** The account's plan, from the website. 'unknown' is the website giving no answer just now, never "no plan".
+    `arns`: the ARNs bound to the account; an ARN set up on this PC that is not among them cannot run. */
+export interface Plan {
+  state: 'active' | 'none' | 'ended' | 'unknown';
+  source: '' | 'paid' | 'grant' | 'trial';  // shown as a plan or a free trial; never "gift"
+  until: string;                   // the plan's last day, YYYY-MM-DD; '' when none
+  slots: number;
+  arns: string[];                  // ARN-… bound to the account, at most `slots` of them
+  checkedAt: string;
+}
+
+/** The person's authority to act for an ARN: the sentence ticked at setup step 1. */
+export interface Consent {
+  version: number;
+  text: string;                    // exactly as shown
+  at: string;                      // ISO time it was ticked
+  device?: string;                 // the PC it was ticked on, as the app keeps it
+}
+
+/** The mailbox clash: the run waits until the person picks a mailbox. */
+export interface Clash {
+  mailbox: string;                 // the address the mailbox still reads
+  camsEmail: string;               // where CAMS now sends, masked (p***@gmail.com): it is a credential
+}
+
+export interface UpdateInfo {
+  version: string;
+  why: string;                     // one plain sentence, e.g. "CAMS changed its upload page. This version handles it."
+  failed: boolean;                 // the last try installed it but it didn't start, so this PC went back
+}
+
+/** Why [Update now] didn't get as far as installing. */
+export type UpdateFailure = 'no_plan' | 'signed_out' | 'missing' | 'unreachable' | 'mismatch' | 'not_installed' | 'failed';
+
+/** Where the window is, so an update comes back there. */
+export interface Place { page?: string; section?: string; month?: string }
+
+export interface Account {
+  email: string;
+  maxArns: number;                 // 6
+}
+
+export interface ArnSummary {
+  arn: string;
+  name: string;
+  status: 'Not submitted' | 'Submitted' | 'Approved' | 'Rejected';
+  rejected: number;
+}
+
+export type MailProvider = 'gmail' | 'folder';
+
+export interface Profile {
+  arn: string;
+  name: string;                    // name on invoices
+  gstin: string;
+  arnConfirmed: boolean;           // a portal's sign-in showed this ARN at setup, and it is bound to the account
+  bindOnRun?: boolean;             // set up without KFintech: bound by the first run that reads CAMS's emailed files
+  bindAsked?: boolean;             // ...and the person has pressed Activate free trial for it, so runs are on
+  camsUsed: boolean;               // false: this ARN has nothing on CAMS, so a run leaves CAMS out
+  camsEmail: string;               // masked, p***@gmail.com: the email itself is in the app's vault
+  camsArn: string;                 // the ARN CAMS showed when this email was tested; '' while it has not been
+  mailbox: { provider: MailProvider; address: string; connected: boolean };
+  kfintech: Kfintech;              // username masked (pri***), like the email
+  signature: Signature;           // the person's way of signing
+  invoices: Invoices;              // which invoice is uploaded, and the person's own
+  lastLogin: { CAMS: string; KFINTECH: string };                  // ISO dates, '' if never
+  tally: { company: string; ledgers: number };   // the Tally company this ARN imports into, and how many fund houses are matched; '' before the first import
+  consent: Consent | null;         // what was agreed at setup step 1; null for an ARN set up before it was asked
+}
+
+/** The KFintech login. `arn`: the ARN KFintech showed when the login was tested, '' before a test passes. */
+export interface Kfintech { used: boolean; username: string; loggedInAs: string; arn: string }
+
+/** How the person signs: their stamped image or a USB DSC, chosen by them, either way as good.
+    `present`: the chosen way is set up. The other way's setup is kept, so switching back costs nothing. */
+export interface Signature {
+  way: 'image' | 'dsc';
+  present: boolean;
+  image: string;                   // a data URL made on this PC, for display; '' when no photo was given
+  size: number;                    // the image's size, 60-140
+  cert: Cert | null;               // the token's certificate picked, when there is one
+}
+
+/** A signing certificate on a USB token, as the person recognises it. Never a key, never a PIN. */
+export interface Cert {
+  thumbprint: string;
+  name: string;                    // who it is issued to
+  issuer: string;                  // which certifying authority
+  expires: string;                 // ISO date
+  route: 'windows' | 'pin';        // pin: the token's driver is used and its PIN is typed in our window
+  tested: boolean;                 // a test signature worked on this PC
+}
+
+/** The person's own invoice: what Settings calls theirs. Everything else on it - the fund
+    house, the figures, the dates - is the registrar's. */
+export interface InvoiceSettings {
+  template: 'tally';               // one template to begin with: the Tally standard print
+  address: string[];               // their address block, one line each
+  phone: string;
+  email: string;
+  website: string;
+  particulars: string;             // the item line's wording, e.g. "Commission"
+  particularsAmc: boolean;         // with the fund house's name in front
+  remarks: string;
+}
+
+/** Which invoice is uploaded (setup's "Your invoices"). `last` and `at`: the last number they issued, exactly as
+    printed, and where the part that goes up by 1 starts. '' before the person has chosen. */
+export interface Invoices {
+  source: '' | 'registrar' | 'own';
+  last: string;
+  at: number;
+  settings: InvoiceSettings;
+}
+
+export interface Invoice {
+  key: string;                     // the CAMS invoice number or the KFintech reference
+  registrar: Registrar;
+  amc: string;                     // the fund house, as the person knows it
+  number: string;                  // the number printed on the invoice
+  date: string;                    // ISO date on the invoice
+  taxable: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  status: Status;
+  said: string;                    // the registrar's own words for the status (shown on hover)
+  rejection: string;               // the registrar's words when it rejected it, else ''
+  timeline: { what: string; when: string; who?: string }[];   // when: ISO date
+  gstin: string;                   // the fund house's GSTIN, as its invoice prints it; '' on one read before it was kept
+  tally: string;                   // its number in the person's Tally once imported ('in': there, number not known), else ''
+}
+
+/** One invoice against the person's Tally: what an import would do with it. `ours`: the number on their own
+    invoice; `number`: the one it has in Tally; `will`: the one it will get. `clash`: Tally will give a different
+    number from the one printed. `refused`: Tally's own words, after an import that did not take it. */
+export interface TallyRow {
+  key: string; registrar: Registrar; amc: string; date: string; total: number; submitted: boolean; gstin: string;
+  ours: string; number: string; will: string; party: string; partyNew: boolean; sales: string;
+  action: 'import' | 'in_books' | 'by_hand' | 'ask' | 'stop' | 'later';
+  note: string; clash?: boolean; refused?: string;
+}
+
+/** A look at a month against Tally. `state`: off (Tally gives no answer), closed (no company open), pick (several
+    are open and none is remembered), ready. `tallyNumbers`: Tally gives the numbers itself and ignores any sent.
+    `askLast`: we number them, so the person's last invoice number is asked. `done`: what an import just did. */
+export interface TallyLook {
+  state: 'off' | 'closed' | 'pick' | 'ready';
+  said: string; companies: string[]; company: string; period: string; label: string; own: boolean;
+  which: 'submitted' | 'all'; vtype: string; method: string; tallyNumbers: boolean; last: string; askLast: boolean;
+  rows: TallyRow[];
+  creates: { kind: 'party' | 'tax'; name: string; gstin: string }[];
+  asks: { id: string; question: string; options: string[] }[];
+  warn: string[];
+  counts: { submitted: number; all: number; going: number; byHand: number; inBooks: number };
+  done?: { imported: string[]; adopted: string[]; numbers: string[]; stoppedAt: string;
+           refused: { key: string; amc: string; said: string }[] };
+}
+
+export interface TallyAsk { period: string; company: string; which: 'submitted' | 'all'; last: string; answers: Record<string, string> }
+
+export interface Month {
+  period: string;                  // CAMS's payment month, e.g. "OCT-2026"
+  label: string;                   // "October 2026"
+  kfLabel: string;                 // KFintech's trail month for the same invoices: "September 2026"
+  deadline: string;                // unused: the person keeps their own dates
+  checkedAt: string;               // ISO date-time of the last status check, '' if never
+  listed: boolean;                 // its invoices are on this PC, or a registrar listed them at the last look
+  notListed: Registrar[];          // the registrars that did not list the month yet, at the last look
+  everRun: boolean;                // any run has ever been done for this ARN
+  submittedOn: string;             // ISO date of the first submit this month, '' if none
+  lastRun: LastRun | null;         // how this month's latest run ended; null when it has never been run
+  invoices: Invoice[];             // nothing is here until it has been fetched
+}
+
+/** An own invoice number, exactly as printed, and where its part that goes up by 1 starts. */
+export interface NextNumber { text: string; at: number }
+
+/** This month's latest run, as it was recorded. `said` is the Stopped screen's heading; `portal` the portal's own
+    words, if it gave any; `code` which stop it was (`not_listed`: the registrars list nothing yet). */
+export interface LastRun {
+  how: 'done' | 'stopped' | 'nothing' | 'going';
+  at: string;                      // ISO date-time it ended (or started, while going)
+  said: string;
+  portal: string;
+  code: string;
+}
+
+export interface MonthRow {
+  period: string;
+  label: string;
+  count: number;
+  total: number;
+  status: 'Not submitted' | 'Submitted' | 'Approved' | 'Rejected';
+  rejected: number;
+}
+
+export interface Note {
+  id: string;
+  kind: string;                    // what it is about (ui.notify `kind`)
+  text: string;                    // one plain sentence
+  detail: string;                  // the second line, '' if none
+  opens: 'overview' | 'invoices' | 'settings' | '';
+  when: string;                    // ISO date-time
+  read: boolean;
+}
+
+export interface ActivityEntry {
+  at: string;                      // ISO date-time
+  text: string;                    // a plain sentence: "Got 11 invoices by email (ref 224851745)"
+  registrar: Registrar | null;
+  who: string;                     // "you, on this PC" · "OFFICE-PC" · '' when the software did it
+  tone: 'plain' | 'bad' | 'setting';
+}
+
+export interface RunInProgress {
+  run: string;
+  registrars: Registrar[];
+  startedAt: string;
+  what: RunKind;
+  period: string;
+}
+
+// --- the run: what the app pushes -------------------------------------------------------------------------------
+
+/** A run of the month, a look at what the registrars have, or the month's invoices fetched onto this PC. */
+export type RunKind = 'run' | 'check' | 'download';
+
+/** One of the run's steps. All of them arrive every time, in order; their names and lines are the app's. */
+export interface StepView {
+  index: number;
+  name: string;                    // "Check", "Your check", "CAMS"
+  state: 'waiting' | 'running' | 'done' | 'bad';
+  line: string;                    // what it is doing now: "Signing in to KFintech"
+  result: string;                  // its one-line result once done
+}
+
+/** A row at Your check. Its PDF's first page comes from `App.preview(key)`. */
+export interface CheckRow {
+  key: string;
+  registrar: Registrar;
+  amc: string;
+  number: string;                  // own invoices: the number it gets if every row before it stays ticked; else ''
+  seq?: number;                    // own invoices: its place in the number order (see logic/check `numbersFor`)
+  kept?: boolean;                  // own invoices: it already holds its number for good
+  taxable: number;
+  gst: number;
+  igst: boolean;
+  included: boolean;               // false: it starts unticked (it was left out last time)
+  blocked: string;                 // why this run cannot send it, '' when it can; a blocked row cannot be ticked
+  rejection: string;               // the registrar's words when it rejected it before, else ''
+}
+
+/** Why a run stopped, in the app's words. The run is over when this arrives; nothing is answered. */
+export interface Stop {
+  kind: string;                    // which stop (logic/stops.ts)
+  title: string;
+  said: string;                    // the portal's own words, quoted as they are; '' if none
+  lines: string[];                 // one or two plain sentences
+  so_far: string;                  // what each registrar got to
+  registrar: Registrar | null;
+}
+
+/** A question the app puts to the person. Each carries an id; the window answers with `App.answer(id, …)`. */
+export type Ask =
+  | {
+      id: string; type: 'captcha';
+      image: string;                                     // data URL of the cropped captcha, made on this PC
+      attempt: number;                                   // 1 first; later ones say "not quite"
+      message: string;
+      during: 'run' | 'setup';
+    }
+  | { id: string; type: 'signature'; key: string; amc: string }     // the first run: one signed invoice to look at
+  | { id: string; type: 'pick_files'; month: string; sentTo: string; skip: boolean }   // CAMS's zip and Excel, from the person; skip: CAMS may be left out instead
+  | {
+      id: string; type: 'pin';                          // a token Windows cannot reach. Never stored.
+      said: string;                                      // the token's words after a wrong PIN, '' the first time
+      during: 'run' | 'setup';
+    }
+  | { id: string; type: 'your_check'; rows: CheckRow[]; notes: string[] };
+
+export type Answer =
+  | { type: 'captcha'; text: string; refresh: boolean }
+  | { type: 'signature'; looksRight: boolean; fixed: boolean }   // fixed: changed in place, so sign it again
+  | { type: 'pick_files'; skip?: boolean }                 // both files are in (`pickFile`, `dropFile`), or CAMS is skipped
+  | { type: 'pin'; value: string | null }                 // goes to the token, kept nowhere; null: closed
+  | { type: 'your_check'; confirmed: boolean; included: string[] };
+
+/** Everything the app tells the window. */
+export type Push =
+  | { type: 'snapshot'; snapshot: Snapshot }             // the local store changed; the window redraws from it
+  | { type: 'steps'; run: string; steps: StepView[] }
+  | { type: 'ask'; ask: Ask }
+  | { type: 'ask_withdrawn'; id: string }                // the question no longer needs an answer
+  | { type: 'notify'; kind: string; text: string; opens: Note['opens']; toast: boolean }
+  | { type: 'waiting_email'; run: string; since: string; ref: string }       // CAMS has been asked; its email is awaited
+  | { type: 'submitted'; run: string; registrar: Registrar; count: number } // the registrar's status shows them
+  | { type: 'run_ended'; run: string; how: 'done' | 'stopped' | 'nothing'; what: RunKind;
+      used: string;                                      // own invoices: "Used 74/26-27 to 78/26-27"
+      summary: string;                                   // "17 invoices submitted for October. 2 left for later."
+      counts: Partial<Record<Registrar, number>>; total: number;
+      stop: Stop | null }                                // why it stopped; null when it finished or the person stopped it
+  | { type: 'update_progress'; pct: number }             // downloading; at 100 the app hands over to the installer
+  | { type: 'update_failed'; reason: UpdateFailure }
+  | { type: 'go'; place: Place }                         // just updated: back where the person was
+  | { type: 'close_requested' };                         // the person pressed the window's close button
+
+// --- what the window asks the app -------------------------------------------------------------------------------
+
+/** `said`: why not. The portal's own words, quoted as such, unless `ours`: then it is our own sentence. */
+export type Result<T = object> = ({ ok: true } & T) | { ok: false; said: string; ours?: boolean };
+
+export interface ProfileDraft {
+  arn: string;
+  name: string;
+  gstin: string;
+  camsUsed: boolean;
+  camsEmail: string;               // as typed, in setup or a Change; empty in a Change until the person types it
+  camsArn: string;                 // the ARN CAMS showed for that email; '' until Verify sign-in passes, and after an edit
+  mailbox: { provider: MailProvider; address: string; connected: boolean };
+  kfintech: Kfintech;
+  signature: Signature;
+  invoices: Invoices;
+  consent: Consent | null;         // setup step 1's tick; required to finish setup
+  tally?: TallyPick;               // setup's Tally step: the company the invoices go into; absent or '' when skipped
+}
+
+/** The Tally company chosen at setup. `sure`: its GSTIN differs from this ARN's and the person said it is the one. */
+export interface TallyPick { company: string; guid: string; gstin: string; same: boolean; sure: boolean }
+/** What Tally says at setup: `off` (no answer), `closed` (no company open), `ready` (the companies open now). */
+export interface TallySetup { state: 'off' | 'closed' | 'ready'; companies: { name: string; guid: string; gstin: string; same: boolean }[] }
+
+export type DetailsPatch = Partial<Omit<ProfileDraft, 'arn' | 'consent'>>;
+
+/** Every answer the website gives to sign-in, in its own code (`website/site/API.md`); `unreachable`: no answer. */
+export type CodeRefusal = 'bad_email' | 'no_account' | 'wait' | 'locked' | 'too_many_codes' | 'send_failed' | 'unreachable';
+export type VerifyRefusal = 'bad_email' | 'bad_code' | 'wrong' | 'locked' | 'expired' | 'pending_deletion' | 'unreachable';
+
+export type Link = 'site' | 'signup' | 'status' | 'billing' | 'help';
+
+export interface App {
+  /** Read the local store. Answers from disk; never waits on the network. */
+  load(): Promise<Snapshot>;
+  /** Start hearing pushes. Returns a function that stops them. */
+  listen(onPush: (p: Push) => void): () => void;
+
+  // sign in, with the website (wait: seconds before another code may be sent; left: tries; deleteAfter: ISO time)
+  sendCode(email: string): Promise<{ ok: true } | { ok: false; reason: CodeRefusal; wait: number }>;
+  verifyCode(email: string, code: string): Promise<{ ok: true } | { ok: false; reason: VerifyRefusal; left: number; deleteAfter: string }>;
+  /** Sign out of this PC; `remove`: also take the passwords and the signature off it. */
+  signOut(remove: boolean): Promise<void>;
+
+  // the plan
+  /** Bind the ARN on screen to the account: on one that has never had a plan, the 15-day free trial starts now;
+      on one with a plan, the ARN takes a free slot. */
+  activateTrial(): Promise<Result>;
+  checkPlan(): Promise<void>;                            // Try again, on "We couldn't check your plan just now"
+  agree(c: Consent): Promise<Result>;                    // the authority sentence, ticked again for the ARN on screen
+
+  // setup, and every "Change" (the same controls)
+  testMailbox(m: { provider: MailProvider; address: string; appPassword: string }): Promise<Result<{ found: number; as: string }>>;
+  /** Sign in to CAMS with this email, once, and read the ARN CAMS shows. `arn`: the ARN being set up. */
+  testCams(c: { email: string; arn: string }): Promise<Result<{ arn: string }>>;
+  /** A test login; `arn` in the answer is the ARN KFintech shows. A captcha Ask arrives meanwhile. */
+  testKfintech(k: { username: string; password: string; arn: string }): Promise<Result<{ as: string; arn: string }>>;
+  prepareSignature(photo: { bytes: string }): Promise<Result<{ image: string }>>;   // the photo, base64; cleaned on this PC
+  rotateSignature(): Promise<{ image: string }>;
+  /** A photo that was prepared and then not kept (Discard, Cancel, a setup begun afresh): forget it. */
+  dropSignatureDraft(): Promise<void>;
+  /** The signing certificates on the USB tokens plugged in now. */
+  findCertificates(): Promise<{ certs: Cert[] }>;
+  /** A test signature with this certificate: the token's own software asks for its PIN (on route 'pin', a `pin` Ask
+      arrives). `other`: it did not sign through Windows, but trying with the PIN typed here may work. */
+  testCertificate(c: { thumbprint: string; route: Cert['route'] }): Promise<{ ok: true } | { ok: false; said: string; other: boolean }>;
+  /** Is the token this ARN signs with plugged in? true for the image. */
+  tokenHere(): Promise<boolean>;
+  finishSetup(p: ProfileDraft, adding: boolean): Promise<Result>;
+  saveDetails(p: DetailsPatch): Promise<Result>;
+  switchArn(arn: string): Promise<void>;
+
+  // the month
+  month(period: string): Promise<Month>;
+  preview(key: string): Promise<string>;                  // the signed PDF's first page as a data URL, '' if none yet
+  /** The person's own invoice with these settings, drawn on this PC with their signature where it goes: its first
+      page as a data URL, '' when it could not be drawn. `signatureSize`: the size on screen, 60-140. */
+  previewInvoice(settings: InvoiceSettings & { name?: string; gstin?: string; signatureSize?: number }, number: string): Promise<string>;
+  /** An example of a registrar's own invoice, made out to this person, with their signature where a run puts it:
+      its first page as a data URL, '' when it could not be drawn. */
+  previewRegistrar(p: { kind: 'cams' | 'kfintech'; name: string; gstin: string; arn: string; signatureSize: number }): Promise<string>;
+  exportMonth(period: string): Promise<Result<{ name: string }>>;
+  openPdf(key: string): Promise<void>;
+  showInFolder(key: string): Promise<void>;
+  openFolder(what: Registrar | 'files', period?: string): Promise<void>;
+  /** What importing a month into the company open in Tally would do. Nothing in Tally changes. */
+  tallyLook(q: TallyAsk): Promise<TallyLook>;
+  /** Put the month in. `adopt`: the invoices typed by hand to change to the registrar's figures. */
+  tallyImport(q: TallyAsk & { adopt: string[] }): Promise<TallyLook>;
+  /** The last Sales invoice number in the person's Tally, when it is open; `state` says when it cannot tell. */
+  tallyLast(): Promise<{ state: string; company: string; last: string }>;
+  /** Setup's Tally step: the companies open in Tally, each with its GSTIN beside this ARN's. */
+  tallySetup(gstin: string): Promise<TallySetup>;
+  /** Forget the company and the ledgers chosen for this ARN. */
+  tallyForget(): Promise<{ ok: boolean }>;
+  /** One of CAMS's two files, from Windows' own Open box. Only the file's name comes back ('' if cancelled). */
+  pickFile(kind: 'zip' | 'xls'): Promise<{ kind: string; name: string }>;
+  /** A file dropped on the window, as base64: a zip is CAMS's invoices, an Excel its report. `kind` '' if neither. */
+  dropFile(f: { name: string; bytes: string }): Promise<{ kind: string; name: string }>;
+
+  // the run
+  /** Start a run of the month, a look at what the registrars have, or a download of the month's invoices. `last`: the
+      last invoice number in the person's books, as they just confirmed it. `said`: why it did not start. */
+  startRun(r: { registrars: Registrar[]; period: string; what: RunKind; last?: NextNumber | null }): Promise<{ run: string; said?: string }>;
+  answer(id: string, a: Answer): void;
+  stopRun(run: string): void;                             // Stop: ends now, or right after a Submit's answer
+  closeRun(run: string): void;                            // the window closed mid-run and the person confirmed
+
+  // the rest
+  markNotesRead(): Promise<void>;
+  /** Send to support: what the person wrote and where, with the app's version, this PC and the app's last log
+      lines. Nobody is answered from it; `sent` is all that comes back. */
+  sendSupport(s: { text: string; where: string }): Promise<{ sent: boolean }>;
+  open(link: Link): Promise<void>;
+  checkForUpdates(): Promise<{ upToDate: boolean }>;
+  updateNow(): Promise<void>;                             // progress arrives as `update_progress`, then the app restarts
+  here(place: Place): Promise<void>;                      // where the window is now
+  quit(): void;
+}

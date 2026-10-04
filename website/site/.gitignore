@@ -1,0 +1,9 @@
+.astro/
+.check-dev*.log
+.check-out.log
+.check/
+.dev.vars*
+.rehearse/
+.wrangler/
+dist/
+node_modules/

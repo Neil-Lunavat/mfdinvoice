@@ -1,0 +1,22 @@
+---
+/* One of our tax invoices (or, without GST, a receipt), as a page that prints to one A4 sheet. Signed in, own only. */
+import Layout from '../../../layouts/Layout.astro';
+import { env } from 'cloudflare:workers';
+import { NAME } from '../../../consts';
+import { signedInOr } from '../../../lib/server/page';
+import type { Invoice, Order } from '../../../lib/server/orders';
+import ReceiptSheet from '../../../components/ReceiptSheet.astro';
+export const prerender = false;
+
+const number = Astro.params.number ?? '';
+const s = await signedInOr(Astro.request, /^[A-Z0-9/-]{1,20}$/.test(number) ? `/signin?next=/account/invoices/${number}` : '/signin?next=/account');
+if (s instanceof Response) return s;
+const inv = await env.DB.prepare('SELECT * FROM invoices WHERE number = ? AND account_id = ?').bind(number, s.account_id).first<Invoice>();
+if (!inv) return new Response(null, { status: 404 });
+const order = (await env.DB.prepare('SELECT id, provider, payment_id, utr, paid_at FROM orders WHERE id = ?').bind(inv.order_id).first<Pick<Order, 'id' | 'provider' | 'payment_id' | 'utr' | 'paid_at'>>())!;
+const tax = inv.doc === 'tax', title = tax ? 'Tax invoice' : 'Receipt';
+Astro.response.headers.set('cache-control', 'private, no-store');
+---
+<Layout title={`${tax ? 'Invoice' : 'Receipt'} ${inv.number} · ${NAME}`} description={title} path="/account" nav="none" footer={false} canonical={false}>
+<ReceiptSheet inv={inv} order={order} back={["/account", "Account"]} />
+</Layout>

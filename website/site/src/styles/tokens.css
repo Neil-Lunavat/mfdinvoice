@@ -1,0 +1,21 @@
+/* The colour tokens, the same on every page (the app's design system). */
+:root{
+  --canvas:#f6f7f9; --surface:#ffffff; --subtle:#fafbfc; --sunken:#f1f3f6;
+  --ink:#0f172a; --ink-2:#334155; --muted:#5b6475; --faint:#94a3b8; --ghost:#c9d0da;
+  --line:#e4e7ec; --line-2:#eef0f3; --line-hover:#cfd5de;
+  --blue:#1d4ed8; --blue-hover:#1e40af; --blue-press:#1e3a8a; --blue-wash:#eef3ff; --blue-line:#c7d6fe;
+  --green:#0b7a4f; --green-wash:#e7f5ee; --green-line:#b7e1cc;
+  --amber:#8a5300; --amber-dot:#d48806; --amber-wash:#fff7e6;
+  --red:#b42318; --red-hover:#9a1c13; --red-ink:#912018; --red-wash:#fef3f2; --red-line:#fecdca;
+  --pen:#23358f;
+  --sans:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Geist Mono',ui-monospace,'Cascadia Mono',Consolas,monospace;
+  --r-ctl:8px; --r-card:12px; --r-sheet:16px;
+  --e-card:0 1px 2px rgba(15,23,42,.04);
+  --e-float:0 1px 2px rgba(15,23,42,.04),0 12px 32px -12px rgba(15,23,42,.16);
+  --e-sheet:0 1px 2px rgba(15,23,42,.05),0 24px 64px -16px rgba(15,23,42,.24);
+  --e-paper:0 1px 1px rgba(15,23,42,.05),0 10px 24px -8px rgba(15,23,42,.12),0 36px 72px -24px rgba(15,23,42,.22);
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --ring:0 0 0 3px rgba(29,78,216,.22);
+  --wrap:1200px;
+}

@@ -1,0 +1,44 @@
+---
+/* The admin panel's and the blog editor's page: never indexed, the site's look, a tab bar that works on a phone. */
+import '../styles/tokens.css';
+import '../styles/base.css';
+import '../styles/kit.css';
+import '../styles/panel.css';
+import Brand from '../components/Brand.astro';
+import Fonts from '../components/Fonts.astro';
+import Sprite from '../components/Sprite.astro';
+import { NAME } from '../consts';
+
+interface Props {
+  title: string;
+  app: 'control' | 'write';
+  on: string;                               /* the tab marked as this page */
+  me: string;                               /* who is signed in (from Cloudflare Access) */
+  counts?: Record<string, number>;          /* a number next to a tab */
+}
+const { title, app, on, me, counts = {} } = Astro.props;
+const tabs = app === 'control'
+  ? [['/', 'Overview'], ['/payments', 'Payments'], ['/accounts', 'Accounts'], ['/support', 'Support'], ['/software', 'Software'], ['/sales', 'Sales'], ['/gifts', 'Gifts'], ['/survey', 'Survey']]
+  : [['/', 'Posts'], ['/posts/new', 'New post'], ['/images', 'Images']];
+Astro.response.headers.set('cache-control', 'private, no-store');
+---
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{title} · {app === 'control' ? 'Control' : 'Write'} · {NAME}</title>
+<Fonts />
+</head>
+<body>
+<Sprite />
+<header class="pbar"><div class="pbar-in">
+  <Brand />
+  <span class="app">{app === 'control' ? 'Control' : 'Write'}</span>
+  <nav class="ptabs">{tabs.map(([href, label]) => <a href={href} class={href === on ? 'on' : undefined}>{label}{counts[href] ? <span class="n">{counts[href]}</span> : null}</a>)}</nav>
+  <span class="me">{me}</span>
+</div></header>
+<main class="pmain"><slot /></main>
+</body>
+</html>

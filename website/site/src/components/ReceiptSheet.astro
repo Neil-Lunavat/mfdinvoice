@@ -1,0 +1,109 @@
+---
+/* One of our tax invoices (or, without GST, a receipt): the A4 sheet, and the bar above it (back link, print).
+   The buyer's page (account/invoices) and the admin panel's (control/receipts) show the same thing. */
+import Brand from './Brand.astro';
+import { providerName } from '../lib/server/pay';
+import type { Invoice, Order } from '../lib/server/orders';
+import { rupees } from '../lib/price';
+import { amountInWords, type Line } from '../lib/invoice';
+import { longDate, istDay } from '../lib/date';
+
+interface Props {
+  inv: Invoice;
+  order: Pick<Order, 'id' | 'provider' | 'payment_id' | 'utr' | 'paid_at'>;
+  back: [string, string];                   /* the bar's link: [href, label] */
+}
+const { inv, order, back } = Astro.props;
+const tax = inv.doc === 'tax', title = tax ? 'Tax invoice' : 'Receipt';
+const seller = JSON.parse(inv.seller);
+const lines: Line[] = JSON.parse(inv.lines);
+const ph = (v: string) => (v.startsWith('[') ? 'ph' : undefined);
+---
+<div class="bar"><a href={back[0]}>← {back[1]}</a><button class="btn primary sm" type="button" id="print">Print or save as PDF</button></div>
+<main class="sheet">
+  <header class="ih">
+    <Brand href={back[0]} />
+    <div class="t"><h1>{title}</h1><p class="mono">{inv.number}</p><p>{longDate(istDay(inv.issued_at))}</p></div>
+  </header>
+
+  <div class="parties">
+    <div>
+      <h2>From</h2>
+      <b class={ph(seller.legalName)}>{seller.legalName}</b>
+      <p class={ph(seller.address)}>{seller.address}</p>
+      {seller.email && <p>{seller.email}</p>}
+      {tax && <p>GSTIN <span class:list={['mono', ph(seller.gstin)]}>{seller.gstin}</span></p>}
+      {tax && <p>State <span class={ph(seller.state)}>{seller.state}</span> ({seller.stateCode})</p>}
+    </div>
+    <div>
+      <h2>Billed to</h2>
+      <b>{inv.buyer_name}</b>
+      <p>{inv.buyer_address}</p>
+      {inv.buyer_gstin && <p>GSTIN <span class="mono">{inv.buyer_gstin}</span></p>}
+      {tax && <p>Place of supply {inv.buyer_state}</p>}
+    </div>
+  </div>
+
+  <table class="il">
+    <thead><tr><th class="n">#</th><th>Description</th>{tax && <th>SAC</th>}<th class="num">Amount</th></tr></thead>
+    <tbody>
+      {lines.map((l, i) => <tr><td class="n">{i + 1}</td><td>{l.text}</td>{tax && <td class:list={['mono', ph(seller.sac)]}>{seller.sac}</td>}<td class="num">{rupees(l.amount)}</td></tr>)}
+    </tbody>
+  </table>
+
+  <div class="tot">
+    {tax && <div><span>Taxable value</span><span>{rupees(inv.subtotal)}</span></div>}
+    {tax && (inv.igst
+      ? <div><span>IGST 18%</span><span>{rupees(inv.igst)}</span></div>
+      : <><div><span>CGST 9%</span><span>{rupees(inv.cgst)}</span></div><div><span>SGST 9%</span><span>{rupees(inv.sgst)}</span></div></>)}
+    <div class="g"><span>Total</span><span>{rupees(inv.total)}</span></div>
+  </div>
+  <p class="words">{amountInWords(inv.total)}</p>
+
+  <div class="foot">
+    <div>
+      {order.provider === 'upi'
+        ? <p>Paid by UPI, confirmed on {longDate(istDay(order.paid_at!))}. Reference <span class="mono">{order.id}</span>{order.utr && <> · UTR <span class="mono">{order.utr}</span></>}</p>
+        : <p>Paid through {providerName(order.provider)} on {longDate(istDay(order.paid_at!))}. Payment <span class="mono">{order.payment_id}</span></p>}
+      {tax && <p>Tax payable on reverse charge: No</p>}
+    </div>
+    <div class="sign"><p>For <span class={ph(seller.legalName)}>{seller.legalName}</span></p><p class="as">Authorised signatory</p></div>
+  </div>
+</main>
+
+<style is:global>
+body{font-size:13.5px;line-height:1.55}
+.bar{max-width:794px;margin:0 auto;padding:24px 0 16px;display:flex;align-items:center;justify-content:space-between}
+.bar a{color:var(--muted);font-size:14px}
+.sheet{width:794px;min-height:1123px;margin:0 auto 64px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--e-float);padding:56px 60px;display:flex;flex-direction:column}
+.mono{font-family:var(--mono);font-size:.95em}
+.sheet .ph{color:var(--faint)}
+.ih{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:28px;border-bottom:1.5px solid var(--ink)}
+.ih .t{text-align:right}
+.ih h1{font-size:24px;font-weight:600;letter-spacing:-.025em;margin:0 0 4px}
+.ih p{margin:0;color:var(--ink-2)}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:40px;padding:28px 0}
+.parties h2{margin:0 0 8px;font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.parties b{display:block;font-size:15px;font-weight:600;margin-bottom:4px}
+.parties p{margin:2px 0;color:var(--ink-2);white-space:pre-line}
+table.il{width:100%;border-collapse:collapse}
+table.il th{text-align:left;font-weight:500;font-size:12px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);background:var(--subtle)}
+table.il td{padding:14px 12px;border-bottom:1px solid var(--line-2);vertical-align:top}
+table.il .n{width:36px;color:var(--muted)}
+table.il .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tot{margin:16px 0 0 auto;width:300px}
+.tot div{display:flex;justify-content:space-between;padding:6px 12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.tot .g{margin-top:6px;padding-top:12px;border-top:1.5px solid var(--ink);font-weight:600;font-size:16px;color:var(--ink)}
+.words{margin:12px 0 0;text-align:right;padding:0 12px;color:var(--muted);font-size:12.5px}
+.foot{margin-top:auto;padding-top:28px;border-top:1px solid var(--line-2);display:flex;justify-content:space-between;align-items:flex-end;gap:24px;font-size:12.5px;color:var(--muted)}
+.foot p{margin:2px 0}
+.sign{text-align:right}
+.sign .as{margin-top:36px;color:var(--ink-2)}
+@page{size:A4;margin:0}
+@media print{
+  body{background:#fff}
+  .bar{display:none}
+  .sheet{width:210mm;height:297mm;min-height:0;margin:0;border:0;border-radius:0;box-shadow:none;padding:16mm 16mm 14mm}
+}
+</style>
+<script>document.getElementById('print')!.onclick = () => print();</script>

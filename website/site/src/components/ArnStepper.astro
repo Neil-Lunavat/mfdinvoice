@@ -1,0 +1,20 @@
+---
+/* How many ARNs: − n +, on Pricing and Checkout. Hidden while SALES.moreArns is off (one ARN per email).
+   The page's script drives it (#less, #cnt, #more). */
+import { PRICE, SALES } from '../consts';
+---
+<div class="arn" hidden={!SALES.moreArns}>
+  <div><b>ARNs</b><span>Up to {PRICE.maxArns} on one account</span></div>
+  <div class="step"><button type="button" id="less" aria-label="One fewer ARN">−</button><output id="cnt" aria-live="polite">1</output><button type="button" id="more" aria-label="One more ARN">+</button></div>
+</div>
+
+<style is:global>
+.arn{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card)}
+.arn b{display:block;font-size:15px;font-weight:600}
+.arn span{font-size:12.5px;color:var(--muted)}
+.step{display:flex;align-items:center;gap:4px}
+.step button{width:34px;height:34px;border-radius:var(--r-ctl);border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:18px;line-height:1;color:var(--ink-2);transition:background 120ms,border-color 120ms}
+.step button:hover:not([disabled]){background:var(--subtle);border-color:var(--line-hover)}
+.step button[disabled]{opacity:.4;cursor:not-allowed}
+.step output{width:34px;text-align:center;font-family:var(--mono);font-size:16px;font-weight:500}
+</style>

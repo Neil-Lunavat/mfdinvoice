@@ -1,0 +1,27 @@
+---
+/* A blog post, from the database, cached at the edge until a publish or delete clears it. An earlier address of a
+   post redirects (301) to where it is now. */
+import Layout from '../../layouts/Layout.astro';
+import Post from '../../components/Post.astro';
+import '../../styles/kit.css';
+import { NAME, SITE_URL } from '../../consts';
+import { findPost, listPosts, imageUrl } from '../../lib/server/blog';
+export const prerender = false;
+
+const found = await findPost(Astro.params.slug ?? '');
+if (!found) return new Response(null, { status: 404 });
+if ('moved' in found) return Astro.redirect(found.moved, 301);
+const p = found.post;
+Astro.cache.set({ maxAge: 3600, swr: 86400, tags: ['blog'] });
+const related = (await listPosts()).filter(x => x.id !== p.id).slice(0, 3).map(x => ({ title: x.title, path: x.path }));
+const schema = [{
+  '@context': 'https://schema.org', '@type': 'Article', headline: p.title, description: p.description,
+  author: { '@type': 'Organization', name: NAME },
+  datePublished: p.created_at.slice(0, 10), dateModified: p.updated_at.slice(0, 10),
+  ...(p.cover ? { image: new URL(imageUrl(p.cover)!, SITE_URL).href } : {}),
+  mainEntityOfPage: new URL(p.path, SITE_URL).href,
+}];
+---
+<Layout title={p.seo_title || `${p.title} · ${NAME}`} description={p.description} path={p.path} ogType="article" schema={schema}>
+<main><Post post={p} related={related} /></main>
+</Layout>

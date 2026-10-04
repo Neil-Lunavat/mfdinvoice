@@ -1,0 +1,655 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Brush from '../components/Brush.astro';
+import Invoice from '../components/Invoice.astro';
+import Signature from '../components/Signature.astro';
+import Cta from '../components/Cta.astro';
+import { NAME, SITE_URL, PRICE, EMAIL, BUSINESS } from '../consts';
+import { invoice } from '../lib/sample';
+
+const description = 'Give your time to clients, not to invoices. Your invoices on CAMS and KFintech, signed, submitted and imported into your bookkeeping software automatically.';
+const schema = [
+  { '@context': 'https://schema.org', '@type': 'Organization', name: NAME, legalName: BUSINESS.legalName, url: SITE_URL, email: EMAIL.hello },
+  {
+    '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: NAME, description,
+    operatingSystem: 'Windows 11', applicationCategory: 'BusinessApplication',
+    offers: { '@type': 'Offer', price: PRICE.first, priceCurrency: 'INR', url: new URL('/pricing', SITE_URL).href },
+  },
+];
+/* what it replaces: each way of doing it today, then us (the last one). Desktop reads it as a table, a phone as cards. */
+const WAYS = ['Doing it yourself', 'A staff member', 'Your CA', NAME];
+const ROWS: { q: string; a: string[]; best?: boolean }[] = [
+  { q: 'Your time each month', a: ['2–4 hours', 'Checking their work', 'Chasing them', 'One click'] },
+  { q: 'Cost', a: ['Your hours', 'A share of a salary', 'Fees every month', 'One yearly plan'] },
+  { q: 'Rejected invoices followed up', a: ['If you remember', 'If they notice', 'If you tell them', 'Every time'] },
+  { q: 'Works at 11pm before the deadline', a: ["If you're awake", "If they're in", 'If they pick up', 'Yes'], best: true },
+];
+const us = (i: number) => i === WAYS.length - 1;
+/* the app's icons, as the demo draws them */
+const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+---
+<Layout title={`${NAME} · GST commission invoices, done for you`} description={description} path="/" home reveal={0.15} schema={schema}>
+<main id="top" class="home">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <h1>Give your time to clients, <span>not to invoices.</span></h1>
+        <p class="sub">Set it up once and get your full commission, GST included, always on time<span class="ast" tabindex="0" aria-describedby="astTip">*<span class="ast-tip" id="astTip" role="tooltip">It doesn’t run by itself. Once a month, you open the app and press one button.</span></span>. Your invoices on CAMS and KFintech, signed, submitted and imported into your bookkeeping software automatically.</p>
+        <div class="ctas"><a class="btn secondary lg" href="/downloads">Downloads</a><Cta buy="/pricing" /></div>
+        <div class="micro">
+          <span><svg><use href="#tk"/></svg>CAMS and KFintech</span>
+          <span><svg><use href="#tk"/></svg>Tally, and Zoho Books soon</span>
+          <span><svg><use href="#tk"/></svg>Passwords stay with you</span>
+        </div>
+      </div>
+      <div class="stage" id="stage" aria-hidden="true">
+        <div class="stage-in" id="stageIn">
+          <Invoice inv={invoice('ICICI Prudential')} style="left:40px;top:92px;--r:-8deg;--d:150ms" />
+          <Invoice inv={invoice('SBI')} style="left:176px;top:14px;--r:6deg;--d:260ms" />
+          <Invoice inv={invoice('HDFC')} class="p-front" style="left:112px;top:52px;--r:-1.5deg;--d:380ms" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE MONTH TODAY -->
+  <section class="sec line" id="today">
+    <div class="wrap">
+      <h2 class="h2 rv">The same three hours, <span class="g">every month.</span></h2>
+      <div class="diary">
+        <div class="clock" aria-hidden="true">
+          <div class="day" id="cDay">Day 1 of the payout window</div>
+          <span class="time" id="cTime">10:02</span>
+          <div class="bar"><i id="cBar"></i></div>
+          <div class="spent">Time spent <b id="cSpent">0m</b></div>
+        </div>
+        <div class="entries" id="entries">
+          <div class="e" data-t="10:02" data-m="0"><span class="t">Day 1 · 10:02</span><p>Log in to CAMS. Ask for this month's invoices.</p></div>
+          <div class="e" data-t="10:14" data-m="12"><span class="t">10:14</span><p>They come by email. Find it, download, unzip.</p><small>Eleven PDFs, one per fund house.</small></div>
+          <div class="e" data-t="10:25" data-m="23"><span class="t">10:25</span><p>Open each one. Sign it. Save it.</p><small>Eleven times.</small></div>
+          <div class="e" data-t="11:05" data-m="63"><span class="t">11:05</span><p>Fill the upload Excel, one row per fund house.</p></div>
+          <div class="e" data-t="11:30" data-m="88"><span class="t">11:30</span><p>Upload. Check every figure on the screen.</p></div>
+          <div class="e" data-t="12:00" data-m="118"><span class="t">12:00</span><p>Now KFintech. Log in, type the captcha.</p><small>It calls this month August. CAMS calls it September. Same money.</small></div>
+          <div class="e" data-t="12:35" data-m="153"><span class="t">12:35</span><p>Six more invoices. Sign, upload, tick the declarations.</p></div>
+          <div class="e" data-t="12:50" data-m="168"><span class="t">12:50</span><p>Open Tally. Type all seventeen again.</p><small>The same numbers, a third time.</small></div>
+          <div class="e" data-t="13:02" data-m="180"><span class="t">13:02</span><p>Done, until next month.</p></div>
+          <div class="e" data-t="Day 12" data-m="180" data-day="Eleven days later"><span class="t">Day 12</span><p>Log back in to both. Approved yet?</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ONE BUTTON -->
+  <section class="sec white" id="how">
+    <div class="wrap center">
+      <h2 class="h2 rv">Now it's <Brush>one button.</Brush></h2>
+      <p class="lede rv">Press Run October. It does all of that, then shows you one screen. Nothing is sent until you say yes.</p>
+
+      <div class="win rv" id="appwin">
+        <div class="win-bar">
+          <span class="mark"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span>{NAME}
+          <div class="win-ctl">
+            <i><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></i>
+            <i><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor"/></svg></i>
+            <i><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor"/></svg></i>
+          </div>
+        </div>
+        <div class="app">
+          <aside class="side">
+            <div class="who"><span class="av">RK</span><div><b>R K Mehta</b><span>ARN-123456</span></div></div>
+            <a class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Overview</a>
+            <a><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Invoices</a>
+            <a><svg class="ic" viewBox="0 0 24 24"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19"/></svg>Tally</a>
+            <a><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Settings</a>
+            <div class="side-foot"><span>6 days to the 15th</span><span><i class="dot"></i>Ready</span></div>
+          </aside>
+          <div class="main">
+            <div class="ov-h">
+              <h4>October 2026</h4>
+              <div class="stepper"><i><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></i><i><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></i></div>
+              <span class="chk" id="chk"></span>
+            </div>
+            <div id="banner"></div>
+            <div class="card month">
+              <div><div class="n" id="mN"></div><div class="t" id="mT"></div></div>
+              <div class="go" id="mGo"></div>
+            </div>
+            <div class="regs" id="regs"></div>
+          </div>
+        </div>
+      </div>
+      <div class="under">
+        <span id="hint">This is the app. Press Run October.</span>
+      </div>
+
+      <div class="promises">
+        <div class="rv"><b><span class="tick"><svg><use href="#tk"/></svg></span>Always crosschecks with live status.</b><p>It sees what CAMS and KFintech already have, so nothing is sent twice.</p></div>
+        <div class="rv"><b><span class="tick"><svg><use href="#tk"/></svg></span>Matches every figure.</b><p>Each invoice is checked against the portal's own numbers. If anything differs, it stops and shows you.</p></div>
+        <div class="rv"><b><span class="tick"><svg><use href="#tk"/></svg></span>Nothing goes unapproved.</b><p>One screen with every fund house and the total. It submits only after your yes.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section class="sec" id="value">
+    <div class="wrap">
+      <h2 class="h2 rv">Here's what it replaces.</h2>
+      <div class="cmp-wrap rv">
+        <div class="cmp">
+          <div class="bg"></div>
+          <div class="hd"></div>{WAYS.map((w, i) => us(i)
+            ? <div class="hd us"><span class="mark"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span>{w}</div>
+            : <div class="hd">{w}</div>)}
+          {ROWS.map(r => <>
+            <div class:list={['rl', { best: r.best }]}>{r.q}</div>
+            {WAYS.map((_, i) => <div class:list={[{ us: us(i), best: r.best }]}>{r.a[i]}</div>)}
+          </>)}
+        </div>
+      </div>
+      <div class="ways">{WAYS.map((w, i) => <div class:list={['way rv', { us: us(i) }]}>
+        <h3>{us(i) && <span class="mark"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span>}{w}</h3>
+        <dl>{ROWS.map(r => <div><dt>{r.q}</dt><dd>{r.a[i]}</dd></div>)}</dl>
+      </div>)}</div>
+      <p class="kicker rv">If it saves you one evening a month, it has paid for itself by March.</p>
+    </div>
+  </section>
+
+  <!-- PRIVACY -->
+  <section class="sec white line" id="privacy">
+    <div class="wrap">
+      <h2 class="h2 one rv">Your passwords stay safe <span class="g">with you.</span></h2>
+      <p class="lede rv">So do your signature, your mailbox and your invoice files.</p>
+
+      <div class="priv rv">
+        <div class="box pc">
+          <div class="box-h"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Your PC</div>
+          <div class="box-r"><Fragment set:html={lock} />KFintech password<span class="v">••••••••••</span></div>
+          <div class="box-r"><Fragment set:html={lock} />Mailbox <span class="rt">Read-only</span><span class="v">•••• •••• ••••</span></div>
+          <div class="box-r"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg>Your signature<span class="v"><Signature class="sig" /></span></div>
+          <div class="box-r"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>Every invoice, every month<span class="v">Oct 2026 · 17 PDFs</span></div>
+        </div>
+        <div class="link" aria-hidden="true"><span><Fragment set:html={lock} /></span></div>
+        <div class="box ours">
+          <div class="box-h"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>Our side</div>
+          <div class="box-r">CAMS<span class="st"><i></i>Working</span></div>
+          <div class="box-r">KFintech<span class="st"><i style="animation-delay:1.3s"></i>Working</span></div>
+          <div class="box-r">Your account<span class="v">Yearly plan</span></div>
+          <div class="never">Never sees <span class="x" style="--i:0">passwords</span> · <span class="x" style="--i:1">signature</span> · <span class="x" style="--i:2">mailbox</span> · <span class="x" style="--i:3">invoice files</span></div>
+        </div>
+        <p class="cap capL">Before anything is sent to us, the software checks for any passwords in the data and removes them. <a class="more" href="/security">Learn more</a></p>
+        <p class="cap capR">When CAMS or KFintech change their workflow, we adapt fast so our service stays reliable at all times. Especially during the peak hours!</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL -->
+  <section class="final">
+    <div class="wrap">
+      <h2 class="h2 rv">Spare 10 minutes for setup, and you won't need any portals again.</h2>
+      <div class="ctas rv"><Cta buy="/pricing" /></div>
+    </div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+/* the home page's headings are bigger than the other pages' (base.css) */
+.home .h2{font-size:clamp(34px,4.4vw,58px);line-height:1.04;letter-spacing:-.042em;max-width:16ch}
+.home .brush{margin:0 0 0 .14em;padding:0 .4em 0 .1em}
+.home .brush svg{top:-.15em;height:1.34em}
+.home .lede{margin-top:22px}
+.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+/* ---------- hero ---------- */
+.hero{position:relative;padding:56px 0 120px;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background-image:radial-gradient(#d8dde5 1px,transparent 1.2px);background-size:24px 24px;-webkit-mask-image:radial-gradient(ellipse 60% 70% at 72% 45%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse 60% 70% at 72% 45%,#000 20%,transparent 75%);pointer-events:none}
+.hero-grid{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center;min-height:min(760px,calc(100vh - 90px))}
+.hero h1{font-size:clamp(44px,5.8vw,80px);line-height:1;letter-spacing:-.048em;font-weight:560}
+.hero h1 span{color:var(--faint)}
+.hero .sub{margin-top:28px;font-size:19px;line-height:1.55;color:var(--ink-2);max-width:30em}
+.ast{position:relative;display:inline-block;margin-left:1px;color:var(--blue);font-weight:600;cursor:help;outline:none}
+.ast-tip{position:absolute;left:50%;bottom:calc(100% + 10px);width:260px;padding:10px 12px;border-radius:8px;background:var(--ink);color:#fff;font-size:13px;font-weight:400;line-height:1.45;box-shadow:var(--e-sheet);opacity:0;transform:translate(-50%,4px);pointer-events:none;transition:opacity 160ms var(--ease),transform 160ms var(--ease);z-index:5}
+.ast-tip::after{content:"";position:absolute;left:50%;top:100%;margin-left:-6px;border:6px solid transparent;border-top-color:var(--ink)}
+.ast:hover .ast-tip,.ast:focus .ast-tip{opacity:1;transform:translate(-50%,0)}
+.ctas{display:flex;gap:10px;flex-wrap:wrap;margin-top:36px}
+.micro{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:22px;font-size:13.5px;color:var(--muted)}
+.micro span{display:inline-flex;align-items:center;gap:7px}
+.micro svg{width:13px;height:13px;color:var(--green)}
+.hero-copy > *{animation:rise 600ms var(--ease) both}
+.hero-copy > :nth-child(2){animation-delay:80ms}
+.hero-copy > :nth-child(3){animation-delay:160ms}
+.hero-copy > :nth-child(4){animation-delay:220ms}
+@media (max-width:980px){
+  .hero{padding:40px 0 72px}
+  .hero-grid{grid-template-columns:minmax(0,1fr);min-height:0;gap:56px}
+}
+/* the stack of invoices (Invoice.astro): they rise in, the front one signs itself and is stamped */
+.stage{position:relative;width:100%;justify-self:end;max-width:560px}
+.stage-in{position:relative;width:560px;height:620px;transform-origin:0 0}
+.stage .paper{width:372px;opacity:0;transform:translateY(28px) rotate(var(--r));animation:paperIn 800ms var(--ease) forwards;animation-delay:var(--d)}
+@keyframes paperIn{to{opacity:1;transform:translateY(0) rotate(var(--r))}}
+.p-front .sig path{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1300ms cubic-bezier(.55,.1,.35,1) forwards;animation-delay:1100ms}
+.p-front .sig path + path{animation-duration:500ms;animation-delay:2300ms}
+.paper:not(.p-front) .stamp{display:none}
+.p-front .stamp{opacity:0;animation:stamp 440ms cubic-bezier(.2,1.4,.4,1) forwards;animation-delay:2850ms}
+
+/* ---------- sections ---------- */
+.sec{padding:140px 0}
+.sec.white{background:var(--surface)}
+.sec.line{border-top:1px solid var(--line)}
+.center{text-align:center}
+.center .h2,.center .lede{margin-left:auto;margin-right:auto}
+@media (max-width:720px){
+  .sec{padding:88px 0}
+}
+
+/* ---------- the diary: the clock follows the entry in the middle of the screen ---------- */
+.diary{display:grid;grid-template-columns:5fr 7fr;gap:72px;margin-top:40px}
+.clock{position:sticky;top:34vh;align-self:start}
+.clock .day{font-size:14px;font-weight:500;color:var(--muted)}
+.clock .time{display:block;margin-top:6px;font-family:var(--mono);font-size:clamp(72px,9vw,132px);line-height:1;letter-spacing:-.07em;font-weight:500}
+.clock .time.flip{animation:flip 280ms var(--ease)}
+@keyframes flip{from{opacity:.2;transform:translateY(8px)}}
+.clock .bar{max-width:380px;height:4px;margin-top:32px;background:var(--line);border-radius:4px;overflow:hidden}
+.clock .bar i{display:block;height:100%;width:0;background:var(--ink);border-radius:4px;transition:width 600ms var(--ease)}
+.clock .spent{margin-top:12px;font-size:14px;color:var(--muted)}
+.clock .spent b{font-family:var(--mono);font-weight:500;color:var(--ink)}
+.entries{padding:14vh 0 22vh}
+.e{min-height:36vh;display:flex;flex-direction:column;justify-content:center}
+.e .t{display:none;font-family:var(--mono);font-size:13px;color:var(--muted);margin-bottom:6px}
+.e p{font-size:clamp(24px,2.7vw,36px);line-height:1.2;letter-spacing:-.03em;font-weight:500;color:var(--ghost);transition:color 320ms var(--ease)}
+.e small{display:block;margin-top:12px;font-size:17px;color:var(--muted);opacity:0;transform:translateY(6px);transition:opacity 320ms var(--ease),transform 320ms var(--ease)}
+.e.on p{color:var(--ink)}
+.e.on small{opacity:1;transform:none}
+@media (max-width:880px){
+  .diary{grid-template-columns:1fr;gap:0;margin-top:40px}
+  .clock{display:none}
+  .entries{padding:0}
+  .e{min-height:0;padding:22px 0;border-top:1px solid var(--line)}
+  .e .t{display:block}
+  .e p{color:var(--ink)}
+  .e small{opacity:1;transform:none;font-size:15.5px}
+  .e{opacity:0;transform:translateY(12px);transition:opacity 500ms var(--ease),transform 500ms var(--ease)}
+  .e.seen{opacity:1;transform:none}
+}
+
+/* ---------- the app window: a real run, cut short ---------- */
+.win{position:relative;margin-top:64px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sheet);box-shadow:var(--e-sheet);overflow:hidden;font-size:14px;line-height:1.55;text-align:left}
+.win-bar{height:36px;display:flex;align-items:center;gap:8px;padding-left:12px;border-bottom:1px solid var(--line-2);background:var(--subtle);font-size:12.5px;font-weight:500;color:var(--ink-2)}
+.win-bar .mark{width:16px;height:16px;border-radius:5px}
+.win-bar .mark svg{width:10px;height:10px}
+.win-ctl{margin-left:auto;display:flex}
+.win-ctl i{width:44px;height:36px;display:grid;place-items:center;color:var(--muted)}
+.win .spin{width:18px;height:18px;border:2px solid var(--blue-line);border-top-color:var(--blue);flex-shrink:0}
+.app{display:grid;grid-template-columns:212px 1fr;height:480px}
+.side{border-right:1px solid var(--line);background:var(--subtle);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.who{display:flex;align-items:center;gap:10px;padding:8px 10px 14px;margin-bottom:6px;border-bottom:1px solid var(--line-2)}
+.who .av{width:28px;height:28px;border-radius:8px;background:var(--blue-wash);color:var(--blue);display:grid;place-items:center;font-size:11.5px;font-weight:600}
+.who b{display:block;font-size:13px;font-weight:600;line-height:1.2}
+.who span{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+.side a{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--ink-2)}
+.side a.on{background:var(--surface);color:var(--ink);box-shadow:var(--e-card),inset 0 0 0 1px var(--line)}
+.side a .ic{width:17px;height:17px;color:var(--muted)}
+.side a.on .ic{color:var(--blue)}
+.side-foot{margin-top:auto;padding:10px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.side-foot span{display:flex;align-items:center;gap:7px}
+.side-foot .dot{width:7px;height:7px;border-radius:9px;background:var(--green)}
+.main{padding:28px 32px;overflow:hidden}
+.ov-h{display:flex;align-items:center;gap:10px}
+.ov-h h4{font-size:21px;font-weight:600;letter-spacing:-.02em}
+.stepper{display:flex;gap:2px;margin-left:4px}
+.stepper i{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--muted)}
+.ov-h .chk{margin-left:auto;font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.ov-h .chk button{border:0;background:none;padding:2px 4px;margin:-2px -4px;border-radius:5px;color:var(--blue);font-size:12.5px;font-weight:500}
+.ov-h .chk button:hover{text-decoration:underline}
+.ov-h .chk button.nudge{animation:nudge 2.2s var(--ease) infinite}
+@keyframes nudge{0%,100%{background:transparent}50%{background:var(--blue-wash)}}
+.ov-h .chk .spin{width:12px;height:12px;border-width:1.5px}
+.banner{margin-top:18px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r-card);background:var(--red-wash);border:1px solid var(--red-line);color:var(--red);font-size:13px;animation:rise 280ms var(--ease)}
+.banner .ic{width:18px;height:18px}
+.banner b{display:block;font-weight:600}
+.banner p{color:var(--ink-2)}
+.banner .btn{margin-left:auto}
+.banner + .month{margin-top:12px}
+.bq{padding:12px 14px;border-radius:10px;background:var(--subtle);border:1px solid var(--line-2);font-size:13.5px;color:var(--ink-2)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--e-card)}
+.month{margin-top:20px;padding:24px;display:flex;align-items:center;gap:20px}
+.month .n{font-size:26px;font-weight:600;letter-spacing:-.03em;line-height:1.2}
+.month .t{margin-top:4px;color:var(--muted);font-size:13.5px}
+.month .go{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.btn.run{position:relative;height:56px;padding:0 30px;border-radius:12px;font-size:16px;font-weight:600;background:var(--blue);color:#fff;box-shadow:0 1px 2px rgba(29,78,216,.3),0 8px 24px -8px rgba(29,78,216,.45)}
+.btn.run:hover{background:var(--blue-hover)}
+.btn.run.call::after{content:"";position:absolute;inset:-1px;border-radius:13px;box-shadow:0 0 0 0 rgba(29,78,216,.35);animation:call 2.2s var(--ease) infinite}
+@keyframes call{0%{box-shadow:0 0 0 0 rgba(29,78,216,.32)}70%,100%{box-shadow:0 0 0 14px rgba(29,78,216,0)}}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--sunken);color:var(--ink-2)}
+.chip::before{content:"";width:6px;height:6px;border-radius:9px;background:var(--faint)}
+.chip.ok{background:var(--green-wash);color:var(--green)}
+.chip.ok::before{background:var(--green)}
+.chip.wait{background:var(--amber-wash);color:var(--amber)}
+.chip.wait::before{background:var(--amber-dot)}
+.chip.bad{background:var(--red-wash);color:var(--red)}
+.chip.bad::before{background:var(--red)}
+.regs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.reg{padding:20px}
+.reg .k{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600}
+.reg .k .ic{width:16px;height:16px;color:var(--faint)}
+.reg .c{margin-top:14px;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.reg .c .chip{margin-left:6px;vertical-align:2px}
+.reg .a{font-size:13px;color:var(--muted)}
+.dots{display:flex;gap:4px;margin-top:16px}
+.dots i{flex:1;height:4px;border-radius:4px;background:var(--line);transition:background 420ms var(--ease)}
+.dots i.f{background:var(--green)}
+.dots i.r{background:var(--red)}
+.dots-l{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--faint)}
+/* the run, over the app */
+.runov{position:absolute;inset:36px 0 0;z-index:5;display:grid;place-items:center;padding:20px;background:rgba(15,23,42,.42);animation:fade 200ms var(--ease)}
+.runov.out{animation:fadeOut 200ms forwards}
+@keyframes fadeOut{to{opacity:0}}
+.rm{width:min(500px,100%);max-height:100%;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r-sheet);box-shadow:var(--e-sheet);animation:rise 280ms var(--ease);transition:width 280ms var(--ease);overflow:hidden}
+.rm.wide{width:min(660px,100%)}
+.rm-h{padding:22px 24px 18px}
+.rm-h .m{font-size:12.5px;color:var(--muted)}
+.rm-h h5{margin:2px 0 0;font-size:18px;font-weight:600;letter-spacing:-.02em}
+.prog{height:3px;margin-top:16px;background:var(--line-2);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--blue);transition:width 600ms var(--ease)}
+.rm-b{padding:0 24px 22px;min-height:260px}
+.cur{display:flex;align-items:center;gap:12px;height:48px;font-size:15px;font-weight:500;animation:rise 280ms var(--ease)}
+.log{border-top:1px solid var(--line-2)}
+.lr{display:flex;align-items:center;gap:10px;height:38px;border-bottom:1px solid var(--line-2);font-size:13.5px;animation:rise 280ms var(--ease)}
+.lr .dt{width:18px;height:18px;flex-shrink:0}
+.lr .dt path{stroke-dasharray:16;stroke-dashoffset:16;animation:draw 280ms var(--ease) 80ms forwards}
+.lr span{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ck-sc{max-height:210px;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--ghost) transparent;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+table.inv{width:100%;border-collapse:collapse;font-size:13px}
+table.inv th{position:sticky;top:0;background:var(--subtle);text-align:left;font-weight:500;font-size:11.5px;color:var(--muted);padding:7px 24px;border-bottom:1px solid var(--line)}
+table.inv td{padding:0 24px;height:38px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+table.inv .num{text-align:right}
+.tag{display:inline-flex;align-items:center;height:19px;padding:0 6px;margin-left:8px;border-radius:6px;background:var(--sunken);color:var(--muted);font-size:10.5px;font-weight:600}
+.ck-tot{display:flex;justify-content:space-between;padding:12px 24px;font-weight:600;font-size:14px}
+.ck-f{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 24px;border-top:1px solid var(--line);background:var(--subtle)}
+.ck-f .check{font-size:13px}
+.ck-f .b{margin-left:auto;display:flex;gap:8px}
+.done-v{padding:44px 24px 36px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px}
+.done-v .stamp{position:static;opacity:0;animation:stamp 440ms cubic-bezier(.2,1.4,.4,1) forwards;font-size:21px}
+.done-v b{font-size:16px;font-weight:600}
+.done-v p{font-size:13.5px;color:var(--muted);max-width:34ch;margin-top:4px}
+.under{margin-top:22px;display:flex;justify-content:center;gap:24px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.under a,.under button{display:inline-flex;align-items:center;gap:8px;color:var(--blue);font-weight:500;background:none;border:0;padding:0;font-size:14px}
+@media (max-width:880px){
+  .app{grid-template-columns:1fr;height:auto;min-height:520px}
+  .side{display:none}
+  .main{padding:20px}
+  .month{flex-direction:column;align-items:stretch;padding:20px}
+  .month .go{margin-left:0;align-items:stretch}
+  .regs{grid-template-columns:1fr}
+  .ov-h .chk .when{display:none}
+  .runov{padding:10px}
+  table.inv .no{display:none}
+  table.inv th,table.inv td{padding-left:16px;padding-right:16px}
+  .ck-f .b{margin-left:0;width:100%}
+  .ck-f .b .primary{flex:1}
+}
+/* promises */
+.promises{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:88px;text-align:left}
+.promises div{padding-top:22px;border-top:1px solid var(--ink)}
+.promises b{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:600;letter-spacing:-.02em}
+.promises .tick{width:22px;height:22px;border-radius:99px;background:var(--green-wash);color:var(--green);display:grid;place-items:center;flex-shrink:0}
+.promises .tick svg{width:12px;height:12px}
+.promises p{margin-top:8px;font-size:15.5px;color:var(--muted)}
+@media (max-width:880px){
+  .promises{grid-template-columns:1fr;gap:28px;margin-top:56px}
+}
+
+/* ---------- compare ---------- */
+.cmp-wrap{margin-top:72px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:20px 4px}
+.cmp{position:relative;display:grid;grid-template-columns:1.3fr repeat(3,1fr) 1.15fr;min-width:860px}
+.cmp > div{position:relative;z-index:1;padding:24px 22px;border-bottom:1px solid var(--line);font-size:16px;color:var(--muted);display:flex;align-items:center}
+.cmp .hd{font-size:14px;font-weight:500;padding-top:8px;padding-bottom:18px}
+.cmp .rl{color:var(--ink);font-weight:500}
+.cmp .us{color:var(--ink);font-weight:600;border-bottom-color:var(--line-2)}
+.cmp .us.hd{color:var(--blue);gap:9px;font-weight:600}
+.cmp .us.hd .mark{width:20px;height:20px;border-radius:6px}
+.cmp .us.hd .mark svg{width:12px;height:12px}
+.cmp > .bg{position:absolute;top:-20px;bottom:-20px;right:0;width:21.1%;z-index:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--e-sheet)}
+.cmp .best{font-size:21px;letter-spacing:-.02em;padding-top:32px;padding-bottom:32px;border-bottom:0;color:var(--ink-2)}
+.cmp .best.rl{color:var(--ink);font-weight:600}
+.cmp .best.us{color:var(--blue);font-weight:600}
+.kicker{margin-top:48px;font-size:20px;letter-spacing:-.015em;color:var(--ink-2)}
+@property --sweep{syntax:'<angle>';inherits:false;initial-value:0deg}
+/* on a phone or tablet the table becomes one card per way of doing it, ours last and raised */
+.ways{display:none}
+@media (max-width:880px){
+  .cmp-wrap{display:none}
+  .ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:40px}
+  .way{padding:20px 22px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sheet);box-shadow:var(--e-card)}
+  .way h3{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:600;letter-spacing:-.015em}
+  .way dl{margin:12px 0 0}
+  .way dl div{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid var(--line-2);font-size:14.5px}
+  .way dt{color:var(--muted)}
+  .way dd{margin:0;text-align:right;color:var(--ink-2);font-weight:500}
+  /* ours: a blue line sweeps round its border the first time it comes into view, and it lifts */
+  .way.us{position:relative;box-shadow:var(--e-sheet);transition:box-shadow 600ms var(--ease) 900ms}
+  .way.us::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;background:conic-gradient(from 200deg,var(--blue) var(--sweep),transparent 0);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;transition:--sweep 1100ms var(--ease) 300ms}
+  .way.us.in::after{--sweep:360deg}
+  .way.us.in{box-shadow:var(--e-sheet),0 0 0 5px rgba(29,78,216,.08)}
+  .way.us h3{color:var(--blue)}
+  .way.us h3 .mark{width:20px;height:20px;border-radius:6px}
+  .way.us h3 .mark svg{width:12px;height:12px}
+  .way.us dd{color:var(--ink);font-weight:600}
+}
+
+/* ---------- privacy: the two sides are connected, and the connection is locked ---------- */
+.h2.one{max-width:none}
+@media (min-width:1000px){
+  .h2.one{white-space:nowrap}
+}
+.priv{margin-top:72px;display:grid;grid-template-columns:1.2fr .5fr 1fr;align-items:center;row-gap:22px}
+.priv .pc{grid-column:1;grid-row:1}
+.priv .link{grid-column:2;grid-row:1}
+.priv .ours{grid-column:3;grid-row:1}
+.cap{align-self:start;padding:0 4px;font-size:14.5px;line-height:1.6;color:var(--muted);max-width:44ch}
+.cap .more{color:inherit;text-decoration:underline;text-decoration-color:var(--ghost);text-underline-offset:3px;transition:text-decoration-color 120ms}
+.cap .more:hover{text-decoration-color:currentColor}
+.capL{grid-column:1;grid-row:2}
+.capR{grid-column:3;grid-row:2}
+.box{border:1px solid var(--line);border-radius:var(--r-sheet);background:var(--surface);box-shadow:var(--e-float);overflow:hidden}
+.box-h{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line-2);font-size:14px;font-weight:600;background:var(--subtle)}
+.box-h .ic{color:var(--muted)}
+.box-r{display:flex;align-items:center;gap:12px;min-height:54px;padding:0 20px;border-bottom:1px solid var(--line-2);font-size:14px}
+.box-r:last-child{border-bottom:0}
+.box-r .ic{width:16px;height:16px;color:var(--faint)}
+.box-r .v{margin-left:auto;color:var(--muted);font-family:var(--mono);font-size:12.5px;display:flex;align-items:center;gap:8px}
+.box-r .sig{width:70px;height:24px;fill:none;stroke:var(--pen);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.rt{font-size:11px;font-weight:600;color:var(--green);background:var(--green-wash);height:20px;padding:0 7px;border-radius:6px;display:inline-flex;align-items:center}
+/* a live status: it's working, quietly */
+.st{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--green)}
+.st i{width:7px;height:7px;border-radius:9px;background:var(--green);animation:alive 2.6s var(--ease) infinite}
+@keyframes alive{0%{box-shadow:0 0 0 0 rgba(11,122,79,.35)}70%,100%{box-shadow:0 0 0 6px rgba(11,122,79,0)}}
+.never{padding:15px 20px;font-size:13px;color:var(--muted);background:var(--subtle);border-top:1px solid var(--line-2)}
+.never .x{position:relative;color:var(--faint)}
+.never .x::after{content:"";position:absolute;left:-1px;right:-1px;top:55%;height:1.5px;background:var(--muted);transform:scaleX(0);transform-origin:left;transition:transform 420ms var(--ease);transition-delay:calc(var(--i) * 160ms + 400ms)}
+.priv.in .never .x::after{transform:scaleX(1)}
+.link{position:relative;height:2px;margin:0 12px;background-image:linear-gradient(90deg,var(--ghost) 50%,transparent 50%);background-size:8px 2px}
+.link span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:10px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--e-card);display:grid;place-items:center;color:var(--ink-2)}
+.link span .ic{width:16px;height:16px}
+@media (max-width:980px){
+  .priv{grid-template-columns:1fr;row-gap:0}
+  .priv > *{grid-column:1!important;grid-row:auto!important}
+  .priv .pc{order:1}
+  .capL{order:2;margin-top:16px}
+  .priv .link{order:3;justify-self:center;width:2px;height:72px;margin:20px 0;background-image:linear-gradient(180deg,var(--ghost) 50%,transparent 50%);background-size:2px 8px}
+  .priv .ours{order:4}
+  .capR{order:5;margin-top:16px}
+}
+
+/* ---------- final ---------- */
+.final{padding:160px 0 150px;text-align:center;border-top:1px solid var(--line)}
+.final .h2{max-width:22ch;margin:0 auto}
+.final .ctas{justify-content:center;margin-top:44px}
+.final .btn.primary{min-width:min(320px,100%)}
+</style>
+<script>
+import { INVOICES, sum, rs } from '../lib/sample';
+import { $, tick } from '../scripts/client';
+
+const total = sum(INVOICES), cams = INVOICES.filter(x => x.reg === 'CAMS'), kf = INVOICES.filter(x => x.reg === 'KFintech');
+
+/* ---- hero: the stack of invoices scales down to fit ---- */
+function fit() {
+  const w = $('stage').clientWidth, s = Math.min(1, w / 560);
+  $('stageIn').style.transform = `scale(${s})`;
+  $('stage').style.height = 620 * s + 'px';
+}
+fit();
+addEventListener('resize', fit);
+
+/* ---- the diary: the clock follows the entry in the middle of the screen ---- */
+const ents = [...document.querySelectorAll<HTMLElement>('.e')];
+let cur: HTMLElement | null = null;
+function setEntry(e: HTMLElement) {
+  if (e === cur) return;
+  cur = e;
+  ents.forEach(x => x.classList.toggle('on', x === e));
+  const m = +e.dataset.m!;
+  const t = $('cTime');
+  t.textContent = e.dataset.t;
+  t.classList.remove('flip'); void t.offsetWidth; t.classList.add('flip');
+  $('cDay').textContent = e.dataset.day || 'Day 1 of the payout window';
+  $('cSpent').textContent = m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
+  $('cBar').style.width = (m / 180) * 100 + '%';
+}
+const dio = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) setEntry(e.target as HTMLElement); }), { rootMargin: '-48% 0px -48% 0px' });
+ents.forEach(e => dio.observe(e));
+/* on a phone the clock is hidden: each entry fades in as it passes 40% from the bottom of the screen, and stays */
+const seen = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('seen'); seen.unobserve(e.target); } }), { rootMargin: '0px 0px -40% 0px' });
+ents.forEach(e => seen.observe(e));
+setEntry(ents[0]);
+
+/* ---- the app: a real run, cut short ---- */
+const steps = [
+  ["Checking what's already submitted", 'Nothing yet for October'],
+  ['Getting the invoices', '11 from CAMS · 6 from KFintech'],
+  ['Reading every figure', 'As each registrar calculated it'],
+  ['Signing', 'Your signature on all 17'],
+  ['Preparing both uploads', 'Ready for CAMS and KFintech'],
+  ['Double-checking', 'All 17 match, to the paisa'],
+];
+type State = 'ready' | 'sent' | 'checked' | 'fixed' | 'done';
+let state: State = 'ready';
+let checkedAt = 'today 09:12';
+const warn = '<svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17h.01"/></svg>';
+function regCard(name: string, list: typeof INVOICES, filled: number, chip: string, bad = false) {
+  return `<div class="card reg"><div class="k">${name}<svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+    <div class="c">${list.length} invoices${chip}</div><div class="a">${rs(sum(list))} with GST</div>
+    <div class="dots">${[0, 1, 2, 3].map(i => `<i class="${i < filled ? 'f' : i === 3 && bad ? 'r' : ''}"></i>`).join('')}</div>
+    <div class="dots-l"><span>Get</span><span>Sign</span><span>Submit</span><span>Approved</span></div></div>`;
+}
+function overview() {
+  const n = INVOICES.length;
+  const view = {
+    ready: [`${n} invoices to do`, `${rs(total)} with GST · due 15 October`, ''],
+    sent: [`${n} invoices submitted`, `0 of ${n} approved so far`, `<span class="chip wait">${n} waiting</span>`],
+    checked: [`15 of ${n} approved`, '1 waiting · 1 rejected', '<span class="chip bad">1 rejected</span>'],
+    fixed: [`15 of ${n} approved`, '2 waiting', '<span class="chip wait">2 waiting</span>'],
+    done: [`All ${n} approved`, `${rs(total)} with GST · October is done`, '<span class="chip ok">Approved</span>'],
+  }[state];
+  $('mN').textContent = view[0];
+  $('mT').textContent = view[1];
+  $('mGo').innerHTML = state === 'ready'
+    ? '<button class="btn run call" type="button" id="runBtn">Run October</button><span>About 5 min</span>'
+    : view[2];
+  const camsChip = ({ checked: ' <span class="chip wait">1 waiting</span>', fixed: ' <span class="chip wait">1 waiting</span>' } as Record<string, string>)[state] || '';
+  const kfChip = ({ checked: ' <span class="chip bad">1 rejected</span>', fixed: ' <span class="chip wait">1 waiting</span>' } as Record<string, string>)[state] || '';
+  const fill = { ready: 0, sent: 3, checked: 3, fixed: 3, done: 4 }[state];
+  $('regs').innerHTML = regCard('CAMS', cams, fill, camsChip) + regCard('KFintech', kf, fill, kfChip, state === 'checked');
+  $('banner').innerHTML = state === 'checked'
+    ? `<div class="banner">${warn}<div><b>Axis rejected an invoice.</b><p>KFintech says: “Signature not clear. Please upload again.”</p></div><button class="btn primary sm" type="button" id="fixBtn">Send again</button></div>`
+    : '';
+  if (state === 'checked') $('fixBtn').onclick = fix;
+  const nudge = state === 'sent' || state === 'fixed';
+  $('chk').innerHTML = `<span class="when">Checked ${checkedAt} · </span><button type="button" id="chkBtn" class="${nudge ? 'nudge' : ''}">Check now</button>`;
+  $('chkBtn').onclick = checkNow;
+  if (state === 'ready') $('runBtn').onclick = run;
+  $('hint').innerHTML = {
+    ready: 'This is the app. Press Run October.',
+    sent: 'Submitted. Now press Check now, at the top.',
+    checked: 'One came back rejected. Send it again.',
+    fixed: 'Sent again. Press Check now.',
+    done: 'That\'s October, done. <button type="button" id="again">Run it again</button>',
+  }[state];
+  if (state === 'done') $('again').onclick = () => { state = 'ready'; checkedAt = 'today 09:12'; overview(); };
+}
+function checkNow() {
+  $('chk').innerHTML = '<span class="spin"></span>Checking<span class="when"> for approvals</span>';
+  setTimeout(() => {
+    state = ({ sent: 'checked', fixed: 'done' } as Record<string, State>)[state] || state;
+    checkedAt = 'just now';
+    overview();
+  }, 1300);
+}
+function overlay(html: string) {
+  const ov = document.createElement('div');
+  ov.className = 'runov'; ov.id = 'runov';
+  ov.innerHTML = html;
+  $('appwin').appendChild(ov);
+}
+function fix() {
+  const axis = INVOICES[1];
+  overlay(`<div class="rm" id="rm"><div class="rm-h"><div class="m">Send again</div><h5>Axis · ${rs(axis.total)}</h5></div>
+    <div class="rm-b" style="min-height:0"><div class="bq">KFintech says: “Signature not clear. Please upload again.”</div></div>
+    <div class="ck-f"><span style="font-size:13px;color:var(--muted)">Not sure what to do? <a style="color:var(--blue);font-weight:500">Send to support</a></span>
+      <div class="b"><button class="btn ghost" type="button" id="fxNo">Cancel</button><button class="btn primary" type="button" id="fxGo">Submit 1 invoice</button></div></div></div>`);
+  $('fxNo').onclick = close;
+  $('fxGo').onclick = () => {
+    $('rm').innerHTML = `<div class="done-v"><span class="stamp">SUBMITTED<small>KFINTECH · 2 OCT 2026</small></span>
+      <div><b>Axis · ${rs(axis.total)}</b><p>We'll notify you once approved.</p></div>
+      <button class="btn secondary" type="button" id="closeBtn">Close</button></div>`;
+    state = 'fixed';
+    $('closeBtn').onclick = close;
+  };
+}
+function run() {
+  overlay(`<div class="rm" id="rm"><div class="rm-h"><div class="m">October 2026</div><h5>Getting October ready</h5><div class="prog"><i id="pf"></i></div></div>
+    <div class="rm-b"><div id="cur"></div><div class="log" id="log"></div></div></div>`);
+  let i = 0;
+  const next = (): any => {
+    if (i === steps.length) { $('cur').innerHTML = ''; return setTimeout(check, 450); }
+    $('cur').innerHTML = `<div class="cur"><span class="spin"></span>${steps[i][0]}</div>`;
+    setTimeout(() => {
+      $('log').insertAdjacentHTML('afterbegin', `<div class="lr">${tick('dt')}${steps[i][0]}<span>${steps[i][1]}</span></div>`);
+      i++;
+      $('pf').style.width = (i / steps.length) * 100 + '%';
+      next();
+    }, 820);
+  };
+  next();
+}
+function check() {
+  const rm = $('rm');
+  rm.classList.add('wide');
+  rm.innerHTML = `<div class="rm-h"><div class="m">Your check</div><h5>Submit ${INVOICES.length} invoices for October 2026?</h5></div>
+    <div class="ck-sc"><table class="inv"><thead><tr><th>AMC</th><th class="no">Invoice</th><th class="num">Total</th></tr></thead><tbody>
+      ${INVOICES.map(x => `<tr><td>${x.amc}<span class="tag">${x.reg === 'CAMS' ? 'CAMS' : 'KFin'}</span></td><td class="no mono">${x.no}</td><td class="num">${rs(x.total)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="ck-tot"><span>${INVOICES.length} invoices</span><span>${rs(total)}</span></div>
+    <div class="ck-f"><label class="check"><input type="checkbox" id="ok">I've checked these ${INVOICES.length} invoices and the total</label>
+      <div class="b"><button class="btn ghost" type="button" id="notNow">Not now</button><button class="btn primary" type="button" id="sub" disabled>Submit ${INVOICES.length} invoices</button></div></div>`;
+  $('ok').onchange = (e: any) => { $('sub').disabled = !e.target.checked; };
+  $('notNow').onclick = close;
+  $('sub').onclick = () => {
+    rm.classList.remove('wide');
+    rm.innerHTML = `<div class="done-v"><span class="stamp">SUBMITTED<small>CAMS · KFINTECH · 1 OCT 2026</small></span>
+      <div><b>${INVOICES.length} invoices for October · ${rs(total)}</b><p>We'll notify you once approved.</p></div>
+      <button class="btn secondary" type="button" id="closeBtn">Close</button></div>`;
+    state = 'sent';
+    $('closeBtn').onclick = close;
+  };
+}
+function close() {
+  const ov = $('runov');
+  ov.classList.add('out');
+  setTimeout(() => { ov.remove(); overview(); }, 200);
+}
+overview();
+</script>

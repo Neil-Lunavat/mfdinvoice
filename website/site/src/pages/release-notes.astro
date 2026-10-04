@@ -1,0 +1,40 @@
+---
+/* One block per release, newest first, from RELEASES in consts.ts (ops/release.py writes it). Tags: New, Better,
+   Fixed. */
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import { NAME, RELEASES } from '../consts';
+---
+<Layout title={`Release notes · ${NAME}`} description="What changed in each version." path="/release-notes">
+<main>
+  <section class="narrow">
+    <div class="head"><h1 class="h2 rv">Release notes</h1><p class="lede rv">An update is one click, inside the app. <a class="tlink" href="/downloads">Download the latest</a>.</p></div>
+    <div class="rel">
+      {RELEASES.map(r => <div class="v rv">
+        <div><b>{r.version}</b><span>{r.date}</span></div>
+        <ul>
+          {r.changes.map(c => <li><i class={c.tag}>{c.tag}</i><span>{c.text}</span></li>)}
+        </ul>
+      </div>)}
+      {!RELEASES.length && <div class="v rv">
+        <div><b class="ph">[1.0.0]</b><span class="ph">[1 November 2026]</span></div>
+        <ul>
+          <li><i class="New">New</i><span class="ph">[The first release.]</span></li>
+        </ul>
+      </div>}
+    </div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.rel{padding-bottom:110px}
+.v{display:grid;grid-template-columns:200px minmax(0,1fr);gap:40px;padding:32px 0;border-top:1px solid var(--line)}
+.v b{font-size:22px;font-weight:600;letter-spacing:-.025em}
+.v span{display:block;font-size:13.5px;color:var(--muted);margin-top:2px}
+.v ul{margin:0;padding:0;list-style:none}
+.v li{display:flex;gap:12px;padding:8px 0;font-size:15.5px;color:var(--ink-2)}
+.v li i{flex-shrink:0;margin-top:3px;height:20px;padding:0 7px;border-radius:6px;font-style:normal;font-size:11px;font-weight:600;display:inline-flex;align-items:center;background:var(--blue-wash);color:var(--blue)}
+.v li i.Fixed{background:var(--sunken);color:var(--muted)}
+@media (max-width:720px){.v{grid-template-columns:1fr;gap:12px}}
+</style>

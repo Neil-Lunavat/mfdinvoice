@@ -1,0 +1,35 @@
+---
+/* The blog editor's list: every post (each is live). Nothing about accounts or money. */
+import Panel from '../../layouts/Panel.astro';
+import { accessUser } from '../../lib/server/access';
+import { listPosts } from '../../lib/server/blog';
+import { istShort, siteOrigin } from '../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'write');
+if (!me) return new Response('Forbidden', { status: 403 });
+const posts = await listPosts();
+---
+<Panel title="Posts" app="write" on="/" me={me.email}>
+  <div class="ph1"><h1>Posts</h1><p>Write, preview, publish: it’s on the blog at once.</p>
+    <div class="act"><a class="btn primary" href="/posts/new">New post</a></div></div>
+  <section class="pc">
+    <div class="pc-h"><h2>Every post</h2><span class="tag">{posts.length}</span></div>
+    {posts.length === 0 ? <p class="empty">None yet.</p> :
+    <table class="t cards"><thead><tr><th>Heading</th><th>Address</th><th>Published</th><th>Last changed</th><th></th></tr></thead><tbody>
+      {posts.map(p => <tr>
+        <td data-l="Heading"><a href={`/posts/${p.id}`}>{p.title}</a></td>
+        <td data-l="Address" class="mono">{p.path}</td>
+        <td data-l="Published">{istShort(p.created_at)}</td>
+        <td data-l="Last changed">{istShort(p.updated_at)}</td>
+        <td class="num"><a class="note" href={siteOrigin() + p.path} target="_blank">View</a></td>
+      </tr>)}
+    </tbody></table>}
+  </section>
+</Panel>
+<script>
+import { toast } from '../../scripts/client';
+/* back from Publish */
+const done = new URLSearchParams(location.search).get('published');
+if (done) { toast(`Published at ${done}`); history.replaceState(null, '', '/'); }
+</script>

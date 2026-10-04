@@ -1,0 +1,60 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import Qa from '../components/Qa.astro';
+import { NAME } from '../consts';
+import { FAQ } from '../lib/faq';
+
+const strip = (h: string) => h.replace(/<[^>]+>/g, '');
+const schema = [{
+  '@context': 'https://schema.org', '@type': 'FAQPage',
+  mainEntity: FAQ.flatMap(g => g.items).map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: strip(a) } })),
+}];
+---
+<Layout title={`Questions · ${NAME}`} description="About the app, your data and your plan." path="/faq" schema={schema}>
+<main>
+  <section class="page">
+    <div class="head c">
+      <h1 class="h1 rv">Questions</h1>
+      <p class="lede rv">About the app, your data and your plan.</p>
+    </div>
+    <div class="faq">
+      <nav class="toc" id="toc">{FAQ.map(g => <a href={`#${g.id}`}>{g.title}</a>)}</nav>
+      <div>
+        {FAQ.map(g => (
+          <div class="grp rv">
+            <h2 id={g.id}>{g.title}</h2>
+            <div class="qa">{g.items.map(([q, a]) => <Qa q={q}><Fragment set:html={a} /></Qa>)}</div>
+          </div>
+        ))}
+        <p class="end">Anything else? <a class="tlink" href="/support">Write to us.</a></p>
+      </div>
+    </div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.faq{display:grid;grid-template-columns:220px minmax(0,1fr);gap:64px;align-items:start;padding-bottom:110px}
+.toc{position:sticky;top:110px;display:flex;flex-direction:column;gap:2px}
+.toc a{padding:8px 12px;border-radius:8px;font-size:14px;font-weight:500;color:var(--ink-2)}
+.toc a:hover,.toc a.on{background:var(--surface);box-shadow:var(--e-card);color:var(--ink)}
+.grp + .grp{margin-top:56px}
+.grp h2{font-size:22px;font-weight:600;letter-spacing:-.025em;margin-bottom:12px;scroll-margin-top:110px}
+.faq .end{margin-top:48px;font-size:15px;color:var(--muted)}
+@media (max-width:880px){
+  .faq{grid-template-columns:1fr;gap:24px}
+  /* the groups in one line that scrolls sideways */
+  .toc{position:static;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-24px;padding-inline:24px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent)}
+  .toc::-webkit-scrollbar{display:none}
+  .toc a{flex-shrink:0;white-space:nowrap}
+}
+</style>
+<script>
+/* the group in view is marked in the list on the left */
+const heads = [...document.querySelectorAll('.grp h2')];
+const tio = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) document.querySelectorAll('#toc a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+}), { rootMargin: '-20% 0px -70% 0px' });
+heads.forEach(h => tio.observe(h));
+</script>

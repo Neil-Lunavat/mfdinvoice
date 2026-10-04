@@ -1,0 +1,65 @@
+---
+/* Accounts: search by email, name, ARN or payment reference; filters in the URL. Tick accounts (one by one: there
+   is no "select all") and Delete deletes them now, with no email. */
+import Panel from '../../../layouts/Panel.astro';
+import { accessUser } from '../../../lib/server/access';
+import { searchAccounts, tabCounts, PLAN_TAG } from '../../../lib/server/admin';
+import { PLAN_NAME } from '../../../lib/server/account';
+import { longDate } from '../../../lib/date';
+import { istShort, todayIST } from '../../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const q = (Astro.url.searchParams.get('q') || '').trim().slice(0, 100);
+const f = Astro.url.searchParams.get('f') || '';
+const [rows, counts] = await Promise.all([searchAccounts(q, f), tabCounts()]);
+const today = todayIST();
+const FILTERS = [['', 'All'], ['active', 'Active plan'], ['gift', 'Gift'], ['trial', 'Free trial'], ['none', 'No plan'], ['deleting', 'Deletion pending']];
+---
+<Panel title="Accounts" app="control" on="/accounts" me={me.email} counts={counts}>
+  <div class="ph1"><h1>Accounts</h1><p>{rows.length === 100 ? 'The newest 100' : `${rows.length} account${rows.length === 1 ? '' : 's'}`}{q ? ` for “${q}”` : ''}</p>
+    <div class="act"><button class="btn danger sm" type="button" id="del" disabled>Delete accounts</button></div></div>
+  <section class="pc"><div class="pc-b">
+    <form class="search" method="get" action="/accounts">
+      <input class="input" name="q" value={q} placeholder="Email, name, ARN, payment reference or UTR">
+      <select class="input sm sel" name="f">{FILTERS.map(([v, l]) => <option value={v} selected={v === f}>{l}</option>)}</select>
+      <button class="btn primary" type="submit">Search</button>
+    </form>
+  </div></section>
+  <section class="pc">
+    {rows.length === 0 ? <p class="empty">No accounts.</p> :
+    <table class="t cards"><thead><tr><th></th><th>Email</th><th>Name</th><th>Plan</th><th>ARNs</th><th>Since</th></tr></thead><tbody>
+      {rows.map(a => <tr>
+        <td class="pick"><input type="checkbox" class="pk" data-id={a.id} data-email={a.email} aria-label={`Select ${a.email}`}></td>
+        <td data-l="Email"><a href={`/accounts/${a.uid}`}>{a.email}</a>{a.delete_after && <> <span class="tag red">Deleting</span></>}</td>
+        <td data-l="Name">{a.bill_name ?? <span class="muted">—</span>}</td>
+        <td data-l="Plan">{!a.ends_on ? <span class="muted">None</span> : a.ends_on >= today
+          ? <span class:list={['tag', PLAN_TAG[a.source!]]}>{PLAN_NAME[a.source!]} · to {longDate(a.ends_on)}</span>
+          : <span class="tag">{PLAN_NAME[a.source!]} · ended {longDate(a.ends_on)}</span>}</td>
+        <td data-l="ARNs" class="mono">{a.arns ?? <span class="muted">—</span>}</td>
+        <td data-l="Since">{istShort(a.created_at).split(',')[0]}</td>
+      </tr>)}
+    </tbody></table>}
+  </section>
+</Panel>
+<script>
+import { $, post, esc } from '../../../scripts/client';
+import { ask } from '../../../scripts/panel';
+const picks = () => [...document.querySelectorAll<HTMLInputElement>('.pk:checked')];
+document.querySelectorAll<HTMLInputElement>('.pk').forEach(c => c.onchange = () => {
+  const n = picks().length;
+  $('del').disabled = !n;
+  $('del').textContent = n ? `Delete ${n} account${n === 1 ? '' : 's'}` : 'Delete accounts';
+});
+$('del').onclick = () => {
+  const p = picks(), n = p.length;
+  ask({
+    title: `Delete ${n} account${n === 1 ? '' : 's'}?`,
+    warn: '<b>This can’t be undone.</b> Deleted now, with no email. Their receipts are kept.',
+    text: p.map(c => `<b>${esc(c.dataset.email)}</b>`).join('<br>'),
+    phrase: 'DELETE', action: `Delete ${n}`, danger: true,
+    run: () => post('/api/admin/accounts', { action: 'delete', accounts: p.map(c => +c.dataset.id!) }),
+  });
+};
+</script>

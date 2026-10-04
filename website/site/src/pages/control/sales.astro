@@ -1,0 +1,74 @@
+---
+/* Sales: every paid order, raw, newest first. View only: a sale is done. Filters in the URL (search, paid from/to,
+   what was bought). Export (top right) downloads the CSV the partner files GST from, for any dates. Gifts never
+   count. */
+import Panel from '../../layouts/Panel.astro';
+import { accessUser } from '../../lib/server/access';
+import { salesList, tabCounts } from '../../lib/server/admin';
+import { SALES } from '../../consts';
+import { rupees, forWhat } from '../../lib/price';
+import { istShort, todayIST } from '../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const p = Astro.url.searchParams;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const q = (p.get('q') || '').trim().slice(0, 100);
+const from = DAY.test(p.get('from') || '') ? p.get('from')! : '';
+const to = DAY.test(p.get('to') || '') ? p.get('to')! : '';
+const kind = ['new', 'add'].includes(p.get('kind') || '') ? p.get('kind')! : '';
+const [rows, counts] = await Promise.all([salesList({ q, from, to, kind }), tabCounts()]);
+const total = rows.reduce((s, o) => s + o.total, 0);
+const today = todayIST();
+const doc = SALES.gst ? 'Invoice' : 'Receipt';
+---
+<Panel title="Sales" app="control" on="/sales" me={me.email} counts={counts}>
+  <div class="ph1"><h1>Sales</h1><p>{rows.length === 1000 ? 'The newest 1,000' : `${rows.length} sale${rows.length === 1 ? '' : 's'}`} · {rupees(total)}</p>
+    <div class="act"><button class="btn secondary sm" type="button" id="export" data-from={`${today.slice(0, 7)}-01`} data-to={today}>Export</button></div></div>
+  <section class="pc"><div class="pc-b">
+    <form class="search" method="get" action="/sales">
+      <input class="input" name="q" value={q} placeholder={`Reference, email, name, UTR or ${doc.toLowerCase()} number`}>
+      <label class="note" for="sf">Paid from</label><input class="input sm" type="date" id="sf" name="from" value={from}>
+      <label class="note" for="st">to</label><input class="input sm" type="date" id="st" name="to" value={to}>
+      <select class="input sm sel" name="kind" aria-label="What was bought">{[['', 'Everything'], ['new', 'New plans'], ['add', 'More ARNs']].map(([v, l]) => <option value={v} selected={v === kind}>{l}</option>)}</select>
+      <button class="btn primary" type="submit">Show</button>
+    </form>
+  </div></section>
+  <section class="pc">
+    {rows.length === 0 ? <p class="empty">No sales{q || from || to || kind ? ' for these filters' : ' yet'}.</p> :
+    <table class="t cards" id="tbl"><thead><tr><th data-sort="text">Paid on</th><th data-sort="text">{doc}</th><th data-sort="text">Email</th><th data-sort="text">Name</th>{SALES.gst && <th data-sort="text">GSTIN</th>}<th data-sort="cat">For</th><th class="num" data-sort="num">Amount</th><th data-sort="text">Reference</th><th data-sort="text">UTR</th><th data-sort="cat">Approved by</th></tr></thead><tbody>
+      {rows.map(o => <tr>
+        <td data-l="Paid on" class="nw" data-v={o.paid_at}>{istShort(o.paid_at)}</td>
+        <td data-l={doc} class="mono nw">{o.number ? <a href={`/receipts/${o.number}`} target="_blank">{o.number}</a> : <span class="muted">—</span>}</td>
+        <td data-l="Email">{o.uid ? <a href={`/accounts/${o.uid}`}>{o.email}</a> : <>{o.email} <span class="note">(deleted)</span></>}</td>
+        <td data-l="Name">{o.bill_name}</td>
+        {SALES.gst && <td data-l="GSTIN" class="mono">{o.bill_gstin ?? <span class="muted">—</span>}</td>}
+        <td data-l="For">{forWhat(o.kind, o.arns)}</td>
+        <td data-l="Amount" class="num" data-v={o.total}>{rupees(o.total)}</td>
+        <td data-l="Reference" class="mono nw">{o.id}</td>
+        <td data-l="UTR" class="mono">{o.utr ?? <span class="muted">—</span>}</td>
+        <td data-l="Approved by">{o.approver ?? <span class="muted">—</span>}</td>
+      </tr>)}
+    </tbody></table>}
+  </section>
+</Panel>
+<script>
+import { $, dialog } from '../../scripts/client';
+import { sortable } from '../../scripts/panel';
+sortable($('tbl'));
+/* Export: pick the days, download the CSV (one row per receipt, with GST split, for filing) */
+$('export').onclick = () => {
+  const b = $('export');
+  const close = dialog(`<div class="dlg-h"><h2 id="dlgT">Export sales</h2><button type="button" id="dlgX" aria-label="Close">×</button></div>
+    <form id="exF" method="get" action="/api/admin/sales.csv">
+      <div class="dlg-b">
+        <p>A CSV with one row per receipt issued in these days: number, date, buyer, amount, CGST, SGST, IGST, total, reference and UTR.</p>
+        <div class="search"><label class="note" for="exFrom">From</label><input class="input sm" type="date" id="exFrom" name="from" value="${b.dataset.from}" required>
+          <label class="note" for="exTo">to</label><input class="input sm" type="date" id="exTo" name="to" value="${b.dataset.to}" required></div>
+      </div>
+      <div class="dlg-f"><button class="btn secondary" type="button" id="dlgC">Cancel</button><button class="btn primary" type="submit">Download CSV</button></div>
+    </form>`);
+  $('exF').onsubmit = () => setTimeout(close, 300);
+};
+</script>

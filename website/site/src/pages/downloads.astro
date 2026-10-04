@@ -1,0 +1,124 @@
+---
+/* The version, the date, the size and what's new come from RELEASES in consts.ts (ops/release.py writes it).
+   The Download button serves the one installer in R2 (bun run installer), to a signed-in account whose plan hasn't
+   ended: one that is running, or none yet (the free trial starts in the app). */
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import Mark from '../components/Mark.astro';
+import { NAME, TRIAL, RELEASES } from '../consts';
+const now = RELEASES[0];
+---
+<Layout title={`Download · ${NAME}`} description={`${NAME} for Windows 11. An update is one click, inside the app.`} path="/downloads" navOn="/downloads" reveal={0.15}>
+<main>
+  <section class="head c">
+    <div class="wrap">
+      <h1 class="h1 rv">Download</h1>
+      <p class="lede rv">For Windows 11.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="dl rv">
+        <div class="get">
+          <div class="app">
+            <Mark />
+            <div><b>{NAME} for Windows</b>{now ? <span>Version {now.version} · {now.date}</span> : <span>Version <span class="ph">[1.0.0]</span> · <span class="ph">[1 November 2026]</span></span>}</div>
+          </div>
+          <ul class="facts">
+            <li><span>Size</span>{now ? <b>{now.size}</b> : <b class="ph">[About 130 MB]</b>}</li>
+            <li><span>Needs</span><b>Windows 11 and an internet connection</b></li>
+            <li><span>Updates</span><b>One click, inside the app</b></li>
+            <li><span>Free trial</span><b>{TRIAL.days} days, from the day you add your ARN</b></li>
+          </ul>
+          <div id="act">
+            <button class="btn primary lg" type="button" id="dlBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download</button>
+            <p class="why" id="why"></p>
+          </div>
+          <p class="how">Setting it up? <a class="tlink" href="/setup">See how</a></p>
+        </div>
+
+        <div class="new">
+          <h2>What’s new</h2>
+          {now ? <div class="ver"><b>{now.version}</b><span>{now.date}</span></div>
+            : <div class="ver"><b class="ph">[1.0.0]</b><span class="ph">[1 November 2026]</span></div>}
+          <ul>
+            {now ? now.changes.map(c => <li><i>{c.tag}</i><span>{c.text}</span></li>)
+              : <li><i>New</i><span class="ph">[What’s new in this version]</span></li>}
+          </ul>
+          <a class="all" href="/release-notes">All release notes</a>
+        </div>
+      </div>
+      <p class="below rv">Using a Mac? It’s Windows only for now.</p>
+    </div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.dl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--e-sheet);overflow:hidden}
+.get{padding:44px;border-right:1px solid var(--line);display:flex;flex-direction:column}
+.app{display:flex;align-items:center;gap:16px}
+.app .mark{width:56px;height:56px;border-radius:15px}
+.app .mark svg{width:30px;height:30px}
+.app b{display:block;font-size:22px;font-weight:600;letter-spacing:-.025em}
+.app span{font-size:14px;color:var(--muted)}
+.facts{margin:28px 0 0;padding:0;list-style:none;border-top:1px solid var(--line-2)}
+.facts li{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line-2);font-size:14.5px}
+.facts li span{color:var(--muted)}
+.facts li b{font-weight:500;text-align:right}
+.get .btn.lg{margin-top:32px;width:100%;gap:10px}
+.get .btn.lg svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.why{margin-top:12px;font-size:13px;color:var(--muted);text-align:center;min-height:21px}
+.started{margin-top:32px;padding:16px 18px;border-radius:var(--r-card);background:var(--green-wash);color:var(--green);font-size:14px;display:flex;align-items:center;gap:12px;animation:rise 280ms var(--ease)}
+.started svg{width:22px;height:22px;flex-shrink:0}
+.started b{display:block;font-weight:600}
+.started span{color:var(--ink-2)}
+.started a{margin-left:auto;font-weight:600;color:var(--green);white-space:nowrap}
+
+.new{padding:44px;background:var(--subtle)}
+.new h2{font-size:13.5px;font-weight:500;color:var(--muted)}
+.ver{margin-top:14px;display:flex;align-items:baseline;gap:10px}
+.ver b{font-size:20px;font-weight:600;letter-spacing:-.02em}
+.ver span{font-size:13px;color:var(--muted)}
+.new ul{margin:18px 0 0;padding:0;list-style:none}
+.new li{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2);font-size:14.5px;color:var(--ink-2)}
+.new li:last-child{border-bottom:0}
+.new li i{flex-shrink:0;margin-top:2px;height:20px;padding:0 7px;border-radius:6px;font-style:normal;font-size:11px;font-weight:600;display:inline-flex;align-items:center;background:var(--blue-wash);color:var(--blue)}
+.new li i.fix{background:var(--sunken);color:var(--muted)}
+.new .all{display:inline-block;margin-top:18px;font-size:14px;font-weight:500;color:var(--blue)}
+.new .all:hover{text-decoration:underline}
+
+.how{margin-top:14px;text-align:center;font-size:14px;color:var(--muted)}
+.below{padding:28px 0 120px;text-align:center;font-size:14px;color:var(--muted)}
+
+@media (max-width:880px){
+  .dl{grid-template-columns:1fr}
+  .get{border-right:0;border-bottom:1px solid var(--line)}
+  .get,.new{padding:28px 22px}
+}
+</style>
+<script>
+import { $, me } from '../scripts/client';
+
+/* The page is open to everyone. Only the button depends on who you are:
+   signed out → sign in, then back here · a plan that has ended → pay · a running plan, or none yet (the free trial
+   starts in the app) → the file starts, then Setup. The download route checks the session and the plan again. */
+const why = { out: 'You’ll need to sign in first.', ended: 'Your plan has ended. You’ll need to buy one first.', ok: '' };
+let who: keyof typeof why = document.documentElement.classList.contains('si') ? 'ok' : 'out';
+const show = () => { $('why').textContent = why[who]; };
+show();
+/* asked on load for the hint, and again on every click: a plan approved while the page was open counts at once */
+const ask = () => me()
+  .then(m => { who = !m.signed_in ? 'out' : m.had_plan && !m.active ? 'ended' : 'ok'; show(); }).catch(() => {});
+if (who !== 'out') ask();
+$('dlBtn').onclick = async () => {
+  if (document.documentElement.classList.contains('si')) await ask();
+  if (who === 'out') return location.href = '/signin?next=/downloads';
+  if (who === 'ended') return location.href = '/checkout';
+  const a = document.createElement('a'); a.href = '/api/download'; a.download = ''; document.body.appendChild(a); a.click(); a.remove();
+  $('act').innerHTML = `<div class="started"><svg viewBox="0 0 24 24"><use href="#tk"/></svg><div><b>Your download has started</b><span>Taking you to setup…</span></div><a href="/setup">Set it up now</a></div>`;
+  setTimeout(() => location.href = '/setup', 2000);
+};
+
+</script>

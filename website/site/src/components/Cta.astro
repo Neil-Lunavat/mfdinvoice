@@ -1,0 +1,15 @@
+---
+/* The site's main button. Someone who has never had a plan gets "Try for Free" (to Downloads: the trial starts in the
+   app). Once their account has had one, a trial included, it is "Buy now". Both are rendered and one shows: public/si.js
+   puts <html class="hp"> from the "hp" cookie before the page paints, and the rule is in Layout's <head>. */
+interface Props { buy: string }          /* where Buy now goes */
+const { buy } = Astro.props;
+---
+<a class="btn primary lg cta-try" href="/downloads">Try for Free</a><a class="btn primary lg cta-buy" href={buy}>Buy now</a>
+
+<script>
+  /* a trial starts in the app, not in this browser: signed in and still on "Try", ask once (/api/me sets the cookie) */
+  import { me } from '../scripts/client';
+  const html = document.documentElement.classList;
+  if (html.contains('si') && !html.contains('hp')) me().then(m => html.toggle('hp', !!m.had_plan)).catch(() => {});
+</script>

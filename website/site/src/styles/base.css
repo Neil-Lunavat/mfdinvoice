@@ -1,0 +1,111 @@
+/* Every page: the reset, the controls, the nav, the headings, the reveal and the footer. */
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:var(--blue-line)}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;color:inherit}
+h1,h2,h3,h4,p{margin:0}
+[hidden]{display:none!important}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+.mono{font-family:var(--mono)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:1ms!important;animation-delay:0ms!important;transition-duration:1ms!important;transition-delay:0ms!important}}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes fade{from{opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* controls */
+.btn{height:40px;padding:0 16px;border-radius:var(--r-ctl);border:1px solid transparent;font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:background 120ms var(--ease),border-color 120ms var(--ease),box-shadow 120ms var(--ease),transform 120ms var(--ease),opacity 200ms;outline:none}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{box-shadow:var(--ring)}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary:hover{background:var(--blue-hover)}
+.btn.primary:active{background:var(--blue-press)}
+.btn.secondary{background:var(--surface);color:var(--ink);border-color:var(--line)}
+.btn.secondary:hover{border-color:var(--line-hover);background:var(--subtle)}
+.btn.ghost{background:transparent;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--sunken)}
+.btn.danger{background:var(--red);color:#fff}
+.btn.danger:hover{background:var(--red-hover)}
+.btn.sm{height:32px;padding:0 12px;font-size:13px}
+.btn.lg{height:50px;padding:0 24px;font-size:15.5px;border-radius:10px}
+.btn[disabled]{opacity:.42;cursor:not-allowed;transform:none}
+.mark{width:24px;height:24px;border-radius:7px;background:var(--blue);display:grid;place-items:center;flex-shrink:0;color:#fff}
+.mark svg{width:14px;height:14px}
+/* a checkbox */
+.check{display:flex;gap:10px;align-items:center;cursor:pointer;user-select:none}
+.check input{appearance:none;width:18px;height:18px;margin:0;border:1.5px solid #c3cad5;border-radius:5px;background:var(--surface);display:grid;place-items:center;flex-shrink:0;cursor:pointer;transition:background 120ms,border-color 120ms}
+.check input:checked{background:var(--blue);border-color:var(--blue)}
+.check input:checked::after{content:"";width:9px;height:5px;border:2px solid #fff;border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
+.check input:focus-visible{box-shadow:var(--ring)}
+/* working: the spinner, white on a blue button */
+.spin{width:16px;height:16px;border-radius:99px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite}
+/* done: the green tick (scripts/client.ts tick()); .pop draws it in */
+.dt{width:44px;height:44px}
+.dt circle{fill:var(--green-wash)}
+.dt path{fill:none;stroke:var(--green);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.dt.pop circle{transform-origin:center;animation:pop 280ms var(--ease) both}
+.dt.pop path{stroke-dasharray:16;stroke-dashoffset:16;animation:draw 280ms var(--ease) 80ms forwards}
+/* the toast (scripts/client.ts toast()): drops in from the top; the bar along its bottom runs down to the left */
+.toast{position:fixed;z-index:100;top:16px;left:50%;width:max-content;max-width:calc(100% - 32px);transform:translateX(-50%);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--e-float);overflow:hidden;animation:drop 320ms var(--ease) both}
+.toast p{padding:14px 20px 16px;font-size:14.5px;font-weight:500}
+.toast i{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--blue);animation:run var(--ms) linear forwards}
+.toast.warn{background:var(--amber-wash);border-color:#f5d9a8}
+.toast.warn p{color:var(--amber)}
+.toast.warn i{background:var(--amber-dot)}
+.toast.out{animation:lift 280ms var(--ease) forwards}
+@keyframes drop{from{transform:translate(-50%,-140%)}}
+@keyframes lift{to{transform:translate(-50%,-140%);opacity:0}}
+@keyframes run{to{width:0}}
+
+/* a blue dot: something still to set up (the billing details: the nav's Account while html.sb, and Change on the
+   Account page) */
+.dot,html.sb .nav-account{position:relative}
+.dot::after,html.sb .nav-account::after{content:"";position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:99px;background:var(--blue);box-shadow:0 0 0 2px var(--surface)}
+
+/* the wordmark: MFD strong, Invoice quiet (Brand.astro) */
+.wm{font-weight:400;color:var(--muted);letter-spacing:-.01em}
+.wm b{font-weight:650;color:var(--ink)}
+
+/* the nav: links in a grouped pill; on small screens they fold into a menu under the bar */
+.nav{position:sticky;top:14px;z-index:50;max-width:calc(var(--wrap) - 24px);margin:14px auto 0;padding:0 12px}
+.nav-in{height:60px;display:flex;align-items:center;gap:16px;padding:0 10px 0 16px;background:rgba(255,255,255,.82);backdrop-filter:saturate(1.5) blur(12px);-webkit-backdrop-filter:saturate(1.5) blur(12px);border:1px solid rgba(228,231,236,.9);border-radius:14px;transition:box-shadow 280ms var(--ease)}
+.nav.up .nav-in{box-shadow:var(--e-float)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.links{display:flex;gap:2px;margin:0 auto;padding:4px;background:var(--sunken);border-radius:10px}
+.links a{height:32px;padding:0 14px;display:inline-flex;align-items:center;border-radius:7px;font-size:13.5px;font-weight:500;color:var(--ink-2);transition:background 120ms,color 120ms,box-shadow 120ms}
+.links a:hover,.links a.on{background:var(--surface);color:var(--ink);box-shadow:var(--e-card)}
+.nav-r{display:flex;gap:6px;align-items:center}
+.burger,.menu{display:none}
+@media (max-width:880px){
+  .links{display:none}.nav-r{margin-left:auto}
+  .burger{display:grid;place-content:center;gap:5px;width:36px;height:32px;border:1px solid var(--line);border-radius:var(--r-ctl);background:var(--surface)}
+  .burger i{display:block;width:16px;height:1.5px;border-radius:2px;background:var(--ink);transition:transform 200ms var(--ease)}
+  .nav.open .burger i:first-child{transform:translateY(3.25px) rotate(45deg)}
+  .nav.open .burger i:last-child{transform:translateY(-3.25px) rotate(-45deg)}
+  .menu{display:grid;grid-template-rows:0fr;margin-top:8px;transition:grid-template-rows 280ms var(--ease)}
+  .nav.open .menu{grid-template-rows:1fr}
+  .menu nav{overflow:hidden;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--e-float);opacity:0;transition:opacity 200ms var(--ease)}
+  .nav.open .menu nav{opacity:1;padding:6px}
+  .menu a{height:46px;padding:0 14px;display:flex;align-items:center;border-radius:9px;font-size:15px;font-weight:500;color:var(--ink-2)}
+  .menu a:hover,.menu a.on{background:var(--sunken);color:var(--ink)}
+}
+
+/* headings, the blue brush stroke behind one phrase (Brush.astro), and the reveal (Layout.astro) */
+.h1{font-size:clamp(40px,5.2vw,68px);line-height:1.02;letter-spacing:-.045em;font-weight:560}
+.h2{font-size:clamp(30px,3.4vw,44px);line-height:1.06;letter-spacing:-.04em;font-weight:560}
+.h1 span.g,.h2 span.g{color:var(--faint)}
+.brush{position:relative;z-index:0;display:inline-block;white-space:nowrap;margin:0 .24em 0 .1em;padding:0 .3em 0 .1em;color:var(--ink);transition:color 280ms var(--ease) 420ms}
+.brush svg{position:absolute;z-index:-1;left:-.16em;top:-.12em;width:calc(100% + .3em);height:1.46em;transform:rotate(-1.4deg);clip-path:inset(0 100% 0 0);transition:clip-path 640ms cubic-bezier(.6,.05,.3,1) 200ms}
+.rv.in .brush{color:#fff}
+.rv.in .brush svg{clip-path:inset(0 0 0 0)}
+.lede{margin-top:20px;font-size:19px;line-height:1.55;color:var(--muted);max-width:34em}
+.rv{opacity:0;transform:translateY(10px);transition:opacity 600ms var(--ease),transform 600ms var(--ease)}
+.rv.in{opacity:1;transform:none}
+
+footer{background:var(--surface);border-top:1px solid var(--line);padding:48px 0 56px;font-size:13.5px;color:var(--muted)}
+.f-top{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.f-links{display:flex;flex-wrap:wrap;gap:6px 22px;margin-left:auto}
+.f-links a:hover{color:var(--ink)}
+.legal{margin-top:28px;padding-top:20px;border-top:1px solid var(--line-2);font-size:12.5px;color:var(--faint);max-width:80ch}

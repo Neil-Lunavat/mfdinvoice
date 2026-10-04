@@ -1,0 +1,72 @@
+# KFintech DSS portal selector map: the only place KFintech selectors live. React + MUI.
+# Never use MUI's generated ids (":r4b:"); `name` attributes, data-value / data-field and visible text are stable.
+# Verified live 2026-09-19 (Chrome, AUG-2026 trail month) unless marked UNVERIFIED. See docs/portals.md.
+
+[urls]
+base = "https://dss.kfintech.com/dssweb/"
+dashboard = "https://dss.kfintech.com/dssweb/Dashboard"
+download = "https://dss.kfintech.com/dssweb/GSTInvoice_CreditNoteDownload"
+upload = "https://dss.kfintech.com/dssweb/GstInvoiceUpload"
+submitted = "https://dss.kfintech.com/dssweb/ViewSubmitGSTInvoice_CreditNote"
+
+[common]
+alert = ".MuiAlert-message"                        # snackbars + inline banners (success, warning, error)
+error_alert = ".MuiAlert-colorError .MuiAlert-message"   # red (filled) alerts, e.g. "Upload not allowed..." (verified)
+option = "[role=listbox] [role=option]"
+# IRIS promo after login. Only dialogs without form fields, so an OTP/upload dialog is never closed by accident.
+promo_close = ".MuiDialog-root:not(:has(input)) button[aria-label=close]"
+
+[login]
+username = "input#userName"
+password = "input#password"
+captcha = "input#captcha"
+captcha_image = "canvas"                           # the only canvas on the login page (180x50), redrawn per load
+submit = "button[type=submit]:has-text('Sign In')"
+# Login errors are UNVERIFIED (first login succeeded): errors are read from alerts + MUI helper texts.
+field_error = ".MuiFormHelperText-root.Mui-error"
+# The header's button for a browser that is not signed in. KFintech shows it on every page, and shows its pages'
+# empty shells with it (the upload page with "No rows") instead of sending the browser to the sign-in form (4 Oct 2026).
+signed_out = "button:text-is('Sign Up')"
+# User menu: the username is a <p> in the top MUI Toolbar (a hidden duplicate exists); clicking it opens the menu
+# (verified). Logout = a[role=menuitem] "Logout": lands back on the login form (verified 2026-09-20).
+user_menu = ".MuiToolbar-root p:text-is('{username}') >> visible=true"
+logout = "[role=menuitem]:has-text('Logout')"
+
+[download]
+report_invoice = "input[name=ReportOption][value=I]"
+funds = "#mui-component-select-funds"               # MUI multi-select; opens on click
+funds_value = "input[name=funds]"                   # native mirror: comma list of the selected fund codes
+# Click the CHECKBOX of "All funds": clicking its text line does not toggle reliably.
+all_funds_box = "[role=listbox] [role=option][data-value=''] input[type=checkbox]"
+month = "#mui-component-select-month"               # options data-value "August-2026" (the trail month)
+month_value = "input[name=month]"
+submit = "button[type=submit]:has-text('Download')"
+fetched = ".MuiAlert-message:has-text('GST Invoice Fetched')"   # "... N file(s) retrieved ... No files received for: ..."
+rows = ".MuiDataGrid-row"
+combined_row = ".MuiDataGrid-row[data-id=combined_zip_all_funds]"
+row_link = "[data-field=gstfile_name] a"
+
+[upload]
+tab = "button[role=tab]:has-text('{name}')"         # OTP Based Upload | On Screen Upload | Excel Based Upload
+month = "select[name=month]"                        # native select, values "2026-08"; one per tab. Built client-side
+                                                    # with toISOString(): 00:00-05:30 IST it starts a month early (2026-09-20)
+# Excel tab table = the status view: Month | Fund Code | AMC | AMC GSTR Number | Invoice Ref No | Taxable Income |
+# GST Amount | Current Status | Uploaded Date | Remarks. Loads slowly (>6 s): wait for the Month cell to match.
+table_header = "main table thead th"
+table_rows = "main table tbody tr"
+blocked = "Upload not allowed"                       # alert when no row is Pending/Rejected
+# On Screen tab
+source_kfin = "input[type=radio][value=kfin]"
+source_mfd = "input[type=radio][value=mfd]"                     # the distributor's own invoice
+row_invoice_no = "input[placeholder='Invoice No']"             # enabled only for MFD + Pending/Rejected rows
+row_invoice_date = "input[placeholder='dd/MM/yyyy']"
+details_heading = ":text('Details of invoices generated for the selected month/cycle')"
+row_file = "input[type=file]"                                 # accept .pdf,.jpg,.jpeg; max one per row
+declarations = ["input[name=prefilledNotModified]", "input[name=gstAmountMatches]", "input[name=payoutCutoff]"]
+# Playwright's text engine with a regex. Written as `:text-matches('...')`, the backslashes were read as CSS string
+# escapes and the regex never matched (found offline, 25 Sep 2026; never run live).
+ready = "text=/\\d+ fund\\(s\\) ready/"
+submit = "button:has-text('Upload Selected Invoices')"        # disabled until a file is attached
+# Result texts (from the page's bundle; UNVERIFIED live): all ok / partial.
+done_ok = "Signed invoices uploaded successfully"
+done_partial = "Upload completed with"

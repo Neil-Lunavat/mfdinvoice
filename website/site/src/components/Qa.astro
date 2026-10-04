@@ -1,0 +1,5 @@
+---
+/* One question that opens in place. The answer is the slot (inline HTML allowed). */
+const { q } = Astro.props;
+---
+<details><summary>{q}<i></i></summary><p class="a"><slot /></p></details>

@@ -1,0 +1,245 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import Brand from '../components/Brand.astro';
+import { NAME } from '../consts';
+---
+<Layout title={`Sign in · ${NAME}`} description="We'll email you a 6-digit code. New here? The same code creates your account." path="/signin" nav="none" footer={false}>
+<header class="top">
+  <Brand />
+</header>
+
+<main>
+  <div>
+    <div class="card" id="card"></div>
+    <p class="agree">By continuing you agree to the <a href="/terms">Terms</a> and the <a href="/privacy">Privacy policy</a>.</p>
+  </div>
+</main>
+</Layout>
+
+<style is:global>
+html,body{height:100%}
+body{font-size:14px;line-height:1.55;display:flex;flex-direction:column}
+.top{padding:22px 28px}
+.top .brand{display:inline-flex}
+
+/* one column as wide as the screen: without it the six code boxes size the column and the page overflows on a phone */
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;padding:24px 16px 72px}
+html.si main{visibility:hidden}
+main > div{width:min(440px,100%)}
+main .card{width:100%;border-radius:20px;box-shadow:var(--e-sheet);padding:40px}
+.card a:not(.btn){color:var(--blue)}
+.card a:not(.btn):hover{text-decoration:underline}
+.card .btn{width:100%;height:48px;font-size:15px;border-radius:10px;gap:10px}
+.col{display:flex;flex-direction:column;gap:20px}
+.card .mark.big{width:40px;height:40px;border-radius:10px}
+.card .mark.big svg{width:22px;height:22px}
+h1{font-size:24px;font-weight:600;letter-spacing:-.025em}
+.sub{margin-top:4px;color:var(--muted)}
+
+.sentline{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:44px;padding:8px 12px;border-radius:var(--r-ctl);background:var(--sunken);font-size:13.5px;color:var(--muted)}
+.sentline b{color:var(--ink);font-weight:500}
+.sentline a{margin-left:auto;font-size:13px}
+.otp{display:flex;gap:8px}
+.otp input{flex:1;min-width:0;height:56px;text-align:center;font-family:var(--mono);font-size:20px;border-radius:var(--r-ctl);border:1px solid var(--line);background:var(--surface);outline:none;color:var(--ink);transition:border-color 120ms,box-shadow 120ms}
+.otp input:focus{border-color:var(--blue);box-shadow:var(--ring)}
+.otp input.filled{border-color:var(--line-hover)}
+.otp input.bad{border-color:var(--red)}
+.otp input:disabled{background:var(--sunken)}
+.check{font-size:14px}
+.resend{font-size:12.5px;color:var(--muted)}
+.resend .mono{font-family:var(--mono)}
+.new{font-size:12.5px;color:var(--muted);text-align:center}
+.ask{font-size:17px;line-height:1.5;color:var(--ink)}
+.ask b{font-weight:600}
+.pair{display:flex;gap:10px}
+.agree{margin-top:22px;font-size:12px;color:var(--faint);text-align:center}
+.agree a{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line)}
+
+.enter{animation:rise 280ms var(--ease) both}
+.shake{animation:shake 300ms}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+/* the result card itself is kit.css .done */
+.done{padding:12px 0 4px}
+.done > .btn{margin-top:10px;justify-self:stretch}
+
+@media (max-width:480px){main .card{padding:28px 22px}.otp{gap:6px}}
+</style>
+<script>
+import { PRICE } from '../consts';
+/* One door: a new email gets its account the moment its code is entered. Same as the app's sign-in.
+   The server sends the code, checks it (3 tries, 10 minutes), and sets the session cookie. */
+import { $, esc, post, tick, toast, me, validEmail } from '../scripts/client';
+const card = $('card');
+const q = new URLSearchParams(location.search);
+const next = q.get('next');
+const mask = a => { const [u, d] = a.split('@'); return u[0] + '•••@' + d; };
+let timer;
+
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const TOO_MANY = 'Too many tries. Wait 10 minutes, then send a new code.';
+function sendError(r): string {
+  return ({
+    wait: `You can send a new code in ${clock(r.wait || 45)}.`,
+    locked: TOO_MANY,
+    too_many_codes: 'Too many codes for this email. Try again in an hour.',
+    too_many_requests: 'Too many tries from here. Try again in an hour.',
+    bad_email: 'That email doesn’t look right.',
+    offline: 'We couldn’t reach the server. Check your connection and try again.',
+  })[r.error] || 'We couldn’t send the email. Try again.';
+}
+
+function emailStep(prefill = '') {
+  card.innerHTML = `<div class="col enter">
+    <span class="mark big"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span>
+    <div><h1>Sign in</h1><p class="sub">We'll email you a 6-digit code.</p></div>
+    <div class="field"><label for="email">Email</label><input id="email" class="input" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(prefill)}"><span class="err" id="eerr" hidden></span></div>
+    <button class="btn primary" id="send" ${validEmail(prefill) ? '' : 'disabled'}>Send code</button>
+    <p class="new">New here? The same code creates your account.</p>
+  </div>`;
+  const email = $('email'), send = $('send');
+  email.oninput = () => { send.disabled = !validEmail(email.value); $('eerr').hidden = true; };
+  email.onkeydown = e => { if (e.key === 'Enter' && !send.disabled) send.click(); };
+  send.onclick = async () => {
+    const addr = email.value.trim().toLowerCase();
+    send.disabled = true; send.innerHTML = '<span class="spin"></span>Sending';
+    const r = await post('/api/auth/code', { email: addr });
+    /* a code sent under 45 s ago is still good: go on to it */
+    if (r.ok || r.error === 'wait') return codeStep(addr, r.ok ? 45 : r.wait);
+    send.disabled = false; send.textContent = 'Send code';
+    $('eerr').textContent = sendError(r); $('eerr').hidden = false;
+  };
+  setTimeout(() => email.focus(), 50);
+}
+
+function codeStep(addr, wait = 45) {
+  card.innerHTML = `<div class="col enter">
+    <span class="mark big"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span>
+    <div><h1>Sign in</h1><p class="sub">We'll email you a 6-digit code.</p></div>
+    <div class="field"><label>Email</label><div class="sentline">Code sent to <b>${esc(mask(addr))}</b><a href="#" id="diff">Use a different email</a></div></div>
+    <div class="field"><label>Code</label><div class="otp" id="otp">${'<input maxlength="1" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit">'.repeat(6)}</div><span class="hint" id="chint">Six digits, from the email.</span></div>
+    <label class="check"><input type="checkbox" id="keep" checked> Keep me signed in</label>
+    <button class="btn primary" id="go" disabled>Continue</button>
+    <p class="resend" id="resend"></p>
+  </div>`;
+  $('diff').onclick = e => { e.preventDefault(); clearTimeout(timer); emailStep(addr); };
+  const boxes = [...card.querySelectorAll('.otp input')], go = $('go');
+  const code = () => boxes.map(b => b.value).join('');
+  const upd = () => { go.disabled = code().length !== 6; };
+  const hint = (t, bad) => { const h = $('chint'); h.textContent = t; h.className = bad ? 'err' : 'hint'; boxes.forEach(b => b.classList.toggle('bad', !!bad)); };
+  boxes.forEach((el, i) => {
+    el.addEventListener('input', () => {
+      el.value = el.value.replace(/\D/g, '').slice(-1); el.classList.toggle('filled', !!el.value);
+      if (el.value && boxes[i + 1]) boxes[i + 1].focus();
+      hint('Six digits, from the email.'); upd();
+      if (code().length === 6) go.click();
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !el.value && boxes[i - 1]) boxes[i - 1].focus();
+      if (e.key === 'Enter' && !go.disabled) go.click();
+    });
+    el.addEventListener('paste', e => {
+      const t = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6); if (!t) return;
+      e.preventDefault(); t.split('').forEach((c, k) => { boxes[k].value = c; boxes[k].classList.add('filled'); });
+      (boxes[t.length] || boxes[5]).focus(); upd();
+      if (t.length === 6) go.click();
+    });
+  });
+  const reset = () => { boxes.forEach(b => { b.value = ''; b.classList.remove('filled'); b.disabled = false; }); boxes[0].focus(); upd(); };
+  go.onclick = async () => {
+    if (go.dataset.busy) return; go.dataset.busy = 1;
+    go.disabled = true; go.innerHTML = '<span class="spin"></span>Checking';
+    const r = await post('/api/auth/verify', { email: addr, code: code(), keep: $('keep').checked });
+    delete go.dataset.busy; go.textContent = 'Continue';
+    if (r.ok) {
+      clearTimeout(timer);
+      if (r.was_deleted) toast(r.was_deleted === 'self' ? 'Your account was deleted. Please set it up again.' : 'Your account was deleted.', 'warn');
+      else if (r.gift_revoked) toast('Unfortunately, your gift has expired.', 'warn');
+      return r.delete_after ? keepStep(addr, r.delete_on) : signedIn(addr, r.gift_until_text);
+    }
+    const box = $('otp'); box.classList.add('shake'); setTimeout(() => box.classList.remove('shake'), 320);
+    reset();
+    if (r.error === 'wrong') hint(`That code isn't right. ${r.tries_left} ${r.tries_left === 1 ? 'try' : 'tries'} left.`, true);
+    else if (r.error === 'locked') { hint(TOO_MANY, true); boxes.forEach(b => b.disabled = true); }
+    else if (r.error === 'expired') hint('That code has expired. Send a new code.', true);
+    else if (r.error === 'too_many_requests') hint('Too many tries from here. Try again in an hour.', true);
+    else hint(r.error === 'offline' ? sendError(r) : 'Something went wrong. Try again.', true);
+  };
+  let s = wait;
+  const tick = () => {
+    const r = $('resend'); if (!r) return;
+    if (s > 0) { r.innerHTML = `Resend code in <span class="mono">${clock(s)}</span>`; s--; timer = setTimeout(tick, 1000); }
+    else {
+      r.innerHTML = '<a href="#">Resend code</a>';
+      r.querySelector('a').onclick = async e => {
+        e.preventDefault(); r.textContent = 'Sending…';
+        const res = await post('/api/auth/code', { email: addr });
+        if (res.ok) { r.textContent = 'Code sent again.'; reset(); hint('Six digits, from the email.'); s = 45; timer = setTimeout(tick, 1500); }
+        else if (res.error === 'wait') { s = res.wait; tick(); }
+        else { r.textContent = sendError(res); s = 0; timer = setTimeout(tick, 4000); }
+      };
+    }
+  };
+  tick();
+  setTimeout(() => boxes[0].focus(), 300);
+}
+
+/* after signing in, back to where they came from. Buy now asks for payment; anything else is the page they left.
+   `next` is only ever a path on this site: one leading /, never //. */
+function destination() {
+  if (next === 'checkout') {
+    if (q.get('add') === '1') return '/checkout?add=1';
+    const n = +q.get('arns')!; return '/checkout' + (n >= 1 && n <= PRICE.maxArns ? '?arns=' + n : '');
+  }
+  if (next && /^\/(?!\/)[\w\-/]*(#[\w-]*)?$/.test(next)) return next;
+  try { const r = new URL(document.referrer); if (r.origin === location.origin && !r.pathname.endsWith('/signin')) return r.pathname + r.hash; } catch (e) {}
+  return '/';
+}
+function signedIn(addr, giftUntil?: string) {
+  /* a gift started with this sign-in: the card says so, like Checkout's "We're checking your payment" */
+  card.innerHTML = giftUntil
+    ? `<div class="done enter">
+        ${tick()}
+        <h1>Your free plan is active</h1>
+        <p>A year on 1 ARN has been activated for <b>${esc(addr)}</b>. It runs until <b>${esc(giftUntil)}</b>.</p>
+        <a class="btn primary" href="${destination()}">Continue</a>
+      </div>`
+    : `<div class="done enter">
+        ${tick()}
+        <h1>You're signed in</h1><p>as <b>${esc(addr)}</b></p>
+        <a class="btn primary" href="${destination()}">Continue</a>
+      </div>`;
+}
+
+/* the account's deletion is pending (it waits a day): keep it, or sign out and let it go */
+function keepStep(addr, when) {
+  card.innerHTML = `<div class="col enter">
+    <span class="mark big"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span>
+    <p class="ask">Your account is set to be deleted on <b>${esc(when)}</b>. Keep it?</p>
+    <div class="pair"><button class="btn secondary" id="out">No, delete it</button><button class="btn primary" id="keep">Keep my account</button></div>
+    <span class="err" id="kerr" hidden></span>
+  </div>`;
+  $('keep').onclick = async () => {
+    $('keep').disabled = true; $('keep').innerHTML = '<span class="spin"></span>Keeping';
+    const r = await post('/api/account/keep', {});
+    if (r.ok) return signedIn(addr, r.gift_until_text);
+    $('keep').disabled = false; $('keep').textContent = 'Keep my account';
+    $('kerr').textContent = r.error === 'offline' ? sendError(r) : 'That didn’t work. Try again.'; $('kerr').hidden = false;
+  };
+  $('out').onclick = async () => {
+    $('out').disabled = true;
+    await post('/api/auth/signout', {});
+    document.documentElement.classList.remove('si');
+    location.href = '/';
+  };
+}
+
+/* already signed in: straight on to where they were going. The page stays hidden while that's checked,
+   so an empty card never flashes (html.si hides <main> in the CSS above). */
+const show = () => { document.documentElement.classList.remove('si'); emailStep(); };
+if (document.documentElement.classList.contains('si'))
+  me().then(m => m.signed_in ? location.replace(destination()) : show()).catch(show);
+else emailStep();
+
+</script>

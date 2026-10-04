@@ -1,0 +1,80 @@
+---
+/* Support: one table, searchable and sortable, open requests first (yellow). View opens a request: the whole
+   message, the screenshots, and the account's plan and ARNs. The status is a dropdown on every request (a task
+   list: solved can be opened again). The conversation itself happens by email, from support@. */
+import Panel from '../../layouts/Panel.astro';
+import { accessUser } from '../../lib/server/access';
+import { supportList, tabCounts } from '../../lib/server/admin';
+import { TOPICS } from '../../lib/support';
+import { planLine } from '../../lib/server/account';
+import { istShort } from '../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const q = (Astro.url.searchParams.get('q') || '').trim().slice(0, 100);
+const [rows, counts] = await Promise.all([supportList(q), tabCounts()]);
+const open = rows.filter(r => r.status === 'open').length;
+const planOf = (r: (typeof rows)[number]) => planLine(r.source ? { source: r.source, ends_on: r.ends_on!, slots: r.slots! } : null);
+---
+<Panel title="Support" app="control" on="/support" me={me.email} counts={counts}>
+  <div class="ph1"><h1>Support</h1><p>{q ? `${rows.length} for “${q}”` : open ? `${open} open. Answer from the support@ mailbox; set the status here.` : 'Nothing open.'}</p></div>
+  <section class="pc"><div class="pc-b">
+    <form class="search" method="get" action="/support">
+      <input class="input" name="q" value={q} placeholder="Number, email, message, ARN or new email">
+      <button class="btn primary" type="submit">Search</button>
+    </form>
+  </div></section>
+  <section class="pc">
+    {rows.length === 0 ? <p class="empty">{q ? 'Nothing matches.' : 'No requests yet.'}</p> :
+    <table class="t cards pays" id="tbl"><thead><tr><th data-sort="num">#</th><th data-sort="text">Date</th><th data-sort="text">Email</th><th data-sort="cat">About</th><th data-sort="text">ARN / new email</th><th>Message</th><th>Screenshots</th><th data-sort="cat">Status</th></tr></thead><tbody>
+      {rows.map(r => { const files: string[] = JSON.parse(r.files); const about = TOPICS[r.topic]?.label ?? r.topic; return <tr id={`r${r.id}`} class={r.status === 'open' ? 'wait' : undefined}>
+        <td data-l="#" class="mono" data-v={r.id}>#{r.id}</td>
+        <td data-l="Date" class="nw" data-v={r.created_at}>{istShort(r.created_at)}</td>
+        <td data-l="Email">{r.uid ? <a href={`/accounts/${r.uid}`}>{r.email}</a> : <>{r.email} <span class="note">(deleted)</span></>}</td>
+        <td data-l="About">{about}</td>
+        <td data-l="ARN / email">{r.arn ? <span class="mono">ARN-{r.arn}</span> : r.new_email ?? <span class="muted">—</span>}</td>
+        <td data-l="Message">{r.topic === 'data' ? <span class="muted">{r.status === 'open' ? 'Sent automatically in a few hours' : 'Sent automatically'}</span>
+          : <button class="btn secondary sm" type="button" data-view={r.id} data-email={r.email} data-uid={r.uid ?? ''} data-about={about}
+              data-when={istShort(r.created_at)} data-arn={r.arn ?? ''} data-new={r.new_email ?? ''} data-msg={r.message ?? ''} data-files={r.files}
+              data-plan={r.uid ? planOf(r) : 'Account deleted'} data-arns={r.arns ?? ''}
+              data-freed={r.freed ? `ARNs freed before: ${r.freed}, the last on ${istShort(r.freed_last)}` : 'No ARN freed before'}>View</button>}</td>
+        <td data-l="Screenshots">{files.length ? <span class="thumbs">{files.map(k => <a href={`/api/admin/file?key=${k}`} target="_blank"><img src={`/api/admin/file?key=${k}`} alt="" loading="lazy"></a>)}</span> : <span class="muted">—</span>}</td>
+        <td data-l="Status"><select class="input sm sel" data-req={r.id} aria-label="Status"><option value="open" selected={r.status === 'open'}>Open</option><option value="solved" selected={r.status === 'solved'}>Solved</option></select></td>
+      </tr>; })}
+    </tbody></table>}
+  </section>
+</Panel>
+<script>
+import { $, post, esc, dialog } from '../../scripts/client';
+import { errText, sortable } from '../../scripts/panel';
+sortable($('tbl'));
+
+/* the status: open or solved, any time (solved can be opened again) */
+document.querySelectorAll<HTMLSelectElement>('[data-req]').forEach(s => {
+  let was = s.value;
+  s.onchange = async () => {
+    s.disabled = true;
+    const r = await post('/api/admin/support', { id: +s.dataset.req!, status: s.value });
+    s.disabled = false;
+    if (r.ok) { was = s.value; s.closest('tr')!.classList.toggle('wait', s.value === 'open'); }
+    else { s.value = was; s.title = errText(r); s.classList.add('bad'); }
+  };
+});
+
+/* a request in full: the message, the screenshots, and the account */
+document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(b => b.onclick = () => {
+  const d = b.dataset, files: string[] = JSON.parse(d.files || '[]');
+  dialog(`<div class="dlg-h"><h2 id="dlgT">#${esc(d.view)} · ${esc(d.about)}</h2><button type="button" id="dlgX" aria-label="Close">×</button></div>
+    <div class="dlg-b">
+      <p>${d.uid ? `<a class="blue" href="/accounts/${esc(d.uid)}">${esc(d.email)}</a>` : esc(d.email)} <span class="note">· ${esc(d.when)}</span></p>
+      <p class="note">${esc(d.plan)}${d.arns ? ` · ARN-${esc(d.arns).replace(/, /g, ', ARN-')}` : ''}</p>
+      ${d.uid ? `<p class="note">${esc(d.freed)}. Free a slot on <a class="blue" href="/accounts/${esc(d.uid)}">their account</a>.</p>` : ''}
+      ${d.arn ? `<p>ARN they gave: <b class="mono">ARN-${esc(d.arn)}</b></p>` : ''}
+      ${d.new ? `<p>New email they gave: <b>${esc(d.new)}</b></p>` : ''}
+      <div class="why">${d.msg ? esc(d.msg) : '<span class="muted">No message.</span>'}</div>
+      ${files.length ? `<div class="thumbs">${files.map(k => `<a href="/api/admin/file?key=${encodeURIComponent(k)}" target="_blank"><img src="/api/admin/file?key=${encodeURIComponent(k)}" alt=""></a>`).join('')}</div>` : ''}
+    </div>`);
+  $('dlg').classList.add('wide');
+});
+</script>

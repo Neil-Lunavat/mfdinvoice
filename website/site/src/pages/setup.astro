@@ -1,0 +1,66 @@
+---
+/* Setting the app up, step by step, in the order the app asks (client/window/src/logic/details.ts STEP_TITLES).
+   Words only for now: the pictures and the videos come once the app's screens stop changing. */
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import { NAME, TRIAL } from '../consts';
+
+const STEPS: { h: string; p: string[] }[] = [
+  { h: 'Download and install', p: [
+    `Get the installer from <a class="tlink" href="/downloads">Downloads</a> and open it. It installs for you alone and asks for no administrator password.`,
+    `Windows may show <b>“Windows protected your PC”</b>, because the installer doesn’t carry a publisher’s signature yet. Press <b>More info</b>, then <b>Run anyway</b>.`,
+  ] },
+  { h: 'Sign in', p: [
+    `Type the email of your ${NAME} account, then the code we send to it. New here? <a class="tlink" href="/signin">Sign up</a> on this website first: the app signs in to an account, it doesn’t make one.`,
+  ] },
+  { h: 'Who you are', p: [
+    `Your ARN as on your AMFI certificate, your GSTIN, and your name as registered for GST. You tick one sentence allowing ${NAME} to sign in and act for you on CAMS and KFintech for this ARN.`,
+  ] },
+  { h: 'CAMS', p: [
+    `The email registered with CAMS for this ARN. The app signs in to CAMS once to check it, and reads the ARN CAMS shows: it must be the one you typed.`,
+    `Nothing on CAMS? Choose “I don’t use CAMS”.`,
+  ] },
+  { h: 'Mailbox', p: [
+    `CAMS sends each month’s invoices by email. With Gmail, the app picks them up by itself: you make an app password in your Google account (16 letters, not your Gmail password) and type it once. It stays on your PC.`,
+    `With any other mailbox, skip this: each month the app asks CAMS for the email, and you add its two files yourself.`,
+  ] },
+  { h: 'KFintech', p: [
+    `Your KFintech distributor login. The app signs in once to check it, and you type the captcha it shows. The ARN KFintech shows must be yours too.`,
+    `Nothing on KFintech? Choose “I don’t use KFintech”.`,
+  ] },
+  { h: 'Your invoices', p: [
+    `Choose which invoice is uploaded: the registrar’s own, signed by you, or yours, made like Tally with your own numbers. For your own, type your last invoice number exactly as printed.`,
+    `Add your signature: a photo of it on plain paper. The app cleans it and shows it on a real invoice before you go on.`,
+  ] },
+  { h: 'Tally', p: [
+    `Optional. With TallyPrime and your company open on this PC, choose the company your invoices go into. The app shows that company’s GSTIN beside yours. You can skip this and connect Tally later, from the Tally tab.`,
+  ] },
+  { h: 'Check everything', p: [
+    `One screen with all of it. Finish, and press <b>Activate free trial</b>: ${TRIAL.days} days, nothing to pay.`,
+    `From then on it is one button a month: Run.`,
+  ] },
+];
+---
+<Layout title={`Setup · ${NAME}`} description={`Setting up ${NAME}, step by step: about ten minutes, once.`} path="/setup" navOn="/setup">
+<main>
+  <section class="narrow">
+    <div class="head"><h1 class="h2 rv">Setup</h1><p class="lede rv">About ten minutes, once. Have your ARN, your GSTIN, your CAMS email and your KFintech login to hand.</p></div>
+    <ol class="how">
+      {STEPS.map((s, i) => <li class="rv">
+        <span class="n">{i + 1}</span>
+        <div><h2>{s.h}</h2>{s.p.map(p => <p set:html={p} />)}</div>
+      </li>)}
+    </ol>
+    <p class="after rv">Stuck? <a class="tlink" href="/support">Write to us</a>, or see the <a class="tlink" href="/faq">questions</a>.</p>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.how{list-style:none;margin:0;padding:0 0 30px}
+.how li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:20px;padding:28px 0;border-top:1px solid var(--line)}
+.how .n{width:36px;height:36px;border-radius:99px;background:var(--blue-wash);color:var(--blue);font-weight:600;font-size:15px;display:inline-flex;align-items:center;justify-content:center}
+.how h2{margin:4px 0 8px;font-size:20px;font-weight:600;letter-spacing:-.02em}
+.how p{margin:0 0 8px;font-size:15.5px;line-height:1.6;color:var(--ink-2)}
+.after{padding:6px 0 110px;color:var(--muted)}
+</style>

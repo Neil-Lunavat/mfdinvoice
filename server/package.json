@@ -1,0 +1,16 @@
+{
+  "name": "software",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "first": "bun scripts/first.ts",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --port 8788"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261003.1",
+    "@types/bun": "^1.4.2",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.141.0"
+  }
+}

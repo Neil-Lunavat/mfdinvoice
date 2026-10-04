@@ -1,0 +1,66 @@
+---
+/* Writing a post, screen 2 of 2: the post exactly as it will be on the site (the same page, nav and footer), with a
+   bar to go back to editing or publish. The editor POSTs what's typed here; nothing is saved until Publish. */
+import Layout from '../../../layouts/Layout.astro';
+import Post from '../../../components/Post.astro';
+import '../../../styles/kit.css';
+import { NAME } from '../../../consts';
+import { accessUser } from '../../../lib/server/access';
+import { draftOf, missing, getPost, listPosts } from '../../../lib/server/blog';
+import { postPath } from '../../../lib/blog';
+import { now } from '../../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'write');
+if (!me) return new Response('Forbidden', { status: 403 });
+if (Astro.request.method !== 'POST') return Astro.redirect('/');
+let raw: Record<string, unknown> = {};
+try { raw = JSON.parse(String((await Astro.request.formData()).get('data') || '{}')); } catch (e) {}
+const id = Number(raw.id) || null;
+const d = draftOf(raw);
+const was = id ? await getPost(id) : null;
+const related = (await listPosts()).filter(x => x.id !== id).slice(0, 3).map(x => ({ title: x.title, path: x.path }));
+const gap = missing(d);
+const GAP: Record<string, string> = {
+  no_title: 'Add the heading', no_search_title: 'Add the search title', no_slug: 'Add the address',
+  no_description: 'Add the description', no_text: 'Add some text',
+};
+Astro.response.headers.set('cache-control', 'private, no-store');
+---
+<Layout title={d.seo_title || `${d.title || 'Untitled'} · ${NAME}`} description={d.description} path={postPath(d.slug || 'preview')} canonical={false}>
+<main><Post post={{ title: d.title || 'Untitled', body: d.body, created_at: was?.created_at ?? now() }} related={related} /></main>
+<div class="pub" id="pub" data-post={JSON.stringify({ id, ...d })}>
+  <div class="pub-in">
+    <button class="btn secondary" type="button" id="back">← Back to editing</button>
+    <span class="pub-n" id="pubN">{gap ? `${GAP[gap]} before publishing.` : `Preview · it goes live at ${postPath(d.slug)}`}</span>
+    <button class="btn primary" type="button" id="publish" disabled={!!gap}>{was ? 'Publish changes' : 'Publish'}</button>
+  </div>
+</div>
+</Layout>
+
+<style is:global>
+/* the preview's own bar, over the real page */
+.pub{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(15,23,42,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.pub-in{max-width:1200px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px}
+.pub-n{margin:0 auto;font-size:14px;color:#cbd5e1;text-align:center}
+.pub .btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.3)}
+.pub .btn.secondary:hover{background:rgba(255,255,255,.08)}
+footer{padding-bottom:120px}
+</style>
+<script>
+import { $, post, esc } from '../../../scripts/client';
+import { errText } from '../../../scripts/panel';
+const d = JSON.parse($('pub').dataset.post);
+$('back').onclick = () => (history.length > 1 ? history.back() : (location.href = d.id ? `/posts/${d.id}` : '/posts/new'));
+$('publish').onclick = async () => {
+  $('publish').disabled = true; $('publish').innerHTML = '<span class="spin"></span>Publishing';
+  const r = await post('/api/write/posts', { action: 'save', ...d });
+  if (!r.ok) {
+    $('publish').disabled = false; $('publish').textContent = 'Publish';
+    $('pubN').innerHTML = `<span style="color:#fca5a5">${esc(errText(r))}</span>`;
+    return;
+  }
+  try { sessionStorage.removeItem(`post-draft:${d.id ?? 'new'}`); } catch (e) {}
+  location.href = `/?published=${encodeURIComponent(r.path)}`;
+};
+</script>

@@ -1,0 +1,140 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import Brush from '../components/Brush.astro';
+import ArnStepper from '../components/ArnStepper.astro';
+import Qa from '../components/Qa.astro';
+import Cta from '../components/Cta.astro';
+import { NAME, PRICE, SALES } from '../consts';
+import { inr } from '../lib/format';
+import { FAQ } from '../lib/faq';
+
+/* the questions before buying, from the FAQ (lib/faq.ts) */
+const ASKED = ['Is there a free trial?', 'Can one account have more than one ARN?', 'What do I need?', 'Does it work on a Mac?', 'What if it isn’t for me?'];
+const all = FAQ.flatMap(g => g.items);
+const questions = ASKED.map(q => all.find(([x]) => x === q)!);
+---
+<Layout title={`Pricing · ${NAME}`} description="One plan, with everything in it. A yearly price for each ARN." path="/pricing" navOn="/pricing" reveal={0.15}>
+<main>
+  <section class="head c">
+    <div class="wrap">
+      <h1 class="h1 rv">One plan, with
+        <Brush>everything</Brush>
+        in it.</h1>
+      <p class="lede rv">A yearly price for each ARN.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="plan rv">
+        <div class="price">
+          <div class="lbl">Your plan</div>
+          <ArnStepper />
+          <div class="amt"><b id="amt">{inr(PRICE.first)}</b><span>a year</span></div>
+          <p class="how" id="how">{SALES.moreArns ? `${inr(PRICE.extra)} a year for each ARN you add` : 'More ARNs per email: coming soon'}</p>
+          <Cta buy="/checkout" />
+          <p class="fine">For Windows 11 · Billed once a year{SALES.moreArns && ' · Add an ARN any time'}</p>
+        </div>
+
+        <div class="feat">
+          <h3>Everything in the plan</h3>
+          <div class="grp">
+            <h4>Every month</h4>
+            <ul>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Every invoice from CAMS and KFintech</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Signed with your own signature</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Every figure matched to the portal</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>One screen to check, then your yes</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Each invoice’s status, read from the portals</li>
+            </ul>
+          </div>
+          <div class="grp">
+            <h4>Your books and records</h4>
+            <ul>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Tally, and Zoho Books soon</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Every month kept on your PC</li>
+            </ul>
+          </div>
+          <div class="grp">
+            <h4>Always</h4>
+            <ul>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Keeps working when the portals change</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Support from inside the app</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Your passwords stay on your PC</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Analytics and insights<span class="soon">Coming soon</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="qs">
+    <div class="wrap qs-grid">
+      <div>
+        <h2 class="h2 rv">Before you buy</h2>
+        <p class="lede rv">Anything else, <a class="tlink" href="/support">write to us</a>.</p>
+      </div>
+      <div class="qa rv">{questions.map(([q, a]) => <Qa q={q}><Fragment set:html={a} /></Qa>)}</div>
+    </div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.plan{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--e-sheet);overflow:hidden}
+.price{padding:40px;border-right:1px solid var(--line);background:var(--subtle);display:flex;flex-direction:column}
+.price .lbl{font-size:13.5px;font-weight:500;color:var(--muted)}
+.price .arn{margin-top:14px}
+.amt{margin-top:32px;display:flex;align-items:baseline;gap:10px}
+.amt b{font-size:60px;line-height:1;font-weight:560;letter-spacing:-.045em}
+.amt span{font-size:16px;color:var(--muted)}
+.how{margin-top:10px;font-size:14px;color:var(--muted);min-height:22px}
+.price .btn.lg{margin-top:32px;width:100%}
+.fine{margin-top:14px;font-size:13px;color:var(--muted);text-align:center}
+
+.feat{padding:40px 44px}
+.feat h3{font-size:13.5px;font-weight:500;color:var(--muted)}
+.feat h3 + .grp{margin-top:18px}
+.grp + .grp{margin-top:28px}
+.grp h4{margin:0 0 6px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.grp ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
+.grp li{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-2);font-size:14.5px;color:var(--ink-2)}
+.tick{width:18px;height:18px;margin-top:2px;border-radius:99px;background:var(--green-wash);color:var(--green);display:grid;place-items:center;flex-shrink:0}
+.tick svg{width:10px;height:10px}
+.soon{margin-left:auto;align-self:center;font-size:11px;font-weight:600;color:var(--muted);border:1px dashed var(--faint);border-radius:6px;padding:1px 6px;white-space:nowrap}
+
+@media (max-width:980px){
+  .plan{grid-template-columns:1fr}
+  .price{border-right:0;border-bottom:1px solid var(--line)}
+  .price,.feat{padding:28px 22px}
+  .grp ul{grid-template-columns:1fr}
+}
+
+/* questions */
+.qs{padding:120px 0 130px}
+.qs-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:64px;align-items:start}
+.qs .lede{font-size:16.5px}
+@media (max-width:880px){.qs{padding:80px 0}.qs-grid{grid-template-columns:1fr;gap:32px}}
+</style>
+<script>
+/* The price comes from consts.ts. */
+import { PRICE, SALES } from '../consts';
+import { inr } from '../lib/format';
+import { $ } from '../scripts/client';
+let n = 1;
+/* one ARN per email for now (SALES.moreArns): no stepper, the price is the price */
+if (SALES.moreArns) { $('less').onclick = () => { if (n > 1) { n--; show(); } }; $('more').onclick = () => { if (n < PRICE.maxArns) { n++; show(); } }; show(); }
+function show() {
+  $('cnt').textContent = n;
+  $('amt').textContent = inr(PRICE.first + PRICE.extra * (n - 1));
+  $('how').textContent = n === 1
+    ? `${inr(PRICE.extra)} a year for each ARN you add`
+    : `${inr(PRICE.first)} for the first ARN + ${n - 1} × ${inr(PRICE.extra)}`;
+  $('less').disabled = n === 1;
+  $('more').disabled = n === PRICE.maxArns;
+  document.querySelector<HTMLAnchorElement>('.price .cta-buy')!.href = '/checkout?arns=' + n; /* the count carries through; signed out, Checkout sends them to Sign in and back */
+}
+
+</script>

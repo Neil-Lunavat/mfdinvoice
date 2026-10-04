@@ -1,0 +1,63 @@
+---
+/* Gifts: give one (an email; a year on one ARN), see each one's status, revoke one that's waiting. */
+import Panel from '../../layouts/Panel.astro';
+import { accessUser } from '../../lib/server/access';
+import { tabCounts } from '../../lib/server/admin';
+import { listGifts, type GiftStatus } from '../../lib/server/gifts';
+import { istShort } from '../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const want = Astro.url.searchParams.get('status') || '';
+const [all, counts] = await Promise.all([listGifts(), tabCounts()]);
+const rows = all.filter(g => !want || g.status === want);
+const TEXT: Record<GiftStatus, [string, string]> = { waiting: ['Waiting', 'amber'], used: ['Used', 'green'], revoked: ['Revoked', ''] };
+---
+<Panel title="Gifts" app="control" on="/gifts" me={me.email} counts={counts}>
+  <div class="ph1"><h1>Gifts</h1><p>A one-year plan on one ARN, tied to an email. It starts when that email signs in.</p></div>
+  <section class="pc">
+    <div class="pc-h"><h2>Give a gift</h2></div>
+    <div class="pc-b">
+      <form class="search" id="give">
+        <input class="input" id="gEmail" type="email" placeholder="name@example.com" required aria-label="Email">
+        <button class="btn primary" type="submit">Give a gift</button>
+      </form>
+      <p class="note" id="gOut" style="margin-top:10px">Only for someone who has never had a plan. They’re emailed; if the email already has an account, it starts at once.</p>
+    </div>
+  </section>
+  <section class="pc">
+    <div class="pc-h"><h2>Every gift</h2>
+      <form class="search act" method="get" action="/gifts"><select class="input sm sel" name="status" aria-label="Status">{[['', 'Every status'], ['waiting', 'Waiting'], ['used', 'Used'], ['revoked', 'Revoked']].map(([v, l]) => <option value={v} selected={v === want}>{l}</option>)}</select><button class="btn secondary sm" type="submit">Show</button></form>
+    </div>
+    {rows.length === 0 ? <p class="empty">No gifts.</p> :
+    <table class="t cards"><thead><tr><th>Email</th><th>Given</th><th>Status</th><th></th></tr></thead><tbody>
+      {rows.map(g => <tr>
+        <td data-l="Email">{g.holder ? <a href={`/accounts/${g.holder}`}>{g.email}</a> : <>{g.email} <span class="note">· not signed up</span></>}</td>
+        <td data-l="Given">{istShort(g.given_at)} <span class="note">by {g.given_by}</span></td>
+        <td data-l="Status"><span class={`tag ${TEXT[g.status][1]}`}>{TEXT[g.status][0]}</span>{g.used_at && <span class="note"> {istShort(g.used_at)}</span>}{g.revoked_at && <span class="note"> {istShort(g.revoked_at)}</span>}</td>
+        <td class="num">{g.status === 'waiting' && <button class="btn ghost-red sm" type="button" data-revoke={g.id} data-email={g.email}>Revoke</button>}</td>
+      </tr>)}
+    </tbody></table>}
+  </section>
+</Panel>
+<script>
+import { $, post, esc } from '../../scripts/client';
+import { ask, errText } from '../../scripts/panel';
+$('give').onsubmit = async (e: Event) => {
+  e.preventDefault();
+  const b = $('give').querySelector('button');
+  b.disabled = true;
+  const r = await post('/api/admin/gifts', { action: 'give', email: $('gEmail').value.trim() });
+  b.disabled = false;
+  if (!r.ok) { $('gOut').innerHTML = `<span class="err-line">${esc(errText(r))}</span>`; return; }
+  location.reload();
+};
+document.querySelectorAll<HTMLButtonElement>('[data-revoke]').forEach(b => b.onclick = () => ask({
+  title: 'Revoke this gift?',
+  warn: '<b>This can’t be undone.</b> The gift won’t start when they sign in. Give a new one if needed.',
+  text: `For <b>${esc(b.dataset.email)}</b>.`,
+  phrase: 'REVOKE', action: 'Revoke', danger: true,
+  run: () => post('/api/admin/gifts', { action: 'revoke', id: +b.dataset.revoke! }),
+}));
+</script>

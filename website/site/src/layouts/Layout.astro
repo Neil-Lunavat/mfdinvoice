@@ -1,0 +1,65 @@
+---
+/* Every public page: <head> (title, description, canonical, Open Graph, robots, schema), the fonts, the tokens
+   and base styles, the icons, the nav and footer, and the scripts every page shares. */
+import '../styles/tokens.css';
+import '../styles/base.css';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import Fonts from '../components/Fonts.astro';
+import Sprite from '../components/Sprite.astro';
+import { NAME, SITE_URL, INDEXING } from '../consts';
+
+interface Props {
+  title: string;                 /* the whole <title>, product name included */
+  description: string;
+  path: string;                  /* this page's route, e.g. "/pricing" */
+  nav?: 'full' | 'none';         /* none: the page brings its own header (Sign in, Checkout) */
+  navOn?: string;                /* the nav link marked as this page */
+  home?: boolean;
+  footer?: boolean;
+  reveal?: number;               /* how much of a .rv block shows before it fades in */
+  ogType?: string;
+  schema?: object[];             /* JSON-LD blocks */
+  canonical?: boolean;           /* false for pages that are not a page of their own (404) */
+}
+const {
+  title, description, path, nav = 'full', navOn, home = false,
+  footer = true, reveal = 0.12, ogType = 'website', schema = [], canonical = true,
+} = Astro.props;
+const url = new URL(path, SITE_URL).href;
+---
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<script is:inline src="/si.js"></script>
+<style is:inline>html.si .nav-signin,html:not(.si) .nav-account,html.hp .cta-try,html:not(.hp) .cta-buy{display:none!important}</style>
+<meta name="description" content={description}>
+{!INDEXING && <meta name="robots" content="noindex">}
+{canonical && <link rel="canonical" href={url}>}
+<meta property="og:type" content={ogType}>
+<meta property="og:site_name" content={NAME}>
+<meta property="og:title" content={title}>
+<meta property="og:description" content={description}>
+<meta property="og:url" content={url}>
+<link rel="sitemap" href="/sitemap.xml">
+<Fonts />
+{schema.map(s => <script type="application/ld+json" set:html={JSON.stringify(s)} />)}
+</head>
+<body data-reveal={reveal}>
+<Sprite />
+{nav === 'full' && <Nav path={path} on={navOn} home={home} />}
+<slot />
+{footer && <Footer home={home} />}
+<script>
+  /* reveal once: a .rv block fades in the first time it comes into view */
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: +document.body.dataset.reveal! });
+  document.querySelectorAll('.rv').forEach(el => io.observe(el));
+</script>
+<script>
+  import '../scripts/glide';
+</script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import Brush from '../components/Brush.astro';
+import Invoice from '../components/Invoice.astro';
+import Signature from '../components/Signature.astro';
+import { NAME } from '../consts';
+import { invoice, fm } from '../lib/sample';
+
+/* the invoice's month, one step at a time. reach: what has reached us by then. */
+const STEPS = [
+  { h: 'It arrives in your mailbox.', p: 'CAMS emails the invoice. The app opens only the registrar’s invoice mails. It never sends, moves or deletes anything.', reach: 'Nothing' },
+  { h: 'Your signature goes on.', p: 'Your signature is kept encrypted on your PC, and placed on each invoice there.', reach: 'Nothing' },
+  { h: 'Every figure is checked.', p: 'The amounts are read and matched on your PC.', reach: 'Nothing' },
+  { h: 'Uploads directly to CAMS<br />(and KFintech).', p: 'From your PC, with your own login. The invoice file never comes to us.', reach: 'Nothing' },
+  { h: 'It’s filed in your folder.', p: 'The signed invoice and the month’s record stay in a folder on your PC, for as long as you keep them. When the run ends, the app sends us a record of how it went.', reach: 'How the run went' },
+];
+const pcHead = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Your PC <span class="mail">Mail from CAMS <span class="tag">Read-only</span></span>';
+const folder = (count: string, id = '') => `<div class="folder"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><div><b>October 2026</b><span${id ? ` id="${id}"` : ''}>${count} invoices · in your folder</span></div></div>`;
+const hdfc = invoice('HDFC');
+const ok = '<svg class="ok" viewBox="0 0 24 24"><use href="#tk"/></svg>';
+---
+<Layout title={`Security and privacy · ${NAME}`} description="Where your data lives. Follow one invoice through its month." path="/security" navOn="/security" reveal={0.2}>
+<main>
+  <section class="head c">
+    <div class="wrap">
+      <h1 class="h1 rv">Where <Brush>your data</Brush> lives.</h1>
+      <p class="lede rv">Follow one invoice through its month.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap trip">
+      <div class="stage" aria-hidden="true">
+        <div class="pc" id="pc">
+          <div class="pc-h" set:html={pcHead} />
+          <div class="desk">
+            <div class="slot"><Invoice inv={invoice('HDFC')} checks /></div>
+            <Fragment set:html={folder('16', 'fcount')} />
+          </div>
+          <div class="reach">Reached us: <b id="reach">Nothing</b></div>
+        </div>
+      </div>
+
+      <div class="steps" id="steps">
+        {STEPS.map((st, i) => <div class="st" data-n={i + 1} data-reach={st.reach}>
+          {/* on a phone or tablet: a numbered trail, each step with a small picture of what happens in it */}
+          <span class="node" aria-hidden="true">{i + 1}</span>
+          <div class="mini" aria-hidden="true">
+            {i === 0 && <div class="m-mail"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Mail from CAMS</span><span class="tag">Read-only</span></div>}
+            {i === 1 && <div class="m-sign"><span>For R K Mehta</span><Signature class="sig" /><span class="line">Authorised signatory</span></div>}
+            {i === 2 && <div class="m-figs">
+              <div><span>Brokerage, September 2026</span><b>{fm(hdfc.taxable)}<Fragment set:html={ok} /></b></div>
+              <div><span>CGST 9%</span><b>{fm(hdfc.half)}<Fragment set:html={ok} /></b></div>
+              <div><span>SGST 9%</span><b>{fm(hdfc.half)}<Fragment set:html={ok} /></b></div>
+            </div>}
+            {i === 3 && <div class="m-up"><div class="path"><span>Your PC</span><i></i><span>CAMS</span></div><span class="stamp">SUBMITTED<small>CAMS · 1 OCT 2026</small></span></div>}
+            {i === 4 && <Fragment set:html={folder('16')} />}
+          </div>
+          <h3 set:html={st.h} /><p>{st.p}</p>
+          <p class="reached" aria-hidden="true">Reached us: <b class:list={{ some: st.reach !== 'Nothing' }}>{st.reach}</b></p>
+        </div>)}
+      </div>
+    </div>
+  </section>
+
+  <section class="part">
+    <div class="wrap chk">
+      <div>
+        <h2 class="h2 rv">What leaves, and what is taken out first.</h2>
+        <p class="rv">When a run ends, the app sends us a record of how it went: each step it took on the portals, how long it took, what the portals said, and pictures of the portals’ pages as the run saw them. Those pages show that month’s invoices and their amounts. It is how we see a portal change and fix it before your next run.</p>
+        <p class="rv">Before anything is sent, the software looks for your passwords in it, in every form they could take, and removes them.</p>
+      </div>
+      <div class="scrub rv" id="scrub">
+        <div class="sr"><span>As typed</span><code style="--i:0">Mehta@1987</code></div>
+        <div class="sr"><span>Inside a web address</span><code style="--i:1">Mehta%401987</code></div>
+        <div class="sr"><span>Encoded</span><code style="--i:2">TWVodGFAMTk4Nw==</code></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="keep" id="keep">
+    <div class="wrap">
+      <h2 class="h2 rv">What we keep</h2>
+      <div class="keep-l">
+        <div class="rv"><b>Your email and plan</b><p>To sign you in and bill you.</p></div>
+        <div class="rv"><b>Your ARNs</b><p>Each ARN on your account is billed.</p></div>
+        <div class="rv"><b>A record of each run</b><p>Its steps, the portals’ words and the pages it saw. Never your passwords, your signature, your mailbox or your invoice files.</p></div>
+        <div class="rv"><b>Support reports</b><p>The ones you choose to send.</p></div>
+      </div>
+      <p class="end rv">Questions about security? <a class="tlink" href="/support">Write to us.</a></p>
+    </div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+/* one invoice, followed through its month: the picture on the left keeps everything up to the step in view */
+.trip{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:80px;padding-bottom:40px}
+.stage{position:sticky;top:calc(50vh - 300px);align-self:start;height:600px}
+.pc{height:100%;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--e-sheet);overflow:hidden}
+.pc-h{display:flex;align-items:center;gap:10px;height:52px;padding:0 20px;border-bottom:1px solid var(--line-2);background:var(--subtle);font-size:14px;font-weight:600}
+.pc-h svg{width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.pc-h .mail{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;color:var(--muted);opacity:0;transform:translateY(-4px);transition:opacity 280ms var(--ease),transform 280ms var(--ease)}
+.desk{position:relative;flex:1;background:radial-gradient(#dfe3ea 1px,transparent 1.2px) 0 0/22px 22px;overflow:hidden}
+.reach{display:flex;align-items:center;gap:10px;height:52px;padding:0 20px;border-top:1px solid var(--line-2);background:var(--subtle);font-size:13.5px;color:var(--muted)}
+.reach b{font-weight:600;color:var(--green);display:inline-flex;align-items:center;gap:7px;transition:color 200ms}
+.reach b::before{content:"";width:7px;height:7px;border-radius:9px;background:currentColor}
+.reach b.some{color:var(--ink-2)}
+.reach b.swap{animation:flip 280ms var(--ease)}
+@keyframes flip{from{opacity:.2;transform:translateY(6px)}}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:6px;font-size:11px;font-weight:600;background:var(--green-wash);color:var(--green)}
+
+/* the invoice (Invoice.astro), a little smaller than on the home page */
+.desk .paper{left:50%;top:62px;width:340px;margin-left:-170px;padding:26px 26px 22px;font-size:11px;transform:rotate(-1.2deg);opacity:0;transition:opacity 420ms var(--ease),transform 600ms var(--ease)}
+.desk .pp-top{padding-bottom:14px}
+.desk .pp-title{font-size:9.5px}
+.desk .pp-from{margin-top:5px;font-size:14px;letter-spacing:normal}
+.desk .pp-id{font-size:9.5px}
+.desk .pp-no{font-size:10px}
+.desk .pp-no b{font-size:12.5px}
+.desk .pp-to{padding:12px 0}
+.desk .pp-to span{font-size:9.5px}
+.desk .pp-to b{font-size:12.5px}
+.desk .pp-t td{padding:6px 4px;transition:background 280ms var(--ease)}
+.desk .pp-t td:last-child{font-size:10.5px;white-space:nowrap}
+.desk .pp-t .tot td{padding-top:9px;font-size:12px}
+.desk .pp-t small{font-size:9px}
+.desk .pp-sign{margin-top:18px;width:160px;font-size:9.5px}
+.desk .pp-sign .sig{width:140px;height:48px;margin:2px 0}
+.desk .sig path{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1100ms cubic-bezier(.55,.1,.35,1)}
+.desk .sig path + path{transition-duration:450ms;transition-delay:900ms}
+.desk .stamp{left:24px;bottom:34px;padding:5px 12px 4px;font-size:17px;opacity:0;transform:rotate(-9deg) scale(1.7)}
+.desk .stamp small{font-size:8px}
+.ok{display:inline-block;width:12px;margin-left:6px;color:var(--green);opacity:0;transform:scale(.4);transition:opacity 200ms var(--ease),transform 280ms var(--ease)}
+.folder{position:absolute;z-index:2;left:50%;top:calc(100% - 92px);width:300px;margin-left:-150px;display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--e-float);opacity:0;transition:opacity 280ms var(--ease)}
+.folder svg{width:30px;height:30px;fill:var(--blue-wash);stroke:var(--blue);stroke-width:1.5;stroke-linejoin:round}
+.folder b{display:block;font-size:13.5px;font-weight:600}
+.folder span{font-size:12px;color:var(--muted)}
+.slot{position:absolute;z-index:1;left:0;right:0;top:0;height:100%;overflow:hidden}
+
+/* what each step does to the picture */
+.s1 .desk .paper{opacity:1}
+.s1 .pc-h .mail{opacity:1;transform:none}
+.s2 .desk .sig path{stroke-dashoffset:0}
+.s3 .desk .pp-t td{background:linear-gradient(transparent,transparent)}
+.s3 .desk .pp-t tr:not(.tot) td{background:var(--blue-wash)}
+.s3 .ok{opacity:1;transform:none}
+.s4 .desk .stamp{animation:stamp 440ms cubic-bezier(.2,1.4,.4,1) forwards}
+/* the cut-off edge rides 24px under the folder's top, so the invoice disappears into it */
+.s5 .slot{animation:slotIn 700ms var(--ease) forwards}
+@keyframes slotIn{from{height:426px}to{height:236px}}
+.s5 .desk .paper{transform:rotate(0) translateY(330px) scale(.6);transition:opacity 420ms var(--ease),transform 950ms cubic-bezier(.55,0,.25,1) 250ms}
+.s5 .folder{opacity:1;animation:folderUp 700ms var(--ease) forwards}
+@keyframes folderUp{from{top:402px}to{top:212px}}
+#fcount.flip,.mini .folder span.flip{animation:flip 280ms var(--ease)}
+
+/* the steps */
+.steps{padding:18vh 0 26vh}
+.st{min-height:62vh;display:flex;flex-direction:column;justify-content:center}
+.st h3{font-size:clamp(26px,2.6vw,36px);line-height:1.15;letter-spacing:-.03em;font-weight:560;color:var(--ghost);transition:color 320ms var(--ease)}
+.st p{margin-top:14px;font-size:17px;line-height:1.6;color:var(--muted);max-width:30em;opacity:.35;transition:opacity 320ms var(--ease)}
+.st.on h3{color:var(--ink)}
+.st.on p{opacity:1}
+
+/* the one check on anything that leaves: text left, picture right */
+.part{padding:120px 0;border-top:1px solid var(--line);background:var(--surface)}
+.chk{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:72px;align-items:center}
+.chk p{margin-top:18px;font-size:17px;color:var(--muted);max-width:30em}
+.scrub{background:var(--subtle);border:1px solid var(--line);border-radius:var(--r-sheet);box-shadow:var(--e-float);padding:10px 22px}
+.sr{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;gap:14px;min-height:62px;border-bottom:1px solid var(--line-2)}
+.sr:last-child{border-bottom:0}
+.sr span{font-size:13px;color:var(--muted)}
+.sr code{position:relative;justify-self:start;font-family:var(--mono);font-size:15px;color:var(--ink);white-space:nowrap}
+.sr code::after{content:"";position:absolute;left:-3px;right:-3px;top:6%;bottom:6%;background:var(--ink);border-radius:2px;transform:scaleX(0);transform-origin:left;transition:transform 420ms cubic-bezier(.6,.05,.3,1);transition-delay:calc(var(--i) * 480ms + 500ms)}
+.red .sr code::after{transform:scaleX(1)}
+
+/* what we keep */
+.keep{padding:110px 0 130px}
+.keep-l{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px;margin-top:48px}
+.keep-l div{padding-top:20px;border-top:1px solid var(--ink)}
+.keep-l b{display:block;font-size:18px;font-weight:600;letter-spacing:-.02em}
+.keep-l p{margin-top:6px;font-size:15.5px;color:var(--muted)}
+.keep .end{margin-top:56px;font-size:15.5px;color:var(--muted)}
+
+/* on a phone or tablet the picture that follows the scroll goes; the steps become a numbered trail, each with a small
+   picture of its own that plays once as it comes into view (.seen) */
+.st .node,.st .mini,.st .reached{display:none}
+@media (max-width:980px){
+  .trip{grid-template-columns:1fr;gap:0}
+  .stage{display:none}
+  .steps{padding:8px 0 24px}
+  .st{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr);column-gap:16px;align-content:start;min-height:0;padding:0 0 40px;border:0}
+  .st > *{grid-column:2}
+  .st::before{content:"";position:absolute;left:14px;top:36px;bottom:6px;width:2px;background-image:linear-gradient(180deg,var(--ghost) 50%,transparent 50%);background-size:2px 8px}
+  .st:last-child::before{display:none}
+  .st .node{display:grid;grid-column:1;grid-row:1 / span 4;align-self:start;width:30px;height:30px;border-radius:99px;place-items:center;background:var(--blue-wash);color:var(--blue);font-family:var(--mono);font-size:13px;font-weight:500}
+  .st .mini{display:block;margin-bottom:16px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--e-card);opacity:0;transform:translateY(10px);transition:opacity 500ms var(--ease),transform 500ms var(--ease)}
+  .st.seen .mini{opacity:1;transform:none}
+  .st h3{color:var(--ink);font-size:24px}
+  .st p{opacity:1;margin-top:10px;font-size:16px}
+  .st .reached{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+  .reached b{font-weight:600;color:var(--green);display:inline-flex;align-items:center;gap:7px}
+  .reached b::before{content:"";width:7px;height:7px;border-radius:9px;background:currentColor}
+  .reached b.some{color:var(--ink-2)}
+  /* 1: the mail, read-only */
+  .m-mail{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500}
+  .m-mail svg{width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+  .m-mail .tag{margin-left:auto}
+  /* 2: the signature draws itself in */
+  .m-sign{margin-left:auto;width:190px;display:flex;flex-direction:column;align-items:flex-end;font-size:11px;color:var(--muted)}
+  .m-sign .sig{width:160px;height:56px;margin:2px 0}
+  .m-sign .sig path{fill:none;stroke:var(--pen);stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1100ms cubic-bezier(.55,.1,.35,1) 300ms}
+  .m-sign .sig path + path{transition-duration:450ms;transition-delay:1300ms}
+  .seen .m-sign .sig path{stroke-dashoffset:0}
+  .m-sign .line{width:100%;border-top:1px solid #d5dae2;padding-top:4px;text-align:right}
+  /* 3: each figure gets its tick, one after another */
+  .m-figs div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--line-2);font-size:13px;color:var(--ink-2)}
+  .m-figs div:first-child{border-top:0;padding-top:0}
+  .m-figs div:last-child{padding-bottom:0}
+  .m-figs b{font-family:var(--mono);font-weight:500;color:var(--ink);white-space:nowrap}
+  .seen .m-figs .ok{opacity:1;transform:none}
+  .m-figs div:nth-child(1) .ok{transition-delay:300ms}
+  .m-figs div:nth-child(2) .ok{transition-delay:500ms}
+  .m-figs div:nth-child(3) .ok{transition-delay:700ms}
+  /* 4: straight from your PC to CAMS, then the stamp */
+  .m-up{display:flex;flex-direction:column;align-items:center;gap:16px}
+  .m-up .path{align-self:stretch;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500}
+  .m-up .path span{padding:5px 10px;border:1px solid var(--line);border-radius:var(--r-ctl);background:var(--subtle)}
+  .m-up .path i{position:relative;flex:1;height:2px;background-image:linear-gradient(90deg,var(--ghost) 50%,transparent 50%);background-size:8px 2px}
+  .m-up .path i::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left-color:var(--ghost);border-right:0}
+  .m-up .stamp{position:static;opacity:0;transform:rotate(-9deg) scale(1.7)}
+  .seen .m-up .stamp{animation:stamp 440ms cubic-bezier(.2,1.4,.4,1) 450ms forwards}
+  /* 5: filed; the folder's count goes up by one */
+  .mini .folder{position:static;width:auto;margin:0;padding:0;border:0;box-shadow:none;background:none;opacity:1;transition:none}
+  .chk{grid-template-columns:1fr;gap:36px}
+  .keep-l{grid-template-columns:1fr;gap:24px}
+  .part{padding:72px 0}
+  .keep{padding:72px 0}
+}
+</style>
+<script>
+import { $ } from '../scripts/client';
+
+/* the redaction replays every time it comes into view */
+new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle('red', e.isIntersecting)), { threshold: 0.5 }).observe($('scrub'));
+
+/* the invoice follows the step in the middle of the screen; the picture keeps everything up to that step */
+const steps = [...document.querySelectorAll<HTMLElement>('.st')], pc = $('pc');
+let cur: HTMLElement | null = null, saved: ReturnType<typeof setTimeout> | undefined;
+function go(st: HTMLElement) {
+  if (st === cur) return;
+  cur = st;
+  const n = +st.dataset.n!;
+  steps.forEach(s => s.classList.toggle('on', s === st));
+  for (let i = 1; i <= 5; i++) pc.classList.toggle('s' + i, i <= n);
+  clearTimeout(saved);
+  const f = $('fcount');
+  if (n >= 5) saved = setTimeout(() => { f.textContent = '17 invoices · in your folder'; f.classList.remove('flip'); void f.offsetWidth; f.classList.add('flip'); }, 1150);
+  else f.textContent = '16 invoices · in your folder';
+  const r = $('reach');
+  if (r.textContent !== st.dataset.reach) {
+    r.textContent = st.dataset.reach!;
+    r.classList.toggle('some', st.dataset.reach !== 'Nothing');
+    r.classList.remove('swap'); void r.offsetWidth; r.classList.add('swap');
+  }
+}
+const so = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) go(e.target as HTMLElement); }), { rootMargin: '-48% 0px -48% 0px' });
+steps.forEach(s => so.observe(s));
+
+/* on a phone or tablet: each step's picture plays once, as it passes 40% from the bottom of the screen */
+const seen = new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return;
+  e.target.classList.add('seen'); seen.unobserve(e.target);
+  const count = e.target.querySelector('.mini .folder span');
+  if (count) setTimeout(() => { count.textContent = '17 invoices · in your folder'; count.classList.add('flip'); }, 700);
+}), { rootMargin: '0px 0px -40% 0px' });
+steps.forEach(s => seen.observe(s));
+</script>

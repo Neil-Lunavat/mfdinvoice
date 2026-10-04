@@ -1,0 +1,225 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import { NAME, EMAIL } from '../consts';
+import { TOPICS } from '../lib/support';
+---
+<Layout title={`Support · ${NAME}`} description="Write to us, from the app or from here." path="/support" >
+<main>
+  <section class="page">
+    <div class="head c"><h1 class="h1 rv">Support</h1><p class="lede rv">Write to us, from the app or from here.</p></div>
+    <div class="sup">
+      <div class="card app-card rv">
+        <h2>From the app</h2>
+        <p>Use Send to support. It includes the steps of your last run and where it stopped, so we can help faster. Never your passwords, your signature or your mailbox.</p>
+        <span class="pill"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Send to support</span>
+        <div class="side-l">
+          <span>Common questions are in the <a class="tlink" href="/faq">FAQ</a>.</span>
+          <span>Email: <a class="tlink" href={`mailto:${EMAIL.support}`}>{EMAIL.support}</a></span>
+        </div>
+      </div>
+      <div class="card rv" id="formCard">
+        <div class="form">
+          <h2>Write to us</h2>
+          <div class="field"><label for="sk">What is it about?</label><select class="input sel" id="sk" required>
+            <option value="" selected disabled>Choose one</option>
+            {Object.entries(TOPICS).map(([v, t]) => <option value={v}>{t.label}</option>)}
+          </select><p class="tnote" id="tnote" hidden></p></div>
+          <div class="row2" id="arnRow" hidden><div class="field"><label for="sa" id="sal">ARN</label><input class="input mono" id="sa" placeholder="ARN-123456"><select class="input sel mono" id="sas" hidden></select></div></div>
+          <div class="row2" id="neRow" hidden><div class="field"><label for="sn">New email</label><input class="input" id="sn" type="email" placeholder="you@example.com"></div></div>
+          <div class="field" id="smF"><label for="sm">What went wrong?</label><textarea class="input" id="sm" placeholder="Choose what it’s about first."></textarea></div>
+          <div class="file" id="fileRow"><label for="sf" id="sfl">Add a screenshot</label><input id="sf" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><span id="sfn">Optional</span></div>
+          <span class="err" id="serr" hidden></span>
+          <div class="b"><button class="btn primary" type="button" id="send" disabled>Send</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="card reqs" id="reqs" hidden>
+      <h2>Your requests</h2>
+      <table><thead><tr><th>Number</th><th>Sent</th><th>About</th><th>Status</th></tr></thead><tbody id="reqB"></tbody></table>
+    </div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.sup{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:24px;align-items:start;padding-bottom:110px}
+.sup:has(+ .reqs:not([hidden])){padding-bottom:24px}
+/* the signed-in account's own requests, under the form */
+.reqs{padding:28px 32px;margin-bottom:110px}
+.reqs h2{font-size:18px;font-weight:600;letter-spacing:-.02em}
+.reqs table{width:100%;margin-top:14px;border-collapse:collapse;font-size:14px}
+.reqs th{text-align:left;font-weight:500;font-size:12.5px;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line)}
+.reqs td{padding:10px;border-bottom:1px solid var(--line-2)}
+.reqs tr:last-child td{border-bottom:0}
+.reqs .st{display:inline-block;font-size:12px;font-weight:600;border-radius:6px;padding:1px 8px}
+.reqs .st.open{background:var(--amber-wash);color:var(--amber)}
+.reqs .st.solved{background:var(--green-wash);color:var(--green)}
+.app-card{padding:32px}
+.app-card h2,.form h2{font-size:18px;font-weight:600;letter-spacing:-.02em}
+.app-card p{margin-top:10px;color:var(--muted);font-size:15px}
+.pill{margin-top:22px;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:var(--r-ctl);border:1px solid var(--line);background:var(--subtle);font-size:13.5px;font-weight:500;color:var(--ink-2)}
+.pill svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.side-l{margin-top:28px;padding-top:22px;border-top:1px solid var(--line-2);font-size:14px;color:var(--muted);display:grid;gap:8px}
+.form{padding:32px;display:grid;gap:18px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#arnRow,#neRow{animation:rise 280ms var(--ease)}
+.tnote{margin-top:8px;font-size:13.5px;color:var(--muted)}
+.file{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+.file label{height:36px;padding:0 14px;display:inline-flex;align-items:center;border-radius:var(--r-ctl);border:1px solid var(--line);font-weight:500;color:var(--ink-2);cursor:pointer}
+.file label:hover{background:var(--subtle)}
+.file label.off{opacity:.45;pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 10px;border-radius:99px;background:var(--sunken);font-size:12.5px;color:var(--ink-2);max-width:220px}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip button{width:20px;height:20px;border:0;border-radius:99px;background:none;color:var(--muted);font-size:15px;line-height:1;padding:0}
+.chip button:hover{background:var(--line);color:var(--ink)}
+.form .b{display:flex;justify-content:flex-end}
+/* the result card itself is kit.css .done */
+.sent{padding:44px 32px}
+.sent h2{font-size:20px;font-weight:600;letter-spacing:-.02em}
+.sent .mono{font-family:var(--mono);color:var(--ink)}
+@media (max-width:880px){.sup{grid-template-columns:1fr}.row2{grid-template-columns:1fr}.app-card,.form{padding:24px 20px}.reqs{padding:22px 20px}.reqs .hide{display:none}}
+</style>
+<script>
+/* Sending needs a signed-in account (the request is tied to it, and we reply to its email). Signed out, Send keeps
+   the form (localStorage; the screenshots in IndexedDB) and goes to Sign in, which comes back here and fills it in. */
+import { TOPICS, SHOT_TYPES, SHOT_MAX, SHOTS } from '../lib/support';
+import { $, esc, post, tick, validEmail } from '../scripts/client';
+import { shortDate } from '../lib/date';
+
+/* signed in: their requests, newest first, with Open or Solved */
+async function requests() {
+  if (!document.documentElement.classList.contains('si')) return;
+  const r = await fetch('/api/support', { cache: 'no-store' }).then(x => x.json()).catch(() => null);
+  mine = r?.arns ?? []; pick(); check();
+  if (!r?.requests?.length) return;
+  $('reqB').innerHTML = r.requests.map((x: any) => `<tr><td class="mono">#${x.id}</td><td>${esc(shortDate(new Date(Date.parse(x.created_at) + 19_800_000).toISOString().slice(0, 10)))}</td>
+    <td>${esc(x.about)}</td><td><span class="st ${x.status}">${x.status === 'open' ? 'Open' : 'Solved'}</span></td></tr>`).join('');
+  $('reqs').hidden = false;
+}
+requests();
+const DRAFT = 'support-draft';
+let shots: File[] = [];
+
+/* what it's about decides whether we need the ARN or a new email, and what to ask for */
+const T = () => TOPICS[$('sk').value];
+const need = () => T()?.arn || 0;
+const ok = () => !!T() && (T().noMsg || T().newEmail || $('sm').value.trim().length > 3)
+  && (need() < 2 || /^ARN-\d{3,}$/.test($('sa').value)) && (!T().newEmail || validEmail($('sn').value));
+const check = () => $('send').disabled = !ok();
+/* signed in: their ARNs, so "Change an ARN on my plan" picks one instead of typing it */
+let mine: string[] = [];
+function pick() {
+  const a = T(), list = !!a?.mine && mine.length > 0;
+  $('sas').hidden = !list; $('sa').hidden = list;
+  if (!list) return;
+  const want = $('sa').value.replace(/\D/g, '');
+  $('sas').innerHTML = mine.map(x => `<option value="${x}"${x === want ? ' selected' : ''}>ARN-${x}</option>`).join('');
+  $('sa').value = 'ARN-' + $('sas').value;
+}
+$('sas').onchange = () => { $('sa').value = 'ARN-' + $('sas').value; check(); };
+function about() {
+  const a = T(); if (!a) return;
+  $('tnote').innerHTML = a.note ?? ''; $('tnote').hidden = !a.note;
+  $('arnRow').hidden = !a.arn;
+  pick();
+  $('neRow').hidden = !a.newEmail;
+  $('sal').innerHTML = a.arnLabel || (a.arn === 1 ? 'ARN <span class="muted" style="font-weight:400">(if it’s about one)</span>' : 'ARN');
+  $('smF').hidden = !!a.noMsg;
+  $('fileRow').hidden = !!a.noMsg;
+  if (a.ph) $('sm').placeholder = a.ph;
+  check();
+}
+['sm', 'sn'].forEach(id => $(id).oninput = check);
+$('sk').onchange = about;
+$('sa').oninput = (e: any) => { const v = e.target.value.toUpperCase().replace(/[^0-9]/g, ''); e.target.value = v ? 'ARN-' + v : ''; check(); };
+
+/* screenshots: up to three, shown as chips */
+function showShots() {
+  $('sfn').innerHTML = shots.length ? shots.map((f, i) => `<span class="chip"><span>${esc(f.name)}</span><button type="button" data-i="${i}" aria-label="Remove">×</button></span>`).join(' ') : 'Optional';
+  $('sfn').querySelectorAll('button').forEach((b: any) => b.onclick = () => { shots.splice(+b.dataset.i, 1); showShots(); });
+  $('sfl').classList.toggle('off', shots.length >= SHOTS);
+}
+const problem = (t: string) => { $('serr').textContent = t; $('serr').hidden = !t; };
+$('sf').onchange = (e: any) => {
+  problem('');
+  for (const f of [...e.target.files] as File[]) {
+    if (shots.length >= SHOTS) { problem(`Up to ${SHOTS} screenshots.`); break; }
+    if (!SHOT_TYPES[f.type]) { problem('Choose PNG, JPEG or WebP images.'); continue; }
+    if (f.size > SHOT_MAX) { problem(`${f.name} is over 8 MB.`); continue; }
+    shots.push(f);
+  }
+  e.target.value = ''; showShots();
+};
+
+/* the draft, kept across Sign in */
+function idb(): Promise<IDBDatabase> {
+  return new Promise((res, rej) => { const r = indexedDB.open('support', 1); r.onupgradeneeded = () => r.result.createObjectStore('shots'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+async function saveShots(files: File[]) {
+  const db = await idb();
+  await new Promise((res, rej) => { const t = db.transaction('shots', 'readwrite'); t.objectStore('shots').put(files.map(f => ({ name: f.name, type: f.type, blob: f })), 'draft'); t.oncomplete = res; t.onerror = () => rej(t.error); });
+}
+async function loadShots(): Promise<File[]> {
+  const db = await idb();
+  const v: any[] = await new Promise((res, rej) => { const r = db.transaction('shots').objectStore('shots').get('draft'); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); });
+  return v.map(x => new File([x.blob], x.name, { type: x.type }));
+}
+async function clearDraft() {
+  try { localStorage.removeItem(DRAFT); } catch (e) {}
+  try { const db = await idb(); db.transaction('shots', 'readwrite').objectStore('shots').delete('draft'); } catch (e) {}
+}
+async function toSignIn() {
+  const d = { topic: $('sk').value, arn: $('sa').value, message: $('sm').value, newEmail: $('sn').value, shots: shots.length };
+  try { localStorage.setItem(DRAFT, JSON.stringify(d)); } catch (e) {}
+  if (shots.length) { try { await saveShots(shots); } catch (e) {} }
+  location.href = '/signin?next=/support';
+}
+async function restore() {
+  let d: any = null;
+  try { d = JSON.parse(localStorage.getItem(DRAFT) || 'null'); } catch (e) {}
+  if (!d || !TOPICS[d.topic]) return false;
+  $('sk').value = d.topic; $('sa').value = d.arn || ''; $('sm').value = d.message || ''; $('sn').value = d.newEmail || '';
+  about();
+  if (d.shots) {
+    try { shots = (await loadShots()).slice(0, SHOTS); } catch (e) { shots = []; }
+    if (shots.length < d.shots) problem('Add your screenshots again.');
+    showShots();
+  }
+  check();
+  return true;
+}
+
+/* from Account's "Wrong ARN? Write to us" and the FAQ: the reason (and the ARN) come filled in */
+const q = new URLSearchParams(location.search);
+restore().then(done => {
+  const about0 = q.get('about') || '';
+  if (done || !TOPICS[about0]) return;
+  $('sk').value = about0; if (/^\d+$/.test(q.get('arn') || '')) $('sa').value = 'ARN-' + q.get('arn'); about();
+});
+
+$('send').onclick = async () => {
+  if (!document.documentElement.classList.contains('si')) return toSignIn();
+  $('send').disabled = true; $('send').innerHTML = '<span class="spin"></span>Sending'; problem('');
+  const fd = new FormData();
+  fd.append('topic', $('sk').value); fd.append('arn', $('sa').value); fd.append('message', $('sm').value); fd.append('new_email', $('sn').value);
+  if (!T().noMsg) shots.forEach(f => fd.append('screenshot', f));
+  const r = await post('/api/support', fd);
+  if (r.status === 401) return toSignIn();
+  if (!r.ok) {
+    $('send').innerHTML = 'Send'; check();
+    return problem(({
+      too_many_requests: 'You’ve sent a few already. Try again in an hour.',
+      not_an_image: 'Choose PNG, JPEG or WebP images.', too_big: 'A screenshot is over 8 MB.',
+      bad_arn: 'That ARN doesn’t look right.', not_your_arn: 'That ARN isn’t on your plan.', bad_new_email: 'That email doesn’t look right.',
+      offline: 'We couldn’t reach the server. Check your connection and try again.',
+    } as Record<string, string>)[r.error] || 'That didn’t send. Try again.');
+  }
+  const data = $('sk').value === 'data';
+  await clearDraft();
+  $('formCard').innerHTML = `<div class="done sent">${tick()}
+    <h2>Sent · request <span class="mono">#${r.id}</span></h2><p>${
+      data ? `We’ll email your data to ${esc(r.email)} within a few hours.` : `We’ll reply to ${esc(r.email)}.`}</p></div>`;
+  requests();
+};
+</script>

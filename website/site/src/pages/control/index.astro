@@ -1,0 +1,48 @@
+---
+/* Overview: what needs the owner, and the money. */
+import Panel from '../../layouts/Panel.astro';
+import { accessUser } from '../../lib/server/access';
+import { overview, tabCounts } from '../../lib/server/admin';
+import { rupees } from '../../lib/price';
+import { istShort } from '../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const [o, counts] = await Promise.all([overview(), tabCounts()]);
+---
+<Panel title="Overview" app="control" on="/" me={me.email} counts={counts}>
+  <div class="ph1"><h1>Overview</h1></div>
+  <div class="stats">
+    <a class:list={['stat', { hot: o.payments > 0 }]} href="/payments"><span>Payments to check</span><b>{o.payments}</b><small>UPI screenshots waiting</small></a>
+    <a class:list={['stat', { hot: o.requests > 0 }]} href="/support"><span>Open support requests</span><b>{o.requests}</b><small>Answered by email</small></a>
+    <a class="stat" href="/sales"><span>Sales this month</span><b>{rupees(o.month.t)}</b><small>{o.month.n} paid order{o.month.n === 1 ? '' : 's'}</small></a>
+    <a class="stat" href="/sales"><span>Sales this financial year</span><b>{rupees(o.year.t)}</b><small>{o.year.n} paid order{o.year.n === 1 ? '' : 's'}</small></a>
+    <a class="stat" href="/accounts"><span>Accounts</span><b>{o.accounts}</b></a>
+    <a class="stat" href="/accounts?f=active"><span>Active plans</span><b>{o.plans.paid + o.plans.gift}</b><small>{o.plans.paid} paid · {o.plans.gift} gift</small></a>
+    <a class="stat" href="/accounts?f=trial"><span>Free trials running</span><b>{o.plans.trial}</b></a>
+    <a class="stat" href="/gifts?status=waiting"><span>Gifts not yet used</span><b>{o.gifts}</b></a>
+    <a class:list={['stat', { hot: o.deletions > 0 }]} href="/accounts?f=deleting"><span>Deletions pending</span><b>{o.deletions}</b><small>Deleted at 2:00 am</small></a>
+  </div>
+
+  <section class="pc">
+    <div class="pc-h"><h2>Scheduled jobs</h2></div>
+    <div class="pc-b">
+      <p class="note">They run by themselves: hourly (data copies, the free-trial emails, the unfinished-payment email) and at 2:00 am India time (deletions that are due, old sign-in codes and sessions). Run one now if something is waiting.</p>
+      <p class="note" id="jobOut" style="margin-top:8px"></p>
+      <div class="row-b" style="margin-top:12px"><button class="btn secondary sm" type="button" data-job="daily">Run the daily job</button><button class="btn secondary sm" type="button" data-job="hourly">Run the hourly job</button></div>
+    </div>
+  </section>
+</Panel>
+<script>
+import { post, esc } from '../../scripts/client';
+document.querySelectorAll<HTMLButtonElement>('[data-job]').forEach(b => b.onclick = async () => {
+  b.disabled = true;
+  const out = document.getElementById('jobOut')!;
+  out.textContent = 'Running…';
+  const r = await post('/api/admin/jobs', { job: b.dataset.job });
+  b.disabled = false;
+  const { ok, status, ...rest } = r;
+  out.innerHTML = ok ? `Done: <span class="mono">${esc(JSON.stringify(rest))}</span>` : `<span class="err-line">Failed (${esc(r.error)}).</span>`;
+});
+</script>

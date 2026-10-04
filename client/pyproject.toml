@@ -1,0 +1,60 @@
+[project]
+name = "client"
+version = "1.0.3"
+description = "Windows desktop app for mutual fund distributors: monthly GST commission invoices on CAMS and KFintech (download, sign, upload, track status)"
+readme = "README.md"
+authors = [
+    { name = "Neil Lunavat", email = "ayensystems@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.3",
+    "openpyxl>=3.1.5",
+    "pdfplumber>=0.11.10",
+    "pillow>=12.3.0",
+    "playwright>=1.63.0",
+    "psutil>=7.2.2",
+    "pyhanko>=0.37.0",
+    "pypdf>=6.19.0",
+    "python-pkcs11>=0.10.0",
+    "pywebview>=6.2.1",
+    "reportlab>=5.0.1",
+    "scipy>=1.18.1",
+    "xlrd>=2.0.2",
+]
+
+[project.scripts]
+app = "client.hands.shell:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+build = [
+    "pyinstaller>=6.22.3",
+]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.0",
+]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["slow: launches a real browser and drives it over a real tunnel"]
+# Playwright's driver is a subprocess, and on Windows asyncio grumbles about its pipes while being torn down after the
+# loop has closed. It happens after the test has passed, it is not ours, and it buried real failures in noise.
+filterwarnings = [
+    "ignore::ResourceWarning",
+    "ignore:.*I/O operation on closed pipe.*",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]

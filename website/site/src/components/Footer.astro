@@ -1,0 +1,14 @@
+---
+import Brand from './Brand.astro';
+import { NAME, BUSINESS } from '../consts';
+const { home = false } = Astro.props;
+---
+<footer>
+  <div class="wrap">
+    <div class="f-top">
+      <Brand href={home ? '#top' : '/'} />
+      <nav class="f-links"><a href="/setup">Setup</a><a href="/security">Security &amp; privacy</a><a href="/pricing">Pricing</a><a href="/downloads">Downloads</a><a href="/blog">Blog</a><a href="/support">Support</a><a href="/contact">Contact</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refunds">Refunds</a></nav>
+    </div>
+    <p class="legal">{NAME} by {BUSINESS.legalName}. CAMS and KFintech are trademarks of their respective owners. This is an independent product and is not affiliated with, or endorsed by, CAMS or KFin Technologies.</p>
+  </div>
+</footer>

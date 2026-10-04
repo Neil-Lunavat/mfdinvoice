@@ -1,0 +1,36 @@
+---
+/* A receipt (or tax invoice) exactly as the buyer sees it, opened from Sales or an account's page. */
+import '../../../styles/tokens.css';
+import '../../../styles/base.css';
+import '../../../styles/kit.css';
+import Fonts from '../../../components/Fonts.astro';
+import Sprite from '../../../components/Sprite.astro';
+import ReceiptSheet from '../../../components/ReceiptSheet.astro';
+import { env } from 'cloudflare:workers';
+import { NAME } from '../../../consts';
+import { accessUser } from '../../../lib/server/access';
+import type { Invoice, Order } from '../../../lib/server/orders';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const number = Astro.params.number ?? '';
+const inv = /^[A-Z0-9/-]{1,20}$/.test(number) ? await env.DB.prepare('SELECT * FROM invoices WHERE number = ?').bind(number).first<Invoice>() : null;
+if (!inv) return new Response(null, { status: 404 });
+const order = (await env.DB.prepare('SELECT id, provider, payment_id, utr, paid_at FROM orders WHERE id = ?').bind(inv.order_id).first<Pick<Order, 'id' | 'provider' | 'payment_id' | 'utr' | 'paid_at'>>())!;
+Astro.response.headers.set('cache-control', 'private, no-store');
+---
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{inv.number} · Control · {NAME}</title>
+<Fonts />
+</head>
+<body>
+<Sprite />
+<ReceiptSheet inv={inv} order={order} back={['/sales', 'Sales']} />
+</body>
+</html>

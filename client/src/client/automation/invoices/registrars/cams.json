@@ -1,0 +1,1769 @@
+{
+"page": [
+705.6,
+900.0
+],
+"ops": [
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 790.43,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "GSTIN"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 776.03,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "PAN"
+},
+{
+"op": "text",
+"page": 1,
+"x": 301.49,
+"y": 850.38,
+"size": 11.46,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "{name}",
+"cx": 352.08
+},
+{
+"op": "text",
+"page": 1,
+"x": 120.39,
+"y": 835.79,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "12, Shanti Kunj, College Road, Nashik - 422005, Maharashtra, India",
+"cx": 352.08
+},
+{
+"op": "text",
+"page": 1,
+"x": 86.53,
+"y": 790.43,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "{gstin}"
+},
+{
+"op": "text",
+"page": 1,
+"x": 86.53,
+"y": 776.03,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "{pan}"
+},
+{
+"op": "text",
+"page": 1,
+"x": 80.49,
+"y": 790.43,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": ":"
+},
+{
+"op": "text",
+"page": 1,
+"x": 80.49,
+"y": 776.03,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": ":"
+},
+{
+"op": "text",
+"page": 1,
+"x": 486.13,
+"y": 778.19,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Distributor Code"
+},
+{
+"op": "text",
+"page": 1,
+"x": 570.09,
+"y": 778.19,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": ":"
+},
+{
+"op": "text",
+"page": 1,
+"x": 576.13,
+"y": 778.19,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "{arn}"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 668.03,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "FRANKLIN TEMPLETON MUTUAL FUND"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 653.63,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "One International Centre"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 642.65,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Tower 2, 12th and 13th Floor"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 631.67,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Senapati Bapat Marg"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 620.69,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Elphinstone (West), Mumbai"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 609.71,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Maharashtra"
+},
+{
+"op": "text",
+"page": 1,
+"x": 47.44,
+"y": 543.06,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "SI."
+},
+{
+"op": "text",
+"page": 1,
+"x": 120.63,
+"y": 537.57,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Description"
+},
+{
+"op": "text",
+"page": 1,
+"x": 46.92,
+"y": 532.08,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "No"
+},
+{
+"op": "text",
+"page": 1,
+"x": 318.53,
+"y": 752.94,
+"size": 10.5,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "TAX INVOICE"
+},
+{
+"op": "text",
+"page": 1,
+"x": 324.13,
+"y": 668.03,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "GSTIN"
+},
+{
+"op": "text",
+"page": 1,
+"x": 324.13,
+"y": 653.63,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "PAN"
+},
+{
+"op": "text",
+"page": 1,
+"x": 396.42,
+"y": 544.77,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "CGST"
+},
+{
+"op": "text",
+"page": 1,
+"x": 497.49,
+"y": 544.77,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "SGST"
+},
+{
+"op": "text",
+"page": 1,
+"x": 600.14,
+"y": 544.77,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "IGST"
+},
+{
+"op": "text",
+"page": 1,
+"x": 238.68,
+"y": 537.57,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "HSN"
+},
+{
+"op": "text",
+"page": 1,
+"x": 281.73,
+"y": 537.57,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Taxable Value"
+},
+{
+"op": "text",
+"page": 1,
+"x": 367.26,
+"y": 530.37,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Rate"
+},
+{
+"op": "text",
+"page": 1,
+"x": 423.19,
+"y": 530.37,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Amount"
+},
+{
+"op": "text",
+"page": 1,
+"x": 468.06,
+"y": 530.37,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Rate"
+},
+{
+"op": "text",
+"page": 1,
+"x": 523.99,
+"y": 530.37,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Amount"
+},
+{
+"op": "text",
+"page": 1,
+"x": 568.86,
+"y": 530.37,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Rate"
+},
+{
+"op": "text",
+"page": 1,
+"x": 624.79,
+"y": 530.37,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Amount"
+},
+{
+"op": "text",
+"page": 1,
+"x": 367.33,
+"y": 668.03,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "27AAATT4931H1ZE"
+},
+{
+"op": "text",
+"page": 1,
+"x": 367.33,
+"y": 653.63,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "AAATT4931H"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 588.83,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Address of Supply, if different from above"
+},
+{
+"op": "text",
+"page": 1,
+"x": 367.33,
+"y": 588.83,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Address of Delivery, if different from address of supply"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 577.85,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "-Same as above-"
+},
+{
+"op": "text",
+"page": 1,
+"x": 367.33,
+"y": 577.85,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "-same as address of supply-"
+},
+{
+"op": "text",
+"page": 1,
+"x": 442.93,
+"y": 740.03,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Invoice Date"
+},
+{
+"op": "text",
+"page": 1,
+"x": 442.93,
+"y": 725.63,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Invoice No"
+},
+{
+"op": "text",
+"page": 1,
+"x": 361.29,
+"y": 668.03,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": ":"
+},
+{
+"op": "text",
+"page": 1,
+"x": 361.29,
+"y": 653.63,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": ":"
+},
+{
+"op": "text",
+"page": 1,
+"x": 511.33,
+"y": 725.63,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "FTIM/26-27/E/5"
+},
+{
+"op": "text",
+"page": 1,
+"x": 505.29,
+"y": 740.03,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": ":"
+},
+{
+"op": "text",
+"page": 1,
+"x": 505.29,
+"y": 725.63,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": ":"
+},
+{
+"op": "text",
+"page": 1,
+"x": 511.33,
+"y": 740.03,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "September 07, 2026"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "1"
+},
+{
+"op": "text",
+"page": 1,
+"x": 329.23,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "412.60"
+},
+{
+"op": "text",
+"page": 1,
+"x": 382.64,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "9"
+},
+{
+"op": "text",
+"page": 1,
+"x": 435.34,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "37.13"
+},
+{
+"op": "text",
+"page": 1,
+"x": 584.24,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "0"
+},
+{
+"op": "text",
+"page": 1,
+"x": 655.52,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "0"
+},
+{
+"op": "text",
+"page": 1,
+"x": 64.94,
+"y": 515.52,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Brokerage paid for the period from"
+},
+{
+"op": "text",
+"page": 1,
+"x": 64.94,
+"y": 504.48,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "01-Aug-2026 to 31-Aug-2026"
+},
+{
+"op": "text",
+"page": 1,
+"x": 64.94,
+"y": 493.44,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "(includes all Upfront, Trailer fee and"
+},
+{
+"op": "text",
+"page": 1,
+"x": 235.13,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "997152"
+},
+{
+"op": "text",
+"page": 1,
+"x": 483.44,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "9"
+},
+{
+"op": "text",
+"page": 1,
+"x": 536.14,
+"y": 488.61,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "37.13"
+},
+{
+"op": "text",
+"page": 1,
+"x": 64.94,
+"y": 482.4,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Incentive)"
+},
+{
+"op": "text",
+"page": 1,
+"x": 64.94,
+"y": 471.36,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "vide payment ref :"
+},
+{
+"op": "text",
+"page": 1,
+"x": 64.94,
+"y": 460.32,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "CITIN26700000000"
+},
+{
+"op": "text",
+"page": 1,
+"x": 230.53,
+"y": 438.79,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Total"
+},
+{
+"op": "text",
+"page": 1,
+"x": 329.23,
+"y": 438.79,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "412.60"
+},
+{
+"op": "text",
+"page": 1,
+"x": 435.34,
+"y": 438.79,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "37.13"
+},
+{
+"op": "text",
+"page": 1,
+"x": 536.14,
+"y": 438.79,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "37.13"
+},
+{
+"op": "text",
+"page": 1,
+"x": 655.52,
+"y": 438.79,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "0"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 412.29,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Total invoice value"
+},
+{
+"op": "text",
+"page": 1,
+"x": 229.81,
+"y": 412.29,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "486.86"
+},
+{
+"op": "text",
+"page": 1,
+"x": 229.81,
+"y": 392.99,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "( Four Hundred Eighty Six And Eighty Six Paise Only )"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 359.87,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "GST payable under Reverse charge"
+},
+{
+"op": "text",
+"page": 1,
+"x": 208.93,
+"y": 359.87,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "No"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 345.47,
+"size": 9.55,
+"font": "Arial",
+"hscale": 100.0,
+"text": "If yes, amount of GST payable"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 290.03,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "For {name}"
+},
+{
+"op": "text",
+"page": 1,
+"x": 43.33,
+"y": 191.21,
+"size": 9.55,
+"font": "Arial-Bold",
+"hscale": 100.0,
+"text": "Authorised Signatory"
+},
+{
+"op": "line",
+"page": 1,
+"x": 28.08,
+"y": 62.64,
+"w": 0,
+"h": -34.56,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 677.52,
+"y": 62.64,
+"w": 0,
+"h": -34.56,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 28.08,
+"y": 62.64,
+"w": 649.44,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 28.08,
+"y": 771.12,
+"w": 649.44,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 28.08,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 677.52,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 28.08,
+"y": 457.2,
+"w": 0,
+"h": -270.72,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 677.52,
+"y": 457.2,
+"w": 0,
+"h": -270.72,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 318.53,
+"y": 751.83,
+"w": 67.1,
+"h": 0,
+"thickness": 1.1
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 555.12,
+"w": 0,
+"h": -28.8,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 555.12,
+"w": 38.16,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 526.32,
+"w": 38.16,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 540.72,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 526.32,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 388.8,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 388.8,
+"y": 540.72,
+"w": 71.28,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 388.8,
+"y": 526.32,
+"w": 71.28,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 540.72,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 526.32,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 42.48,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 267.84,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 661.68,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 388.8,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 525.6,
+"w": 0,
+"h": -68.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 525.6,
+"w": 0,
+"h": -68.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 490.32,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 267.84,
+"y": 526.32,
+"w": 0,
+"h": -69.12,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 457.2,
+"w": 38.16,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 435.6,
+"w": 38.16,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 457.2,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 435.6,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 457.2,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 435.6,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 490.32,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 490.32,
+"y": 457.2,
+"w": 70.56,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 490.32,
+"y": 435.6,
+"w": 70.56,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 388.8,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 388.8,
+"y": 457.2,
+"w": 71.28,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 388.8,
+"y": 435.6,
+"w": 71.28,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 435.6,
+"w": 165.6,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 42.48,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 42.48,
+"y": 435.6,
+"w": 21.6,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 42.48,
+"y": 555.12,
+"w": 21.6,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 42.48,
+"y": 526.32,
+"w": 21.6,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 42.48,
+"y": 555.12,
+"w": 0,
+"h": -28.8,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 555.12,
+"w": 0,
+"h": -28.8,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 555.12,
+"w": 165.6,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 526.32,
+"w": 165.6,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 64.08,
+"y": 555.12,
+"w": 0,
+"h": -28.8,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 229.68,
+"y": 555.12,
+"w": 0,
+"h": -28.8,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 267.84,
+"y": 555.12,
+"w": 91.44,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 267.84,
+"y": 526.32,
+"w": 91.44,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 267.84,
+"y": 555.12,
+"w": 0,
+"h": -28.8,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 555.12,
+"w": 0,
+"h": -28.8,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 555.12,
+"w": 100.8,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 540.72,
+"w": 100.8,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 555.12,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 555.12,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 555.12,
+"w": 100.8,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 540.72,
+"w": 100.8,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 460.08,
+"y": 555.12,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 555.12,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 555.12,
+"w": 100.8,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 540.72,
+"w": 100.8,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 555.12,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 661.68,
+"y": 555.12,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 490.32,
+"y": 540.72,
+"w": 70.56,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 490.32,
+"y": 526.32,
+"w": 70.56,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 490.32,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 540.72,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 526.32,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 540.72,
+"w": 71.28,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 526.32,
+"w": 71.28,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 661.68,
+"y": 540.72,
+"w": 0,
+"h": -14.4,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 267.84,
+"y": 457.2,
+"w": 91.44,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 267.84,
+"y": 435.6,
+"w": 91.44,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 267.84,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 359.28,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 457.2,
+"w": 71.28,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 435.6,
+"w": 71.28,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 661.68,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 457.2,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 435.6,
+"w": 29.52,
+"h": 0,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 560.88,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 590.4,
+"y": 457.2,
+"w": 0,
+"h": -21.6,
+"thickness": 0.65
+},
+{
+"op": "line",
+"page": 1,
+"x": 28.08,
+"y": 871.92,
+"w": 649.44,
+"h": 0,
+"thickness": 1.3
+},
+{
+"op": "line",
+"page": 1,
+"x": 28.08,
+"y": 28.08,
+"w": 649.44,
+"h": 0,
+"thickness": 1.3
+},
+{
+"op": "line",
+"page": 1,
+"x": 28.08,
+"y": 871.92,
+"w": 0,
+"h": -843.84,
+"thickness": 1.3
+},
+{
+"op": "line",
+"page": 1,
+"x": 677.52,
+"y": 871.92,
+"w": 0,
+"h": -843.84,
+"thickness": 1.3
+}
+]
+}

@@ -1,0 +1,356 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import Brand from '../components/Brand.astro';
+import ArnStepper from '../components/ArnStepper.astro';
+import { tick, cross } from '../scripts/client';
+import { NAME, PRICE, SALES } from '../consts';
+import { signedInOr } from '../lib/server/page';
+import { getAccount, onTrial } from '../lib/server/account';
+import { allowance } from '../lib/server/orders';
+import { activeProvider, providerName } from '../lib/server/pay';
+import { longDate } from '../lib/date';
+import { openUpiOrder, rejectedBlock } from '../lib/server/upi';
+import { rupees } from '../lib/price';
+import { hasAnswered } from '../lib/server/survey';
+export const prerender = false;
+
+const q = Astro.url.searchParams;
+const add = q.get('add') === '1';
+const arns = Math.min(PRICE.maxArns, Math.max(1, Math.floor(+(q.get('arns') ?? 1)) || 1));
+const s = await signedInOr(Astro.request, add ? '/signin?next=checkout&add=1' : `/signin?next=checkout${q.get('arns') ? '&arns=' + arns : ''}`);
+if (s instanceof Response) return s;
+/* a new plan unless one is running; then only more ARNs, up to the maximum */
+const { kind, max, plan, months } = await allowance(s.account_id);
+if (add && kind === 'new') return Astro.redirect('/checkout');
+if (!add && kind === 'add') return Astro.redirect('/checkout?add=1');
+if (max < 1) return Astro.redirect('/account');
+const acct = (await getAccount(s.account_id))!;
+/* UPI (checked by hand), Cashfree or Razorpay: PAYMENTS in wrangler.jsonc. Cashfree needs a mobile number. */
+const provider = activeProvider();
+const payWith = provider === 'upi' ? 'Paid by UPI, from any UPI app.' : `Paid through ${providerName(provider)}: UPI, cards or netbanking.`;
+/* without GST we issue a receipt, not a tax invoice */
+const doc = SALES.gst ? 'invoice' : 'receipt';
+/* a UPI screenshot already sent: show that it's being checked instead of the form */
+const review = provider === 'upi' ? await openUpiOrder(s.account_id).then(o => (o?.status === 'review' ? o : null)) : null;
+/* a payment the owner rejected: no paying again until support has sorted it out */
+const rejected = provider === 'upi' && !review ? await rejectedBlock(s.account_id, s.email) : null;
+/* the three questions show while a payment is checked, until they're answered */
+const surveyDone = await hasAnswered(s.account_id);
+Astro.response.headers.set('cache-control', 'private, no-store');
+---
+<Layout title={`Checkout · ${NAME}`} description={`Details for your ${SALES.gst ? 'tax invoice' : 'receipt'}. ${payWith}`} path="/checkout" nav="none">
+<header class="mini"><Brand /><span class="who">Signed in as <b>{s.email}</b></span></header>
+
+<main>
+  {review ? <section class="co"><div class="card done">
+    <Fragment set:html={tick()} />
+    <h1>We’re checking your payment</h1>
+    <p>{rupees(review.total)}, reference <b class="mono">{review.id}</b>. You’ll get an email at {s.email} once it’s checked, and your plan starts then.</p>
+    <a class="btn primary lg" href="/account">Go to your account</a>
+  </div></section> : rejected ? <section class="co"><div class="card done no">
+    <Fragment set:html={cross()} />
+    <h1>We couldn’t verify your payment</h1>
+    <p>{rupees(rejected.total)}, reference <b class="mono">{rejected.id}</b>.</p>
+    {rejected.note_shared && rejected.review_note ? <p class="why">{rejected.review_note}</p> : null}
+    <p>Please write to support and we’ll help you.</p>
+    <a class="btn primary lg" href="/support?about=payment">Write to support</a>
+  </div></section> :
+  <section class="co" id="co" data-kind={kind} data-max={max} data-arns={Math.min(arns, max)} data-email={s.email} data-provider={provider} data-doc={doc} data-until={kind === 'add' ? longDate(plan!.ends_on) : ''} data-months={months} data-last={kind === 'add' ? plan!.ends_on : ''} data-gst={SALES.gst ? '1' : ''}>
+    <h1>Checkout</h1>
+    <p class="sub" id="coSub">{onTrial(plan) ? `Yearly plan. Your year starts when your free trial ends, on ${longDate(plan!.ends_on)}.` : 'Yearly plan.'}</p>
+    <div class="co-grid">
+      <div class="card form rv">
+        <h2>Details for your {SALES.gst ? 'tax invoice' : 'receipt'}</h2>
+        {SALES.gst && <div class="field"><label for="g">GSTIN</label><input class="input mono" id="g" maxlength="15" autocomplete="off" value={acct.bill_gstin ?? ''}><span class="err" id="ge" hidden>That GSTIN doesn’t look right.</span><div id="gd"></div></div>}
+        <div class="field"><label for="n">Name on the {doc}</label><input class="input" id="n" placeholder="Your name or your firm’s" value={acct.bill_name ?? ''}></div>
+        <div class="field"><label for="a">Address</label><textarea class="input" id="a" placeholder={SALES.gst ? 'As on your GST registration' : undefined}>{acct.bill_address ?? ''}</textarea></div>
+        {provider === 'cashfree' && <div class="field"><label for="m">Mobile number</label><input class="input mono" id="m" inputmode="tel" autocomplete="tel-national" maxlength="16" value={acct.phone ?? ''}><span class="err" id="me" hidden>That mobile number doesn’t look right.</span></div>}
+        <p class="to">The {doc} goes to <b>{s.email}</b>.</p>
+      </div>
+      <div class="card sum rv" id="sum">
+        <h2 id="sumT">Your plan</h2>
+        <ArnStepper />
+        <div class="lines" id="lines"></div>
+        <p class="agree">By paying, you agree to the <a href="/terms">Terms</a> and the <a href="/refunds">Refund policy</a>.</p>
+        <button class="btn primary lg" type="button" id="pay" disabled>Pay</button>
+        <p class="fine" id="fine">{payWith}</p>
+      </div>
+    </div>
+  </section>}
+  <div id="sv" data-done={surveyDone ? '1' : ''}></div>
+</main>
+</Layout>
+
+<style is:global>
+.mini{display:flex;align-items:center;gap:16px;padding:22px 28px}.mini .who{margin-left:auto;font-size:13.5px;color:var(--muted)}.mini .who b{color:var(--ink);font-weight:500}
+.co{max-width:1040px;margin:0 auto;padding:24px 24px 110px}
+.co h1{font-size:28px;font-weight:600;letter-spacing:-.03em}
+.co .sub{margin-top:6px;color:var(--muted)}
+.co-grid{margin-top:32px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:24px;align-items:start}
+.form{padding:32px;display:grid;gap:20px}
+.form h2,.sum h2{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.form textarea.input{min-height:90px}
+.form .to{font-size:13.5px;color:var(--muted)}
+.form .to b{color:var(--ink);font-weight:500}
+.sum{padding:28px;position:sticky;top:24px}
+.sum .arn{margin-top:16px;background:var(--subtle)}
+.lines{margin-top:18px}
+.ln{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:14.5px;color:var(--ink-2)}
+.ln span:last-child{font-variant-numeric:tabular-nums}
+.ln.tot{margin-top:6px;padding-top:14px;border-top:1.5px solid var(--ink);font-weight:600;font-size:17px;color:var(--ink)}
+.sum .btn.lg{margin-top:22px;width:100%}
+.agree{margin-top:18px;font-size:12.5px;color:var(--muted)}
+.agree a{color:var(--ink-2);text-decoration:underline;text-decoration-color:var(--ghost);text-underline-offset:3px}
+.agree + .btn.lg{margin-top:10px}
+.sum .fine{margin-top:12px;font-size:12.5px;color:var(--muted);text-align:center}
+.upi{margin-top:16px;padding:18px;background:var(--subtle);border:1px solid var(--line);border-radius:var(--r-card)}
+.upi .qr{width:208px;height:208px;margin:0 auto;padding:10px;background:#fff;border:1px solid var(--line);border-radius:10px}
+.upi .qr svg{display:block;width:100%;height:100%}
+.upi dl{margin:16px 0 0;display:grid;gap:8px;font-size:13.5px}
+.upi dl div{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.upi dt{color:var(--muted)}
+.upi dd{margin:0;font-weight:500;text-align:right}
+.upi dd.mono{font-family:var(--mono);font-size:13px}
+.upi-h{margin-top:12px;font-size:12.5px;color:var(--muted)}
+.sum .field{margin-top:18px}
+.opt{font-weight:400;color:var(--faint);margin-left:4px}
+.drop{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:10px 14px;border:1.5px dashed var(--ghost);border-radius:var(--r-ctl);background:var(--surface);font-size:13.5px;color:var(--ink-2);cursor:pointer;text-align:center;transition:border-color 120ms,background 120ms}
+.drop:hover{border-color:var(--blue);background:var(--blue-wash)}
+.drop.has{border-style:solid;border-color:var(--green-line);background:var(--green-wash);color:var(--green)}
+.drop svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.back{display:block;margin-top:10px;text-align:center;font-size:13px;color:var(--muted)}
+/* the result card itself is kit.css .done */
+.done{max-width:520px;margin:40px auto 0;padding:36px 40px 40px}
+.done .btn.lg{margin-top:12px;min-width:240px}
+.sv{max-width:520px;margin:16px auto 0;padding:28px 32px}
+.sv h2{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.sv .sv-s{margin-top:4px;font-size:13.5px;color:var(--muted)}
+.svq{margin:20px 0 0;padding:0;border:0}
+.svq legend{padding:0;font-size:14px;font-weight:500;color:var(--ink)}
+.chips{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip span{display:inline-flex;align-items:center;height:34px;padding:0 13px;border:1px solid var(--line);border-radius:99px;background:var(--surface);font-size:13.5px;color:var(--ink-2);cursor:pointer;transition:border-color 120ms,background 120ms}
+.chip span:hover{border-color:var(--line-hover)}
+.chip input:checked + span{border-color:var(--blue);background:var(--blue-wash);color:var(--blue);font-weight:500}
+.chip input:focus-visible + span{outline:2px solid var(--blue);outline-offset:2px}
+.svq .input{margin-top:10px}
+.sv-f{margin-top:24px;display:flex;align-items:center;justify-content:flex-end;gap:12px}
+.sv-f .err{margin-right:auto}
+/* the thank-you: a heart that beats once, and the line for their kind (lib/survey.ts THANKS) */
+.sv.ok{display:flex;align-items:center;gap:14px;padding:20px 28px;background:#fff1f3;border:1.5px solid #fecdd3;animation:pop 320ms var(--ease) both}
+.sv.ok .heart{width:30px;height:30px;flex-shrink:0;fill:#e11d48;animation:beat 900ms var(--ease) 200ms both}
+@keyframes beat{0%{transform:scale(.3);opacity:0}35%{transform:scale(1.15);opacity:1}55%{transform:scale(.95)}75%{transform:scale(1.08)}100%{transform:scale(1)}}
+.gone{opacity:0;transform:translateY(-6px);transition:opacity 400ms var(--ease),transform 400ms var(--ease)}
+.sv-ok{font-size:15.5px;font-weight:500;line-height:1.5;color:var(--ink)}
+@media (max-width:880px){.co-grid{grid-template-columns:1fr}.sum{position:static}.form,.sum{padding:24px 20px}.sv{padding:24px 20px}}
+</style>
+<script>
+/* The price comes from consts.ts (the server works it out again and charges that). Pay → the server creates an
+   order with the active provider. UPI: a QR with the amount and reference → the buyer pays, sends the screenshot →
+   "sent for checking" (the owner approves). Cashfree / Razorpay: their checkout → the server checks the payment. */
+import { PRICE, SALES } from '../consts';
+import { STATES, gstinOk } from '../lib/gstin';
+import { quote, rupees, monthsLine } from '../lib/price';
+import { QUESTIONS, THANKS, kindOf } from '../lib/survey';
+import { $, esc, post, tick } from '../scripts/client';
+
+/* While the payment is checked: three optional questions (lib/survey.ts), until they're answered once. */
+function survey() {
+  /* the card goes under the "checking" card, inside the same section */
+  const mount = $('sv'), host = document.querySelector('.co');
+  if (!mount || !host || mount.dataset.done) return;
+  const box = document.createElement('div');
+  host.appendChild(box);
+  box.innerHTML = `<div class="card sv rv in">
+    <h2>While we check: three quick questions</h2>
+    <p class="sv-s">All optional.</p>
+    ${QUESTIONS.map(q => `<fieldset class="svq"><legend>${q.q}</legend><div class="chips">${q.options.map(([k, l]) =>
+      `<label class="chip"><input type="radio" name="${q.key}" value="${k}"><span>${l}</span></label>`).join('')}</div>${q.other
+      ? `<input class="input" id="${q.key}_other" maxlength="200" placeholder="Where?" hidden>` : ''}</fieldset>`).join('')}
+    <div class="sv-f"><span class="err" id="svE" hidden>That didn’t save. Try again.</span><button class="btn primary" type="button" id="svB" disabled>Save</button></div>
+  </div>`;
+  const picked = () => Object.fromEntries(QUESTIONS.flatMap(q => {
+    const v = (box.querySelector(`input[name="${q.key}"]:checked`) as HTMLInputElement | null)?.value;
+    return v ? [[q.key, v], ...(q.other && v === q.other ? [[`${q.key}_other`, $(`${q.key}_other`).value.trim()]] : [])] : [];
+  }));
+  box.onchange = () => {
+    QUESTIONS.forEach(q => { if (q.other) $(`${q.key}_other`).hidden = picked()[q.key] !== q.other; });
+    $('svB').disabled = !Object.keys(picked()).length;
+  };
+  $('svB').onclick = async () => {
+    $('svB').disabled = true;
+    const r = await post('/api/survey', picked());
+    if (!r.ok) { $('svE').hidden = false; $('svB').disabled = false; return; }
+    mount.dataset.done = '1';
+    const answers = picked();
+    box.innerHTML = `<div class="card sv ok"><svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><p class="sv-ok">${THANKS[kindOf(answers)]}</p></div>`;
+    /* it says its thanks (long enough to read, and to click the firm's link), then goes */
+    setTimeout(() => { box.classList.add('gone'); setTimeout(() => box.remove(), 400); }, 7000);
+  };
+}
+
+const co = $('co');
+/* no form when a UPI payment is already being checked: just the questions */
+if (co) init(); else survey();
+function init() {
+const adding = co.dataset.kind === 'add';          /* a plan is running: more ARNs on it */
+const max = +co.dataset.max, email = co.dataset.email, until = co.dataset.until;
+/* more ARNs cost only the months left on the plan (the server works this out; the page only shows it) */
+const months = +co.dataset.months || 12, last = co.dataset.last;
+/* SALES.gst off: no GSTIN field */
+const GST = !!co.dataset.gst;
+const cashfree = co.dataset.provider === 'cashfree';
+const phone = () => cashfree ? $('m').value.replace(/[\s-]/g, '').replace(/^(\+91|0)/, '') : '';
+const phoneOk = () => !cashfree || /^[6-9]\d{9}$/.test(phone());
+let n = adding ? 1 : +co.dataset.arns;
+const FINE = $('fine').textContent;
+function lines() {
+  $('cnt').textContent = n;
+  $('less').disabled = n === 1; $('more').disabled = n >= max;
+  const t = quote(adding ? 'add' : 'new', n, months);
+  $('lines').innerHTML = (adding
+      ? `<div class="ln"><span>${n} more ARN${n > 1 ? 's' : ''} ${monthsLine(months, last)}</span><span>${rupees(t.subtotal)}</span></div>`
+      : `<div class="ln"><span>Yearly plan, ${SALES.moreArns ? 'first' : 'one'} ARN</span><span>${rupees(PRICE.first * 100)}</span></div>` +
+        (n > 1 ? `<div class="ln"><span>${n - 1} more ARN${n > 2 ? 's' : ''}</span><span>${rupees(PRICE.extra * (n - 1) * 100)}</span></div>` : '')) +
+    (SALES.gst ? `<div class="ln"><span>GST ${Math.round(PRICE.gst * 100)}%</span><span>${rupees(t.gst)}</span></div>` : '') +
+    `<div class="ln tot"><span>Total</span><span>${rupees(t.total)}</span></div>`;
+  $('pay').dataset.amt = rupees(t.total);
+  check();
+}
+if (adding) { $('coSub').textContent = 'More ARNs on your plan.'; $('sumT').textContent = 'Adding ARNs'; }
+function rebind() {
+  $('less').onclick = () => { if (n > 1) { n--; lines(); } };
+  $('more').onclick = () => { if (n < max) { n++; lines(); } };
+  $('pay').onclick = pay;
+}
+
+let touched = false, busy = false;
+function check() {
+  const g = GST ? $('g').value : '', ok = !GST || gstinOk(g);
+  if (GST) {
+    $('gd').innerHTML = ok ? `<div class="derived"><span>PAN <b>${g.slice(2, 12)}</b></span><span>State <b>${STATES[g.slice(0, 2)]}</b></span></div>` : '';
+    const bad = touched && g.length > 0 && !ok;
+    $('ge').hidden = !bad; $('g').classList.toggle('bad', bad);
+  }
+  if (cashfree) { const pbad = mTouched && $('m').value.trim() !== '' && !phoneOk(); $('me').hidden = !pbad; $('m').classList.toggle('bad', pbad); }
+  if (busy) return;
+  $('pay').disabled = !(ok && $('n').value.trim() && $('a').value.trim() && phoneOk());
+  $('pay').textContent = 'Pay ' + ($('pay').dataset.amt || '');
+}
+if (GST) {
+  $('g').oninput = e => { e.target.value = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ''); if (e.target.value.length >= 15) touched = true; check(); };
+  $('g').onblur = () => { touched = true; check(); };
+}
+$('n').oninput = check; $('a').oninput = check;
+let mTouched = false;
+if (cashfree) { $('m').oninput = check; $('m').onblur = () => { mTouched = true; check(); }; }
+
+function problem(text: string) {
+  busy = false; check();
+  $('fine').textContent = text; $('fine').style.color = 'var(--red)';
+}
+const load = (src: string, global: string) => new Promise<void>((ok, no) => {
+  if ((window as any)[global]) return ok();
+  const el = document.createElement('script'); el.src = src;
+  el.onload = () => ok(); el.onerror = () => no(); document.head.appendChild(el);
+});
+const what = () => adding ? `${n} more ARN${n > 1 ? 's' : ''}` : `Yearly plan, ${n} ARN${n > 1 ? 's' : ''}`;
+async function confirm(data: object) {
+  $('pay').innerHTML = '<span class="spin"></span>Confirming';
+  const v = await post('/api/checkout/verify', data);
+  if (!v.ok) return problem('We couldn’t confirm the payment here. If money left your account, your Account page shows it within a few minutes.');
+  paid(rupees(v.total));
+}
+
+async function pay() {
+  if (busy) return;
+  busy = true; $('fine').textContent = FINE; $('fine').style.color = '';
+  $('pay').disabled = true; $('pay').innerHTML = '<span class="spin"></span>Opening payment';
+  const order = await post('/api/checkout/order', { kind: adding ? 'add' : 'new', arns: n, ...(GST ? { gstin: $('g').value } : {}), name: $('n').value.trim(), address: $('a').value.trim(), phone: phone() });
+  if (order.status === 401) return location.href = '/signin?next=checkout' + (adding ? '&add=1' : '&arns=' + n);
+  if (order.error === 'plan_changed' || order.error === 'in_review' || order.error === 'rejected') return location.reload();
+  if (!order.ok) return problem(order.error === 'bad_gstin' ? 'That GSTIN doesn’t look right.' : order.error === 'bad_phone' ? 'That mobile number doesn’t look right.' : 'Payment couldn’t start. Try again in a minute.');
+  if (order.provider === 'upi') return upi(order);
+  if (order.provider === 'cashfree') {
+    try { await load('https://sdk.cashfree.com/js/v3/cashfree.js', 'Cashfree'); } catch (e) { return problem('Cashfree didn’t load. Check your connection and try again.'); }
+    const result = await (window as any).Cashfree({ mode: order.mode }).checkout({ paymentSessionId: order.session, redirectTarget: '_modal' });
+    /* closed, or the payment failed: nothing is charged, Pay comes back */
+    if (result.error || !result.paymentDetails) { busy = false; return check(); }
+    return confirm({ order_id: order.order_id });
+  }
+  try { await load('https://checkout.razorpay.com/v1/checkout.js', 'Razorpay'); } catch (e) { return problem('Razorpay didn’t load. Check your connection and try again.'); }
+  const rzp = new (window as any).Razorpay({
+    key: order.key, order_id: order.order_id, amount: order.amount, currency: order.currency, name: order.name,
+    description: what(), prefill: { email, name: $('n').value.trim() }, theme: { color: '#1d4ed8' },
+    handler: (res: any) => confirm({ order_id: res.razorpay_order_id, payment_id: res.razorpay_payment_id, signature: res.razorpay_signature }),
+    modal: { ondismiss: () => { busy = false; check(); } },
+  });
+  rzp.open();
+}
+/* UPI: the summary card becomes the QR, then the screenshot. The details on the left are locked meanwhile. */
+const lock = (on: boolean) => ['g', 'n', 'a'].forEach(id => { if ($(id)) $(id).disabled = on; });
+const summary = $('sum').innerHTML;
+function upi(order: any) {
+  lock(true);
+  const amt = rupees(order.amount);
+  $('sum').innerHTML = `<h2>Pay ${amt} by UPI</h2>
+    <div class="upi">
+      <div class="qr">${order.qr}</div>
+      <dl>
+        <div><dt>To</dt><dd>${esc(order.upi_name)}</dd></div>
+        <div><dt>UPI ID</dt><dd class="mono">${esc(order.upi_id)}</dd></div>
+        <div><dt>Reference</dt><dd class="mono">${esc(order.order_id)}</dd></div>
+      </dl>
+    </div>
+    <p class="upi-h">Scan with any UPI app. The amount and the reference fill in by themselves.</p>
+    <div class="field"><label for="shot">Screenshot of the payment</label>
+      <label class="drop" id="drop"><input type="file" id="shot" accept="image/png,image/jpeg,image/webp" hidden><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg><span id="shotN">Choose the screenshot</span></label>
+      <span class="err" id="shotE" hidden></span></div>
+    <div class="field"><label for="utr">UTR number<span class="opt">optional</span></label><input class="input mono" id="utr" maxlength="22" autocomplete="off"><span class="hint">The 12-digit number on the payment. It makes checking faster.</span></div>
+    <button class="btn primary lg" type="button" id="send" disabled>Send for checking</button>
+    <p class="fine" id="fine">Your plan starts once the payment is checked.</p>
+    <a class="back" href="#" id="back">Change details</a>`;
+  const shot = $('shot');
+  shot.onchange = () => {
+    const f = shot.files[0];
+    const bad = f && !['image/png', 'image/jpeg', 'image/webp'].includes(f.type) ? 'Choose a PNG or JPEG image.' : f && f.size > 8 * 1024 * 1024 ? 'That image is over 8 MB.' : '';
+    $('shotE').textContent = bad; $('shotE').hidden = !bad;
+    $('shotN').textContent = f ? f.name : 'Choose the screenshot';
+    $('drop').classList.toggle('has', !!f && !bad);
+    $('send').disabled = !f || !!bad;
+  };
+  $('back').onclick = (e: Event) => { e.preventDefault(); $('sum').innerHTML = summary; lock(false); busy = false; rebind(); lines(); };
+  $('send').onclick = async () => {
+    $('send').disabled = true; $('send').innerHTML = '<span class="spin"></span>Sending';
+    const fd = new FormData();
+    fd.append('order_id', order.order_id); fd.append('screenshot', shot.files[0]); fd.append('utr', $('utr').value);
+    const r = await post('/api/checkout/proof', fd);
+    if (r.status === 401) return location.href = '/signin?next=checkout';
+    if (r.error === 'in_review') return location.reload();
+    if (!r.ok) {
+      $('send').disabled = false; $('send').textContent = 'Send for checking';
+      $('fine').style.color = 'var(--red)';
+      $('fine').textContent = r.error === 'not_an_image' ? 'Choose a PNG or JPEG image.' : r.error === 'too_big' ? 'That image is over 8 MB.' : 'That didn’t send. Try again.';
+      return;
+    }
+    co.innerHTML = `<div class="card done">
+      ${tick()}
+      <h1>Sent for checking</h1>
+      <p>${amt}, reference <b class="mono">${esc(order.order_id)}</b>. You’ll get an email at ${esc(email)} once it’s checked, and your plan starts then.</p>
+      <a class="btn primary lg" href="/account">Go to your account</a></div>`;
+    survey();
+  };
+}
+function paid(amt: string) {
+  co.innerHTML = `<div class="card done">
+    ${tick()}
+    <h1>Payment received</h1>
+    <p>${amt}, for ${adding ? n + ' more ARN' + (n > 1 ? 's' : '') : 'a yearly plan with ' + n + ' ARN' + (n > 1 ? 's' : '')}. Your ${co.dataset.doc === 'invoice' ? 'tax invoice' : 'receipt'} is on its way to ${esc(email)}.</p>
+    <a class="btn primary lg" href="${adding ? '/account' : '/downloads'}">Continue</a></div>`;
+}
+rebind();
+lines();
+}
+
+</script>

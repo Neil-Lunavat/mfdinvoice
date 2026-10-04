@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import { NAME } from '../consts';
+---
+<Layout title={`Not found · ${NAME}`} description="It may have been moved. Please check the URL." path="/404" canonical={false}>
+<main>
+  <section class="page solo">
+    <p class="code">404</p>
+    <h1 class="h2">This page isn’t here.</h1>
+    <p class="lede"><span>It may have been moved.</span> <span>Please check the URL.</span></p>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+/* on a phone, one sentence a line */
+@media (max-width:640px){.solo .lede span{display:block}}
+</style>

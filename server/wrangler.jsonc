@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The software's own server: https://software.<your-subdomain>.workers.dev
+  // It knows the software and nothing about accounts (that is the website, website/site). Three jobs:
+  //   - the current portal steps, as static files under /automation (made by ops/automation.py, signed)
+  //   - what the app sends to support: POST /report, and a run's record after it
+  //   - reading those back, for whoever fixes things: /admin/*, with the key
+  "name": "software",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-09-01",
+  // /automation/latest.json and /automation/<version>.zip are served straight from here; the Worker never sees them
+  "assets": { "directory": "./public" },
+  // what was sent to support. The id is written here by `bun run first`
+  "d1_databases": [
+    { "binding": "DB", "database_name": "software-db", "database_id": "6bce22cb-365e-4e16-99be-824a856cc08b" }
+  ],
+  // each run's record (pictures of the invoice pages, a page's HTML), one zip per report
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "software-files" }
+  ],
+  "workers_dev": true,
+  // Secret (set by `bun run first`): ADMIN_KEY, for /admin/*
+  "observability": { "enabled": true }
+}

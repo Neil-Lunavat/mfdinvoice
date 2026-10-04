@@ -1,0 +1,147 @@
+---
+/* One account: details, plan, ARNs, orders, receipts, gifts, support requests, deletion and the activity list,
+   with the fixes: free an ARN, change the email, resend a receipt, cancel a deletion, give a gift. */
+import Panel from '../../../layouts/Panel.astro';
+import { accessUser } from '../../../lib/server/access';
+import { accountDetail, tabCounts, PLAN_TAG } from '../../../lib/server/admin';
+import { getPlan, getArns, isActive, PLAN_NAME } from '../../../lib/server/account';
+import { listGifts } from '../../../lib/server/gifts';
+import { eventsFor, ACTION_TEXT } from '../../../lib/server/events';
+import { TOPICS } from '../../../lib/support';
+import { SALES } from '../../../consts';
+import { rupees, forWhat } from '../../../lib/price';
+import { longDate } from '../../../lib/date';
+import { istShort, istWhen } from '../../../lib/server/util';
+import { answersFor } from '../../../lib/server/survey';
+import { QUESTIONS, answerLabel } from '../../../lib/survey';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const d = /^[0-9a-f]{16}$/.test(Astro.params.id ?? '') ? await accountDetail(Astro.params.id!) : null;
+if (!d) return new Response(null, { status: 404 });
+const { a, orders, invoices, requests } = d;
+const id = a.id;
+const [plan, arns, gifts, events, counts, answers] = await Promise.all([getPlan(id), getArns(id), listGifts({ email: a.email }), eventsFor(id), tabCounts(), answersFor(id)]);
+const active = isActive(plan);
+/* a gift can take over a free trial, but not a plan that was bought or gifted */
+const gifted = !!plan && plan.source !== 'trial';
+const ORDER_TAG: Record<string, string> = { paid: 'green', review: 'amber', rejected: 'red', created: '' };
+const ORDER_TEXT: Record<string, string> = { paid: 'Paid', review: 'To check', rejected: 'Rejected', created: 'Not paid' };
+const GIFT_TEXT = { waiting: ['Waiting', 'amber'], used: ['Used', 'green'], revoked: ['Revoked', ''] } as const;
+---
+<Panel title={a.email} app="control" on="/accounts" me={me.email} counts={counts}>
+  <div class="ph1" id="acct" data-id={a.id} data-email={a.email}>
+    <div><h1 style="word-break:break-all">{a.email}</h1><p>Since {istShort(a.created_at)} · <span class="mono">{a.uid}</span></p></div>
+    <div class="act"><button class="btn secondary sm" type="button" id="chEmail">Change email</button><button class="btn primary sm" type="button" id="gift" disabled={gifted || !!a.delete_after} title={gifted ? 'Gifts are only for someone who has never had a paid or gifted plan' : undefined}>Give a gift</button></div>
+  </div>
+
+  {a.delete_after && <section class="pc"><div class="pc-b" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <span class="tag red">Deletion pending</span><span>Deletes after {istWhen(a.delete_after)}, at the 2:00 am job after that.</span>
+    <div class="row-b" style="margin-left:auto"><button class="btn secondary sm" type="button" id="keep">Cancel the deletion</button></div>
+  </div></section>}
+
+  <section class="pc">
+    <div class="pc-h"><h2>Plan</h2>{plan && <span class:list={['tag', active && PLAN_TAG[plan.source]]}>{PLAN_NAME[plan.source]}{!active && ' · ended'}</span>}</div>
+    {!plan ? <p class="empty">No plan.</p> : <div class="pc-b"><div class="dl">
+      <span>From</span><div>{longDate(plan.starts_on)}</div>
+      <span>Until</span><div>{longDate(plan.ends_on)}</div>
+      <span>ARN slots</span><div>{arns.length} of {plan.slots} used</div>
+    </div></div>}
+    {arns.length > 0 && <table class="t cards"><thead><tr><th>ARN</th><th>Holder</th><th></th></tr></thead><tbody>
+      {arns.map(x => <tr><td data-l="ARN" class="mono">ARN-{x.arn}</td><td data-l="Holder">{x.holder}</td>
+        <td class="num"><div class="row-b"><button class="btn ghost-red sm" type="button" data-free={x.arn}>Free</button></div></td></tr>)}
+    </tbody></table>}
+  </section>
+
+  <section class="pc">
+    <div class="pc-h"><h2>Details</h2></div>
+    <div class="pc-b"><div class="dl">
+      <span>Name</span><div>{a.bill_name ?? <span class="muted">—</span>}</div>
+      {SALES.gst && <><span>GSTIN</span><div class="mono">{a.bill_gstin ?? <span class="muted">—</span>}</div></>}
+      <span>Address</span><div style="white-space:pre-line">{a.bill_address ?? <span class="muted">—</span>}</div>
+      {a.phone && <><span>Mobile</span><div class="mono">{a.phone}</div></>}
+    </div></div>
+  </section>
+
+  <section class="pc">
+    <div class="pc-h"><h2>Orders and receipts</h2></div>
+    {orders.length === 0 ? <p class="empty">No orders.</p> :
+    <table class="t cards"><thead><tr><th>Date</th><th>Reference</th><th>For</th><th class="num">Amount</th><th>Status</th><th>Receipt</th><th></th></tr></thead><tbody>
+      {orders.map(o => { const inv = invoices.find(i => i.order_id === o.id); return <tr>
+        <td data-l="Date">{istShort(o.created_at)}</td><td data-l="Reference"><span class="mono">{o.id}</span>{o.terms && <span class="note"> · Terms of {longDate(o.terms)}</span>}</td><td data-l="For">{forWhat(o.kind, o.arns)}</td>
+        <td data-l="Amount" class="num">{rupees(o.total)}</td><td data-l="Status"><span class={`tag ${ORDER_TAG[o.status]}`} title={o.review_note ?? ''}>{ORDER_TEXT[o.status]}</span>{o.utr && <span class="note mono"> UTR {o.utr}</span>}</td>
+        <td data-l="Receipt" class="mono">{inv ? <a href={`/receipts/${inv.number}`} target="_blank">{inv.number}</a> : <span class="muted">—</span>}</td>
+        <td class="num">{inv && <button class="btn secondary sm" type="button" data-resend={inv.number} data-to={a.email} data-doc={inv.doc} data-name={a.bill_name ?? inv.buyer_name} data-addr={a.bill_address ?? inv.buyer_address}>Resend</button>}</td>
+      </tr>; })}
+    </tbody></table>}
+  </section>
+
+  <section class="pc">
+    <div class="pc-h"><h2>Gifts</h2></div>
+    {gifts.length === 0 ? <p class="empty">No gifts.</p> :
+    <table class="t cards"><thead><tr><th>Given</th><th>By</th><th>Status</th></tr></thead><tbody>
+      {gifts.map(g => <tr><td data-l="Given">{istShort(g.given_at)}</td><td data-l="By">{g.given_by}</td>
+        <td data-l="Status"><span class={`tag ${GIFT_TEXT[g.status][1]}`}>{GIFT_TEXT[g.status][0]}</span>{g.used_at && <span class="note"> {istShort(g.used_at)}</span>}</td></tr>)}
+    </tbody></table>}
+  </section>
+
+  <section class="pc" id="requests">
+    <div class="pc-h"><h2>Support requests</h2></div>
+    {requests.length === 0 ? <p class="empty">None.</p> :
+    <table class="t cards"><thead><tr><th>#</th><th>Date</th><th>About</th><th>Message</th><th>Status</th></tr></thead><tbody>
+      {requests.map(r => <tr><td data-l="#" class="mono">#{r.id}</td><td data-l="Date">{istShort(r.created_at)}</td><td data-l="About">{TOPICS[r.topic]?.label ?? r.topic}{r.arn && <span class="mono"> · ARN-{r.arn}</span>}{r.new_email && <span> · {r.new_email}</span>}</td>
+        <td data-l="Message" class="clip" title={r.message ?? ''}>{r.message ?? <span class="muted">—</span>}</td>
+        <td data-l="Status"><span class={`tag ${r.status === 'open' ? 'amber' : 'green'}`}>{r.status === 'open' ? 'Open' : 'Solved'}</span> <a class="note" href={`/support#r${r.id}`}>in Support</a></td></tr>)}
+    </tbody></table>}
+  </section>
+
+  {answers.length > 0 && <section class="pc">
+    <div class="pc-h"><h2>Survey</h2><span class="note" style="margin-left:auto">{istShort(answers[answers.length - 1].at)}</span></div>
+    <div class="pc-b"><div class="dl">{answers.map(x => <><span>{QUESTIONS.find(q => q.key === x.question)?.q ?? 'In their words'}</span><div>{answerLabel(x.question, x.answer)}</div></>)}</div></div>
+  </section>}
+
+  <section class="pc">
+    <div class="pc-h"><h2>Activity</h2></div>
+    {events.length === 0 ? <p class="empty">Nothing yet.</p> :
+    <ul class="log">{events.map(e => <li><span class="w">{istShort(e.at)}</span><span><b style="font-weight:500">{ACTION_TEXT[e.action] ?? e.action}</b>{e.ref && <span class="mono"> · {e.ref}</span>}{e.note && <span class="muted"> · {e.note}</span>} <span class="note">by {e.actor}</span></span></li>)}</ul>}
+  </section>
+</Panel>
+<script>
+import { $, post, esc } from '../../../scripts/client';
+import { ask } from '../../../scripts/panel';
+const acct = $('acct'), id = +acct.dataset.id, email = acct.dataset.email;
+const act = (data: object) => post('/api/admin/accounts', { account: id, ...data });
+
+$('chEmail').onclick = () => ask({
+  title: 'Change the email',
+  text: `The account moves from <b>${esc(email)}</b> to the new address. Every session ends, and both addresses are emailed.`,
+  field: { label: 'New email', type: 'email', placeholder: 'name@example.com', required: true },
+  action: 'Change email',
+  run: v => act({ action: 'change_email', email: v }),
+});
+$('gift').onclick = () => ask({
+  title: 'Give a gift',
+  text: `A one-year plan on one ARN for <b>${esc(email)}</b>. It starts now, and they’re emailed.`,
+  action: 'Give a gift',
+  run: () => act({ action: 'gift' }),
+});
+if ($('keep')) $('keep').onclick = () => ask({
+  title: 'Cancel the deletion?', text: 'The account stays as it is.', action: 'Cancel the deletion',
+  run: () => act({ action: 'cancel_deletion' }),
+});
+document.querySelectorAll<HTMLButtonElement>('[data-free]').forEach(b => b.onclick = () => ask({
+  title: `Free ARN-${b.dataset.free}`,
+  warn: '<b>This can’t be undone.</b> The ARN comes off this account and its slot is empty again. They add the new ARN in the app.',
+  phrase: 'FREE', tick: 'Email them that the slot is free', action: 'Free the ARN', danger: true,
+  run: (_v, tell) => act({ action: 'free_arn', arn: b.dataset.free, tell }),
+}));
+document.querySelectorAll<HTMLButtonElement>('[data-resend]').forEach(b => b.onclick = () => ask({
+  title: `Resend ${b.dataset.resend}?`,
+  text: b.dataset.doc === 'receipt'
+    ? `It goes to <b>${esc(b.dataset.to)}</b>, with their billing details as they are now:<br><b>${esc(b.dataset.name)}</b><br>${esc(b.dataset.addr)}`
+    : `The tax invoice goes again to <b>${esc(b.dataset.to)}</b>, as it was issued.`,
+  action: 'Resend',
+  run: () => act({ action: 'resend', number: b.dataset.resend }),
+}));
+</script>

@@ -1,0 +1,75 @@
+---
+/* Software: what the app sends to the software's own server. Every run, check and download sends its record when it
+   ends; one that stopped on a fault of ours is marked, and what a person sends with Send to support is marked too.
+   View opens one: what it said, the pictures of the portals' pages, and the log. Nobody is answered from here. */
+import Panel from '../../layouts/Panel.astro';
+import { accessUser } from '../../lib/server/access';
+import { tabCounts } from '../../lib/server/admin';
+import { softwareReports, softwareReady } from '../../lib/server/software';
+import { istShort } from '../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const KINDS: Record<string, [string, string]> = { ours: ['Ours to fix', 'red'], problem: ['From a person', 'amber'], idea: ['An idea', 'blue'], run: ['Run', ''] };
+const asked = Astro.url.searchParams.get('kind') || '';
+const kind = asked in KINDS ? asked : '';
+const [rows, counts] = await Promise.all([softwareReports(kind), tabCounts()]);
+const mb = (n: number) => (n ? `${(n / 1e6).toFixed(n < 1e5 ? 2 : 1)} MB` : '');
+---
+<Panel title="Software" app="control" on="/software" me={me.email} counts={counts}>
+  <div class="ph1"><h1>Software</h1><p>{rows ? `${rows.length} shown, newest first. What the app sent when a run ended, or when someone pressed Send to support.` : ''}</p>
+    <div class="act">{[['', 'All'], ['ours', 'Ours to fix'], ['problem', 'From a person'], ['run', 'Runs']].map(([k, label]) =>
+      <a class:list={['btn', 'sm', k === kind ? 'primary' : 'secondary']} href={k ? `/software?kind=${k}` : '/software'}>{label}</a>)}</div></div>
+  <section class="pc">
+    {!rows ? <p class="empty">{softwareReady() ? 'The software’s server gave no answer just now.' : 'Not connected yet: set SOFTWARE_ADMIN_KEY on this Worker (the software’s server’s admin key).'}</p>
+    : rows.length === 0 ? <p class="empty">Nothing yet.</p> :
+    <table class="t cards" id="tbl"><thead><tr><th data-sort="num">#</th><th data-sort="text">When</th><th data-sort="cat">Kind</th><th data-sort="text">Email</th><th data-sort="text">ARN</th><th data-sort="text">Where</th><th>What it said</th><th data-sort="text">App · steps</th><th></th></tr></thead><tbody>
+      {rows.map(r => { const [label, tone] = KINDS[r.kind] ?? [r.kind, '']; return <tr class={r.kind === 'ours' || r.kind === 'problem' ? 'wait' : undefined}>
+        <td data-l="#" class="mono" data-v={r.id}>#{r.id}</td>
+        <td data-l="When" class="nw" data-v={r.created_at}>{istShort(r.created_at)}</td>
+        <td data-l="Kind"><span class:list={['tag', tone]}>{label}</span></td>
+        <td data-l="Email">{r.email ? <a href={`/accounts?q=${encodeURIComponent(r.email)}`}>{r.email}</a> : <span class="muted">—</span>}</td>
+        <td data-l="ARN" class="mono nw">{r.arn || '—'}</td>
+        <td data-l="Where">{r.place || '—'}</td>
+        <td data-l="What it said">{r.message || <span class="muted">—</span>}</td>
+        <td data-l="App · steps" class="mono nw">{r.version || '—'}<br><span class="muted">{r.steps || '—'}</span></td>
+        <td><button class="btn secondary sm" type="button" data-view={r.id} data-kind={label} data-when={istShort(r.created_at)}>View{r.record ? ` · ${mb(r.record)}` : ''}</button></td>
+      </tr>; })}
+    </tbody></table>}
+  </section>
+</Panel>
+<script>
+import { $, esc, dialog } from '../../scripts/client';
+import { sortable } from '../../scripts/panel';
+sortable($('tbl'));
+
+/* one in full: what it said, the PC, the pictures of the portals' pages, the other files, and the log */
+document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(b => b.onclick = async () => {
+  const id = b.dataset.view!;
+  b.disabled = true;
+  const r = await fetch(`/api/admin/software?id=${id}`, { cache: 'no-store' }).then(x => x.json()).catch(() => null);
+  b.disabled = false;
+  if (!r?.ok) { b.title = 'The software’s server gave no answer.'; b.classList.add('bad'); return; }
+  const x = r.report, file = (n: string) => `/api/admin/software?id=${id}&file=${encodeURIComponent(n)}`;
+  const files: { name: string; size: number }[] = r.files || [];
+  const pictures = files.filter(f => /\.(jpe?g|png)$/i.test(f.name)), rest = files.filter(f => !/\.(jpe?g|png)$/i.test(f.name));
+  dialog(`<div class="dlg-h"><h2 id="dlgT">#${esc(id)} · ${esc(b.dataset.kind)}</h2><button type="button" id="dlgX" aria-label="Close">×</button></div>
+    <div class="dlg-b">
+      <p>${esc(x.email || 'No email')} <span class="note">· ${esc(x.arn || 'no ARN')} · ${esc(b.dataset.when)}</span></p>
+      <p class="note">${esc(x.place || '')}${x.place ? ' · ' : ''}app ${esc(x.version || '?')} · steps ${esc(x.steps || '?')}</p>
+      <p class="note">${esc(x.pc || '')}</p>
+      <div class="why">${x.message ? esc(x.message) : '<span class="muted">It said nothing.</span>'}</div>
+      ${pictures.length ? `<div class="shots">${pictures.map(f => `<a href="${file(f.name)}" target="_blank" title="${esc(f.name)}"><img src="${file(f.name)}" alt="${esc(f.name)}" loading="lazy"></a>`).join('')}</div>` : ''}
+      ${rest.length ? `<p class="note">${rest.map(f => `<a class="blue" href="${file(f.name)}" target="_blank">${esc(f.name)}</a>`).join(' · ')}${x.record ? ` · <a class="blue" href="/api/admin/software?id=${id}&zip=1">all of it (zip)</a>` : ''}</p>` : ''}
+      ${x.log ? `<pre class="applog">${esc(x.log)}</pre>` : '<p class="note">No log lines came with it.</p>'}
+    </div>`);
+  $('dlg').classList.add('wide');
+});
+</script>
+<style is:global>
+.pc:has(#tbl){overflow-x:auto}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:12px 0}
+.shots img{width:100%;border:1px solid var(--line);border-radius:8px;display:block}
+.applog{max-height:360px;overflow:auto;margin-top:12px;padding:12px;background:var(--sunken);border-radius:8px;font:11.5px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word}
+</style>

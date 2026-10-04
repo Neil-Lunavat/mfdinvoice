@@ -1,0 +1,67 @@
+---
+/* What we keep, and why. The website's part follows the database (migrations/) and what deleting an account removes
+   (lib/server/account.ts deleteAccount); the app's part follows what the app sends to the software's server
+   (client/src/client/hands/window.py `_report`, server/src/index.ts). When either changes, this page changes with
+   it, and TERMS_VERSION in consts.ts moves. */
+import Layout from '../layouts/Layout.astro';
+import Legal, { type Section } from '../components/Legal.astro';
+import '../styles/base.css';
+import '../styles/kit.css';
+import { NAME, BUSINESS, EMAIL, SALES, KEEP } from '../consts';
+import { shown, companyLine } from '../lib/format';
+
+const B = BUSINESS;
+const sections: Section[] = [
+  { h: 'Who we are', p: [
+    `${NAME} is made by ${B.legalName}, ${shown(B.entity)}, of ${shown(B.address)}, ${B.state}, India. We decide what is kept about you and why, and we answer for it. This page covers the app, its servers and this website.`,
+  ] },
+  { h: 'What stays on your PC', p: [
+    '<ul><li>Your KFintech password and your mailbox password.</li><li>Your CAMS email and KFintech username.</li><li>Your signature.</li><li>The invoice files, and every month’s folder.</li><li>Your mailbox’s contents.</li></ul>',
+    'The app keeps them encrypted on your PC and never sends them to us. Before anything leaves your PC, the app checks it for your passwords and removes them.',
+  ] },
+  { h: 'What reaches us from the app', p: [
+    'Everything a run does happens on your PC: it signs in to the portals from there, and reads, signs and uploads the invoices there. What reaches us:',
+    '<ul><li>Your email, your ARN and the name on it.</li><li>A record of each run, sent when it ends: each step the app took on the portals, how long it took and what the portals said. It names your invoices by their reference numbers and gives the month’s totals.</li><li>Pictures of the portals’ pages as the run saw them, with that record. They show that month’s invoices, their amounts and their status. While the app is new they come with every run; later, only with a run that stopped on a fault of ours.</li><li>Your PC’s name, its Windows version and the app’s version.</li><li>A support report, only when you send one. It carries what you wrote and the record of your latest run.</li></ul>',
+    'Your passwords are removed on your PC before any of it is sent. Your signature, your mailbox’s contents and the invoice files are never sent.',
+  ] },
+  { h: 'What this website keeps', p: [
+    `<ul><li>Your email, and when you signed in on which browser or in the app.</li><li>Sign-in codes (only a scrambled form) and the IP address that asked for each, for a day.</li><li>The name and address for your receipts${SALES.gst ? ', and your GSTIN' : ''}.</li><li>Your plan, your ARNs and the name on each.</li><li>Your payments: the amount, the reference, the UTR number and the screenshot you send.</li><li>Your receipts.</li><li>Support requests and their screenshots.</li><li>Your answers to the questions at Checkout, if you give them.</li><li>A record of changes to your account (signed in, paid, an ARN added), for support.</li></ul>`,
+  ] },
+  { h: 'Why we keep it', p: [
+    'To run the service you pay for, sign you in, check your plan, issue receipts and meet tax law, help you when you write to us, and stop misuse, such as a second free trial on one account. The records of runs are how we see a portal change and fix the app.',
+    'We don’t sell your data, show you ads, or track you across other websites.',
+  ] },
+  { h: 'Your mailbox', p: [
+    'Read-only. The app opens only the registrar’s invoice mails, and never sends, moves or deletes anything.',
+  ] },
+  { h: 'Payments', p: [
+    'You pay by UPI from your own app, and we check the payment by hand. We see only what your screenshot shows: the amount, the UTR number, the time, and the names and UPI IDs on it. We never see your bank or card details.',
+  ] },
+  { h: 'Who else handles it', p: [
+    '<ul><li>Cloudflare runs this website and the app’s server, keeps their data and sends our emails.</li><li>Google Fonts serves this website’s fonts, so your browser asks Google for them.</li></ul>',
+    'Cookies: this website sets only the ones that keep you signed in and remember what its buttons should say. No analytics and no advertising cookies.',
+  ] },
+  { h: 'How long we keep it', p: [
+    'As long as your account exists. When you delete it (your <a href="/account">Account page</a>, after a day’s wait), we delete your account, billing details, plan, ARNs, support requests, answers and activity.',
+    `The record of a run, with its pictures, is kept for ${shown(KEEP.runs)}, only to fix and improve the app and to help you when you write to us. Then it is deleted, whether or not you delete your account.`,
+    'A few things stay after that:',
+    '<ul><li>Payments and receipts, with their screenshots, as long as tax law requires.</li><li>Your email and the date your account was deleted, so signing in again can tell you so.</li><li>A gift given to your email.</li><li>Each free trial that was started, with its ARN and its email.</li><li>A payment we couldn’t verify, so it is sorted out before another one is made.</li></ul>',
+  ] },
+  { h: 'Your rights', p: [
+    '<ul><li><b>A copy.</b> Ask on the <a href="/support?about=data">Support page</a> and we email you everything this website holds about you.</li><li><b>Correction.</b> Change your billing details on your <a href="/account">Account page</a>; for anything else, write to support.</li><li><b>Deletion.</b> Delete your account on your Account page. That also withdraws your consent.</li><li><b>A complaint.</b> Write to our grievance officer below. If we don’t resolve it, you can go to the Data Protection Board of India.</li></ul>',
+  ] },
+  { h: 'Keeping it safe', p: [
+    'Your passwords and signature never leave your PC. Sign-in codes and session keys are kept only in a scrambled form. Only the people who run the service can open your account’s records, and each change they make is recorded.',
+  ] },
+  { h: 'Changes to this policy', p: [
+    'The date at the top says when it last changed. We email you before a change that matters.',
+  ] },
+  { h: 'Contact', p: [
+    companyLine(),
+    `Grievance officer: ${shown(B.grievanceOfficer)}. For anything about your data, write to <a href="mailto:${EMAIL.support}">${EMAIL.support}</a>.`,
+  ] },
+];
+---
+<Layout title={`Privacy policy · ${NAME}`} description="Your passwords, your signature and your invoice files stay on your PC. What reaches us, what this website keeps, and for how long." path="/privacy">
+  <Legal title="Privacy policy" sections={sections} />
+</Layout>

@@ -1,0 +1,105 @@
+---
+/* Payments: one table, searchable. Those waiting to be checked first (yellow rows, Reject and Approve), then every
+   rejected one (red rows, no buttons). Clicking a status opens it: the reason in full, and what can be done next
+   (Approve; Reject; Unblock, which opens the same reference again at Checkout). Approved payments leave (they're in
+   Sales). View shows the screenshot with the UTR under it, to match against the UPI app. */
+import Panel from '../../layouts/Panel.astro';
+import { accessUser } from '../../lib/server/access';
+import { tabCounts } from '../../lib/server/admin';
+import { paymentsList } from '../../lib/server/upi';
+import { rupees, forWhat } from '../../lib/price';
+import { istShort } from '../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const q = (Astro.url.searchParams.get('q') || '').trim().slice(0, 100);
+const [rows, counts] = await Promise.all([paymentsList(q), tabCounts()]);
+const waiting = rows.filter(o => o.status === 'review').length;
+---
+<Panel title="Payments" app="control" on="/payments" me={me.email} counts={counts}>
+  <div class="ph1"><h1>Payments</h1><p>{q ? `${rows.length} for “${q}”` : waiting ? `${waiting} waiting. Check the money arrived, then approve.` : 'Nothing waiting.'}</p></div>
+  <section class="pc"><div class="pc-b">
+    <form class="search" method="get" action="/payments">
+      <input class="input" name="q" value={q} placeholder="Reference, email, name or UTR">
+      <button class="btn primary" type="submit">Search</button>
+    </form>
+  </div></section>
+  <section class="pc">
+    {rows.length === 0 ? <p class="empty">{q ? 'Nothing matches.' : 'No payments to check, and none rejected.'}</p> :
+    <table class="t cards pays" id="tbl"><thead><tr><th data-sort="text">Reference</th><th data-sort="text">Email</th><th data-sort="text">Name</th><th data-sort="text">Sent at</th><th class="num" data-sort="num">Amount</th><th data-sort="text">UTR</th><th>Screenshot</th><th data-sort="cat">Status</th><th></th></tr></thead><tbody>
+      {rows.map(o => <tr id={o.id} class={o.status === 'review' ? 'wait' : 'rej'}>
+        <td data-l="Reference" class="mono nw">{o.id}</td>
+        <td data-l="Email">{o.uid ? <a href={`/accounts/${o.uid}`}>{o.email}</a> : <>{o.email} <span class="note">(deleted)</span></>}</td>
+        <td data-l="Name">{o.bill_name}</td>
+        <td data-l="Sent at" class="nw" data-v={o.sent_at ?? o.created_at}>{istShort(o.sent_at ?? o.created_at)}</td>
+        <td data-l="Amount" class="num" data-v={o.total} title={forWhat(o.kind, o.arns)}>{rupees(o.total)}</td>
+        <td data-l="UTR" class="mono">{o.utr ?? <span class="muted">not given</span>}</td>
+        <td data-l="Screenshot">{o.proof ? <button class="btn secondary sm" type="button" data-view={o.proof} data-ref={o.id} data-utr={o.utr ?? ''} data-amount={rupees(o.total)}>View</button> : <span class="muted">—</span>}</td>
+        <td data-l="Status"><button type="button" class={`tag st ${o.status === 'review' ? 'amber' : 'red'}`} data-status={o.id}
+          data-kind={o.status} data-amount={rupees(o.total)} data-email={o.email} data-when={o.reviewed_at ? istShort(o.reviewed_at) : ''}
+          data-note={o.review_note ?? ''} data-shared={o.note_shared ? '1' : ''}>{o.status === 'review' ? 'To check' : 'Rejected'}</button></td>
+        <td class="num">{o.status === 'review' && <div class="row-b nw">
+          <button class="btn secondary sm" type="button" data-reject={o.id} data-amount={rupees(o.total)}>Reject</button>
+          <button class="btn primary sm" type="button" data-approve={o.id} data-amount={rupees(o.total)} data-email={o.email}>Approve</button>
+        </div>}</td>
+      </tr>)}
+    </tbody></table>}
+  </section>
+</Panel>
+<script>
+import { $, post, esc, dialog } from '../../scripts/client';
+import { ask, sortable } from '../../scripts/panel';
+const all = (sel: string) => document.querySelectorAll<HTMLButtonElement>(sel);
+sortable($('tbl'));
+
+const approve = (ref: string, amount: string, email: string) => ask({
+  title: `Approve ${amount}?`,
+  text: `From <b>${esc(email)}</b>, reference <span class="mono">${esc(ref)}</span>. The plan starts today and the receipt is emailed.`,
+  action: `Approve ${amount}`,
+  run: () => post('/api/admin/payments', { action: 'approve', ref }),
+});
+const reject = (ref: string, amount: string) => ask({
+  title: `Reject ${amount}?`,
+  text: 'They’re emailed that it couldn’t be verified, and can’t pay again until you unblock them.',
+  field: { label: 'Reason (optional)', placeholder: 'The payment didn’t arrive in the account.' },
+  tick: 'Send the reason to them',
+  action: 'Reject', danger: true,
+  run: (note, tell) => post('/api/admin/payments', { action: 'reject', ref, note, tell }),
+});
+const unblock = (ref: string, email: string) => ask({
+  title: 'Unblock?',
+  text: `<b>${esc(email)}</b> can pay again. The same reference opens at Checkout, and when they send a new screenshot it comes back here to check.`,
+  tick: 'Email them that they can pay again',
+  action: 'Unblock',
+  run: (_v, tell) => post('/api/admin/payments', { action: 'unblock', ref, tell }),
+});
+
+/* the screenshot, big, with the UTR they typed under it */
+all('[data-view]').forEach(b => b.onclick = () => {
+  const d = b.dataset;
+  dialog(`<div class="dlg-h"><h2 id="dlgT">${esc(d.ref)} · ${esc(d.amount)}</h2><button type="button" id="dlgX" aria-label="Close">×</button></div>
+    <div class="shot-v"><img src="/api/admin/file?key=${encodeURIComponent(d.view!)}" alt="The payment screenshot"></div>
+    <div class="utr-v"><span>UTR they typed</span><b class="mono">${d.utr ? esc(d.utr) : 'not given'}</b></div>`);
+  $('dlg').classList.add('wide');
+});
+all('[data-approve]').forEach(b => b.onclick = () => approve(b.dataset.approve!, b.dataset.amount!, b.dataset.email!));
+all('[data-reject]').forEach(b => b.onclick = () => reject(b.dataset.reject!, b.dataset.amount!));
+
+/* the status: what it is, the reason in full, and what can happen next */
+all('[data-status]').forEach(b => b.onclick = () => {
+  const d = b.dataset, ref = d.status!, rej = d.kind === 'rejected';
+  dialog(`<div class="dlg-h"><h2 id="dlgT">${esc(ref)} · ${esc(d.amount)}</h2><button type="button" id="dlgX" aria-label="Close">×</button></div>
+    <div class="dlg-b">
+      <p><span class="tag ${rej ? 'red' : 'amber'}">${rej ? 'Rejected' : 'To check'}</span>${rej && d.when ? ` <span class="note">on ${esc(d.when)}</span>` : ''}</p>
+      ${rej ? `<p class="note">Reason${d.note ? (d.shared ? ' (sent to them)' : ' (only for you)') : ''}</p>
+        <div class="why">${d.note ? esc(d.note) : '<span class="muted">No reason given.</span>'}</div>` : ''}
+    </div>
+    <div class="dlg-f">${rej
+      ? `<button class="btn secondary" type="button" id="stU">Unblock</button><button class="btn primary" type="button" id="stA">Approve</button>`
+      : `<button class="btn secondary" type="button" id="stR">Reject</button><button class="btn primary" type="button" id="stA">Approve</button>`}</div>`);
+  $('stA').onclick = () => approve(ref, d.amount!, d.email!);
+  if (rej) $('stU').onclick = () => unblock(ref, d.email!);
+  else $('stR').onclick = () => reject(ref, d.amount!);
+});
+</script>

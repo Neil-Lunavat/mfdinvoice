@@ -1,0 +1,1062 @@
+{
+"page": [
+595.0,
+842.0
+],
+"ops": [
+{
+"op": "text",
+"page": 1,
+"x": 259.29,
+"y": 791.33,
+"size": 12.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "TAX INVOICE"
+},
+{
+"op": "text",
+"page": 1,
+"x": 221.61,
+"y": 772.52,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "See Rule 46 of the CGST rules, 2017"
+},
+{
+"op": "text",
+"page": 1,
+"x": 418.98,
+"y": 743.03,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "ORIGINAL FOR RECIPIENT"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 727.03,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Details of Supplier of Service"
+},
+{
+"op": "text",
+"page": 1,
+"x": 414.98,
+"y": 727.03,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "DUPLICATE FOR SUPPLIER"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 709.54,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Name"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 709.54,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "{name} ( {arn} )"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 692.06,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Address"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 692.06,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "12, Shanti Kunj, College Road"
+},
+{
+"op": "text",
+"page": 1,
+"x": 127.14,
+"y": 674.57,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Nashik"
+},
+{
+"op": "text",
+"page": 1,
+"x": 392.87,
+"y": 674.57,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Date :"
+},
+{
+"op": "text",
+"page": 1,
+"x": 457.84,
+"y": 674.57,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "04/09/2026"
+},
+{
+"op": "text",
+"page": 1,
+"x": 127.14,
+"y": 657.08,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "MAHARASHTRA, 422005"
+},
+{
+"op": "text",
+"page": 1,
+"x": 392.87,
+"y": 657.08,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Inv serial No. :"
+},
+{
+"op": "text",
+"page": 1,
+"x": 457.84,
+"y": 657.08,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "AXTI/2026-27/005"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 635.6,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "GSTIN/Unique ID"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 635.6,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "{gstin}"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 618.11,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "PAN"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 618.11,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "{pan}"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 588.62,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Details of Recipient (Billed to)"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 571.14,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Name"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 571.14,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Axis Mutual Fund"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 553.65,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Address"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 553.65,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "23 Floor,One Lodha Place"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 536.16,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Senapati Bapat Marg, Lower Parel"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 518.68,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Mumbai,Maharashtra,India - 400013"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 501.19,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "State"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 501.19,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Maharashtra"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 483.7,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "State Code"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 483.7,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "27"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 466.22,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "GSTIN/Unique ID"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 466.22,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "27AACTA5925A1Z5"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 448.73,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "PAN"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 448.73,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "AACTA5925A"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 416.25,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Place of supply:"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 416.25,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Mumbai"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 398.76,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Name of State:"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 398.76,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Maharashtra"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.51,
+"y": 365.77,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Sr.No."
+},
+{
+"op": "text",
+"page": 1,
+"x": 81.38,
+"y": 365.77,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Description of Services"
+},
+{
+"op": "text",
+"page": 1,
+"x": 201.86,
+"y": 365.77,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "SAC"
+},
+{
+"op": "text",
+"page": 1,
+"x": 237.01,
+"y": 365.77,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Taxable Value"
+},
+{
+"op": "text",
+"page": 1,
+"x": 314.71,
+"y": 365.77,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "CGST"
+},
+{
+"op": "text",
+"page": 1,
+"x": 402.66,
+"y": 365.77,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "SGST"
+},
+{
+"op": "text",
+"page": 1,
+"x": 493.62,
+"y": 365.77,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "IGST"
+},
+{
+"op": "text",
+"page": 1,
+"x": 310.28,
+"y": 347.79,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Rate"
+},
+{
+"op": "text",
+"page": 1,
+"x": 355.51,
+"y": 347.79,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Amt"
+},
+{
+"op": "text",
+"page": 1,
+"x": 397.73,
+"y": 347.79,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Rate"
+},
+{
+"op": "text",
+"page": 1,
+"x": 442.96,
+"y": 347.79,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Amt"
+},
+{
+"op": "text",
+"page": 1,
+"x": 485.19,
+"y": 347.79,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Rate"
+},
+{
+"op": "text",
+"page": 1,
+"x": 529.69,
+"y": 347.79,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Amt"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.5,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "1"
+},
+{
+"op": "text",
+"page": 1,
+"x": 68.82,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Distribution Commission for"
+},
+{
+"op": "text",
+"page": 1,
+"x": 190.77,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "997152"
+},
+{
+"op": "text",
+"page": 1,
+"x": 236.25,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "412.60"
+},
+{
+"op": "text",
+"page": 1,
+"x": 300.1,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "9.00%"
+},
+{
+"op": "text",
+"page": 1,
+"x": 344.27,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "37.13"
+},
+{
+"op": "text",
+"page": 1,
+"x": 387.56,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "9.00%"
+},
+{
+"op": "text",
+"page": 1,
+"x": 431.72,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "37.13"
+},
+{
+"op": "text",
+"page": 1,
+"x": 475.01,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "0.00%"
+},
+{
+"op": "text",
+"page": 1,
+"x": 519.17,
+"y": 329.8,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "0.00"
+},
+{
+"op": "text",
+"page": 1,
+"x": 68.82,
+"y": 316.31,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "sale of Mutual Fund products"
+},
+{
+"op": "text",
+"page": 1,
+"x": 68.82,
+"y": 302.83,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "for the month of AUGUST -"
+},
+{
+"op": "text",
+"page": 1,
+"x": 68.82,
+"y": 289.34,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "2026"
+},
+{
+"op": "text",
+"page": 1,
+"x": 190.77,
+"y": 267.35,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Total"
+},
+{
+"op": "text",
+"page": 1,
+"x": 268.08,
+"y": 267.35,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "412.60"
+},
+{
+"op": "text",
+"page": 1,
+"x": 360.54,
+"y": 267.35,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "37.13"
+},
+{
+"op": "text",
+"page": 1,
+"x": 447.99,
+"y": 267.35,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "37.13"
+},
+{
+"op": "text",
+"page": 1,
+"x": 538.99,
+"y": 267.35,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "0.00"
+},
+{
+"op": "text",
+"page": 1,
+"x": 68.89,
+"y": 244.37,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Total Invoice Value (In figure)"
+},
+{
+"op": "text",
+"page": 1,
+"x": 389.03,
+"y": 244.37,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "486.86"
+},
+{
+"op": "text",
+"page": 1,
+"x": 68.89,
+"y": 226.38,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Total Invoice Value (In Words)"
+},
+{
+"op": "text",
+"page": 1,
+"x": 304.5,
+"y": 226.63,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Rupees Four Hundred Eighty Six And Eighty Six Paise"
+},
+{
+"op": "text",
+"page": 1,
+"x": 68.89,
+"y": 208.39,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Amount of Tax subject to Reverse Charge"
+},
+{
+"op": "text",
+"page": 1,
+"x": 396.04,
+"y": 208.39,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "NO"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 178.41,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "E.&.O.E"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 160.92,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Reference Number:"
+},
+{
+"op": "text",
+"page": 1,
+"x": 128.0,
+"y": 160.92,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "128260800000000"
+},
+{
+"op": "text",
+"page": 1,
+"x": 38.0,
+"y": 143.43,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Please acknowledge the copy and credit the proceeds to :"
+},
+{
+"op": "text",
+"page": 1,
+"x": 441.23,
+"y": 143.43,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Name of the Signatory"
+},
+{
+"op": "text",
+"page": 1,
+"x": 445.73,
+"y": 125.95,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Designation / Status"
+},
+{
+"op": "text",
+"page": 1,
+"x": 466.74,
+"y": 70.48,
+"size": 9.0,
+"font": "Arial",
+"hscale": 100.0,
+"text": "Signature"
+},
+{
+"op": "line",
+"page": 1,
+"x": 297.85,
+"y": 359.54,
+"w": 260.9,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 36.25,
+"y": 341.55,
+"w": 522.5,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 188.52,
+"y": 279.11,
+"w": 370.23,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 188.52,
+"y": 261.12,
+"w": 370.23,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 66.57,
+"y": 377.53,
+"w": 0,
+"h": -120.91,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 188.52,
+"y": 377.53,
+"w": 0,
+"h": -116.41,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 234.0,
+"y": 377.53,
+"w": 0,
+"h": -116.41,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 297.85,
+"y": 377.53,
+"w": 0,
+"h": -116.41,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 342.02,
+"y": 359.54,
+"w": 0,
+"h": -80.43,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 385.31,
+"y": 377.53,
+"w": 0,
+"h": -116.41,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 429.47,
+"y": 359.54,
+"w": 0,
+"h": -80.43,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 472.76,
+"y": 377.53,
+"w": 0,
+"h": -116.41,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 516.92,
+"y": 359.54,
+"w": 0,
+"h": -80.43,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 36.0,
+"y": 377.53,
+"w": 523.0,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 66.32,
+"y": 256.62,
+"w": 492.43,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 36.25,
+"y": 377.53,
+"w": 0,
+"h": -120.91,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 558.75,
+"y": 377.53,
+"w": 0,
+"h": -120.91,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 66.64,
+"y": 238.13,
+"w": 180.2,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 66.64,
+"y": 238.13,
+"w": 180.2,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 66.64,
+"y": 220.15,
+"w": 492.11,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 66.64,
+"y": 256.12,
+"w": 0,
+"h": -53.96,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 246.84,
+"y": 256.12,
+"w": 0,
+"h": -53.96,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 66.39,
+"y": 256.12,
+"w": 492.36,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 36.0,
+"y": 202.16,
+"w": 523.0,
+"h": 0,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 36.25,
+"y": 256.12,
+"w": 0,
+"h": -53.96,
+"thickness": 0.5
+},
+{
+"op": "line",
+"page": 1,
+"x": 558.75,
+"y": 256.12,
+"w": 0,
+"h": -53.96,
+"thickness": 0.5
+}
+]
+}

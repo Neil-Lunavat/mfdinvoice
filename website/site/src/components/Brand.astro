@@ -1,0 +1,6 @@
+---
+import Mark from './Mark.astro';
+import { NAME, WORDMARK } from '../consts';
+const { href = '/' } = Astro.props;
+---
+<a class="brand" href={href} aria-label={NAME}><Mark /><span class="wm"><b>{WORDMARK[0]}</b>{WORDMARK[1]}</span></a>

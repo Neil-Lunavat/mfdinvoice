@@ -1,0 +1,50 @@
+---
+/* The blog, from the database: the newest post as the large card, the rest in a grid. Cached at the edge until a
+   publish or delete clears it. */
+import Layout from '../../layouts/Layout.astro';
+import '../../styles/kit.css';
+import { NAME } from '../../consts';
+import { listPosts, imageUrl } from '../../lib/server/blog';
+import { readMinutes } from '../../lib/markdown';
+import { longDate, istDay } from '../../lib/date';
+export const prerender = false;
+
+Astro.cache.set({ maxAge: 3600, swr: 86400, tags: ['blog'] });
+const [feat, ...rest] = await listPosts();
+---
+<Layout title={`Blog · ${NAME}`} description="How-tos for CAMS, KFintech and GST, for mutual fund distributors." path="/blog" >
+<main>
+  <section class="page">
+    <div class="head c"><h1 class="h1 rv">Blog</h1><p class="lede rv">How-tos for CAMS, KFintech and GST, for mutual fund distributors.</p></div>
+    {!feat && <p class="note-d">The first posts are on their way.</p>}
+    {feat && <a class:list={['card feat rv', { bare: !feat.cover }]} href={feat.path}>
+      {feat.cover && <div class="art"><img src={imageUrl(feat.cover)} alt="" loading="eager"></div>}
+      <div class="txt"><h2>{feat.title}</h2><p>{feat.description}</p><span class="meta">{readMinutes(feat.body)} min read · {longDate(istDay(feat.created_at))}</span></div>
+    </a>}
+    <div class="posts" id="posts">{rest.map(p => <a class="card post rv" href={p.path}>
+      {p.cover && <img class="cov" src={imageUrl(p.cover)} alt="" loading="lazy">}
+      <h3>{p.title}</h3><p>{p.description}</p><span class="meta">{readMinutes(p.body)} min read</span></a>)}</div>
+    <div style="height:110px"></div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.feat{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);overflow:hidden;margin-bottom:24px}
+.feat.bare{grid-template-columns:1fr}
+.feat .art{background:var(--subtle);border-right:1px solid var(--line);display:grid;place-items:center;min-height:280px;overflow:hidden}
+.feat .art img{width:100%;height:100%;object-fit:cover;display:block}
+.feat .txt{padding:36px;display:flex;flex-direction:column;gap:12px;justify-content:center}
+.feat h2{font-size:26px;line-height:1.15;letter-spacing:-.03em;font-weight:600}
+.feat p,.post p{color:var(--muted);font-size:15px}
+.meta{font-size:13px;color:var(--faint)}
+.posts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.post{padding:24px;display:flex;flex-direction:column;gap:10px;transition:box-shadow 200ms var(--ease),transform 200ms var(--ease)}
+.post .cov{margin:-24px -24px 6px;width:calc(100% + 48px);aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-sheet) var(--r-sheet) 0 0;border-bottom:1px solid var(--line)}
+.post:hover,.feat:hover{box-shadow:var(--e-float);transform:translateY(-2px)}
+.post h3{font-size:17.5px;line-height:1.3;letter-spacing:-.015em;font-weight:600}
+.post .meta{margin-top:auto;padding-top:8px}
+.note-d{padding:20px 0;text-align:center;font-size:15px;color:var(--muted)}
+@media (max-width:980px){.posts{grid-template-columns:1fr 1fr}.feat{grid-template-columns:1fr}.feat .art{border-right:0;border-bottom:1px solid var(--line)}}
+@media (max-width:640px){.posts{grid-template-columns:1fr}}
+</style>

@@ -1,0 +1,118 @@
+<script lang="ts">
+  /* Setup, per ARN: seven steps, one per screen (Tally is optional). Back never erases; Continue unlocks only when the step is valid.
+     From Check everything, Change opens a step whose button becomes Save and comes straight back. Finish setup needs
+     every step to hold and a portal's sign-in to have shown the ARN: finishing binds the ARN to the account. */
+  import { onMount } from 'svelte';
+  import { app } from '../../bridge';
+  import { arnProven, tallyLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP_TITLES, stepValid } from '../../logic/details';
+  import { store } from '../../state/store.svelte';
+  import { ui } from '../../state/ui.svelte';
+  import { icons } from '../../ui/icons';
+  import CamsEmail from './CamsEmail.svelte';
+  import Kfintech from './Kfintech.svelte';
+  import Mailbox from './Mailbox.svelte';
+  import WhoYouAre from './WhoYouAre.svelte';
+  import TallyStep from './TallyStep.svelte';
+  import YourInvoices from './YourInvoices.svelte';
+
+  const LAST = STEP_TITLES.length - 1;
+  const email = $derived(store.snap?.account?.email ?? '');
+  const valid = $derived(stepValid[ui.step](ui.draft));
+  const current = $derived(store.snap?.arns.find(a => a.arn === store.snap?.arn));
+  const used = $derived(store.snap?.arns.length ?? 0);
+  let saving = $state(false);
+
+  function to(i: number) {
+    ui.step = Math.max(0, Math.min(i, LAST));
+    ui.reached = Math.max(ui.reached, ui.step);
+    setTimeout(() => document.querySelector<HTMLElement>('.pane-in input:not([disabled]), .pane-in .tile')?.focus(), 60);
+  }
+  async function next() {
+    if (!valid || saving) return;
+    if (ui.step === LAST) {
+      saving = true;
+      const r = await app.finishSetup($state.snapshot(ui.draft), ui.adding);
+      saving = false;
+      if (r.ok) { ui.adding = false; ui.go('overview'); }
+      else store.toast(r.said);
+      return;
+    }
+    if (ui.returnTo !== null) { const back = ui.returnTo; ui.returnTo = null; to(back); return; }
+    to(ui.step + 1);
+  }
+  function change(i: number) { ui.returnTo = LAST; to(i); }
+  function cancelAdd() { ui.adding = false; ui.go('overview'); }
+
+  onMount(() => { if (!ui.draft.signature.image) void app.dropSignatureDraft(); to(ui.step); });
+</script>
+
+<div class="view setup" data-layer="page">
+  <aside class="rail">
+    <div class="rail-hd"><span class="mark" style="width:26px;height:26px;border-radius:7px">{@html icons.mark(14)}</span>
+      <b>{ui.adding ? `Add an ARN · ${used + 1} of ${store.snap?.account?.maxArns ?? 6}` : 'Set up your ARN'}</b></div>
+    <ol class="steps">
+      {#each STEP_TITLES as t, i (t)}
+        {@const done = i !== ui.step && i < ui.reached}
+        <li class:now={i === ui.step} class:done aria-current={i === ui.step ? 'step' : undefined}>
+          <i>{#if done}{@html icons.tickSm}{:else}{i + 1}{/if}</i>{t}</li>
+      {/each}
+    </ol>
+    <div class="rail-ft"><span class="who2">{email}</span>
+      <button class="btn ghost sm" onclick={() => ui.open({ type: 'support', where: `Setup, step ${ui.step + 1}` })}>{@html icons.help}Send to support</button></div>
+    {#if ui.adding && current}
+      <button class="btn ghost sm" style="margin:0 0 8px" onclick={cancelAdd}>Cancel · back to {current.name}</button>
+    {/if}
+  </aside>
+
+  <section class="pane">
+    {#key ui.step}
+      <div class="pane-in enter">
+        <div class="label">Step {ui.step + 1} of {STEP_TITLES.length}</div>
+        <div id="parts"><div class="part">
+          <div class="part-hd"><h2 class="step-h">{STEP_TITLES[ui.step]}</h2>
+            {#if ui.step < LAST}<button class="btn ghost sm vid" onclick={() => app.open('help')}>{@html icons.play}How to · {ui.step === 2 ? '2 min' : '1 min'}</button>{/if}</div>
+          {#if ui.step === 0}<WhoYouAre bind:d={ui.draft} />
+          {:else if ui.step === 1}<CamsEmail bind:d={ui.draft} signInEmail={email} />
+          {:else if ui.step === 2}
+            {#if ui.draft.camsUsed}<Mailbox bind:d={ui.draft} />
+            {:else}<p class="line">The mailbox is only for CAMS's invoice mails, and this ARN doesn't use CAMS. Nothing to connect.</p>{/if}
+          {:else if ui.step === 3}<Kfintech bind:d={ui.draft} />
+          {:else if ui.step === 4}<YourInvoices bind:d={ui.draft} />
+          {:else if ui.step === 5}<TallyStep bind:d={ui.draft} />
+          {:else}
+            {@const d = ui.draft}
+            <div class="cklist">
+              {#each [
+                ['ARN', d.arn, 0, true], ['GSTIN', `${d.gstin} · ${d.name}`, 0, true], ['CAMS email', d.camsUsed ? d.camsEmail : 'Not used', 1, false],
+                ...(d.camsUsed ? [['Mailbox', mailboxLine(d.mailbox).replace(/ · not connected$/, ''), 2, false]] : []), ['KFintech', kfintechLine(d.kfintech), 3, false]
+              ] as [k, v, step, mono] (k)}
+                <div class="ck"><span class="k">{k}</span><span class="v" class:mono>{v}</span>
+                  {#if !stepValid[step as number](d)}<span class="err">Needs a change</span>{/if}
+                  <a href="#change" onclick={e => { e.preventDefault(); change(step as number); }}>Change</a></div>
+              {/each}
+              <div class="ck"><span class="k">Signature</span>{#if d.signature.way === 'dsc'}<span class="v">{signatureLine(d.signature)}</span>
+                {:else}<span class="v sigmini"><img class="sigimg" src={d.signature.image} alt="Your signature" /></span>{/if}
+                <a href="#change" onclick={e => { e.preventDefault(); change(4); }}>Change</a></div>
+              <div class="ck"><span class="k">Invoices</span><span class="v">{invoicesLine(d.invoices)}</span>
+                <a href="#change" onclick={e => { e.preventDefault(); change(4); }}>Change</a></div>
+              <div class="ck"><span class="k">Tally</span><span class="v">{tallyLine(d.tally)}</span>
+                {#if !stepValid[5](d)}<span class="err">Needs a change</span>{/if}
+                <a href="#change" onclick={e => { e.preventDefault(); change(5); }}>Change</a></div>
+            </div>
+            {#if !arnProven(d)}
+              <div class="banner bad" role="alert"><div><b>{d.arn} isn't confirmed yet.</b> {d.kfintech.used ? 'Verify your KFintech login' : 'Verify your CAMS email'}: it shows whose ARN this is.</div>
+                <button class="btn secondary sm" onclick={() => change(d.kfintech.used ? 3 : 1)}>{d.kfintech.used ? 'Verify KFintech' : 'Verify CAMS'}</button></div>
+            {:else}
+              <p class="line">{d.arn} is confirmed by {provenBy(d)}.</p>
+            {/if}
+          {/if}
+        </div></div>
+      </div>
+    {/key}
+    <div class="pane-ft">
+      {#if ui.step > 0}<button class="btn ghost" id="back" onclick={() => to(ui.step - 1)}>Back</button>{/if}
+      <button class="btn primary" data-primary disabled={!valid || saving} onclick={next}>
+        {ui.step === LAST ? 'Finish setup' : ui.returnTo !== null ? 'Save' : 'Continue'}</button>
+    </div>
+  </section>
+</div>

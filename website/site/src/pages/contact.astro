@@ -1,0 +1,35 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import { NAME, EMAIL, PRICE, SALES } from '../consts';
+import { word } from '../lib/format';
+---
+<Layout title={`Contact · ${NAME}`} description="Write to us about anything." path="/contact" navOn="/contact">
+<main>
+  <section class="page">
+    <div class="head c"><h1 class="h1 rv">Contact</h1><p class="lede rv">Write to us about anything.</p></div>
+    <div class="ct">
+      <div class="card rv">
+        <h2>Help with the website or your plan</h2>
+        <p>For signing in, paying, downloading, or your ARNs. For a problem inside the app, use Send to support in the app.</p>
+        <div class="go"><a class="tlink" href={`mailto:${EMAIL.support}`}>{EMAIL.support}</a><a class="btn primary" href="/support">Go to Support</a></div>
+      </div>
+      <div class="card rv">
+        <h2>Buying for a firm</h2>
+        <p>More than {SALES.moreArns ? word(PRICE.maxArns) + ' ARNs' : 'one ARN'}, several people, or an invoice in your firm’s name. Tell us how you work.</p>
+        <div class="go"><a class="tlink" href={`mailto:${EMAIL.hello}`}>{EMAIL.hello}</a><a class="btn secondary" href={`mailto:${EMAIL.hello}`}>Write to us</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.ct{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;padding-bottom:110px}
+.ct .card{padding:32px;display:flex;flex-direction:column}
+.ct h2{font-size:18px;font-weight:600;letter-spacing:-.02em}
+.ct p{margin-top:10px;color:var(--muted);font-size:15px}
+.ct .go{margin-top:auto;padding-top:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:14px}
+.ct .go .tlink{font-family:var(--mono);font-size:13.5px}
+@media (max-width:880px){.ct{grid-template-columns:1fr}.ct .card{padding:24px 20px}}
+</style>

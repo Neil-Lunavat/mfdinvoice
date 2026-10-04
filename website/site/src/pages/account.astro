@@ -1,0 +1,221 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kit.css';
+import { env } from 'cloudflare:workers';
+import { NAME, PRICE, SALES, TRIAL } from '../consts';
+import { signedInOr } from '../lib/server/page';
+import { getAccount, getPlan, getArns, isActive, holdsPlan } from '../lib/server/account';
+import { openUpiOrder } from '../lib/server/upi';
+import { rupees, forWhat, type Kind } from '../lib/price';
+import { longDate, shortDate, istDay } from '../lib/date';
+import { setupCookie, planCookie } from '../lib/server/auth';
+export const prerender = false;
+
+const s = await signedInOr(Astro.request, '/signin?next=/account');
+if (s instanceof Response) return s;
+const [acct, plan, arns, inv] = await Promise.all([
+  getAccount(s.account_id), getPlan(s.account_id), getArns(s.account_id),
+  env.DB.prepare(`SELECT i.number, i.issued_at, i.total, o.kind, o.arns FROM invoices i JOIN orders o ON o.id = i.order_id
+    WHERE i.account_id = ? ORDER BY i.issued_at DESC`).bind(s.account_id).all<{ number: string; issued_at: string; total: number; kind: Kind; arns: number }>(),
+]);
+const active = isActive(plan), trial = plan?.source === 'trial';
+/* a UPI payment sent and not checked yet: the account can't be deleted until it is */
+const checking = await openUpiOrder(s.account_id).then(o => (o?.status === 'review' ? o : null));
+/* ... and, when it is for a first plan (none yet, a trial, or one that ended), the Plan card says so */
+const review = holdsPlan(plan) ? null : checking;
+const docs = SALES.gst ? 'Invoices' : 'Receipts';
+const slots = plan ? Array.from({ length: Math.max(plan.slots, arns.length) }, (_, i) => arns[i] ?? null) : [];
+const bill = { name: acct!.bill_name ?? '', gstin: acct!.bill_gstin ?? '', address: acct!.bill_address ?? '' };
+/* not set up yet (a gift skips Checkout): a dot on Change, and on the nav's Account (the "sb" cookie) */
+const unset = !bill.name || !bill.address;
+Astro.response.headers.append('set-cookie', setupCookie(unset));
+Astro.response.headers.append('set-cookie', planCookie(!!plan));
+Astro.response.headers.set('cache-control', 'private, no-store');
+---
+<Layout title={`Account · ${NAME}`} description="Your plan, your ARNs, your invoices and your billing details." path="/account">
+<main>
+  <section class="narrow">
+    <div class="head acc-h">
+      <div><h1 class="h2">Account</h1><p>Signed in as <b>{s.email}</b></p></div>
+      <a class="blue" href="/signin" id="out">Sign out</a>
+    </div>
+
+    <div class="card sect rv">
+      <div class="sect-h"><h2>Plan</h2><div class="act">
+        {plan && <span class="cnt">{arns.length}/{plan.slots} ARNs used</span>}
+        {holdsPlan(plan)
+          ? SALES.moreArns && plan!.slots < PRICE.maxArns && <a class="btn secondary sm" href="/checkout?add=1">Buy more ARNs</a>
+          : !review && (plan ? <a class="btn primary sm" href="/checkout">Buy now</a> : <a class="btn primary sm" href="/downloads">Try for Free</a>)}
+      </div></div>
+      {review && <p class="note">We’re checking your payment (reference <b class="mono">{review.id}</b>). You’ll get an email once it’s checked, and your plan starts then.</p>}
+      {!plan && !review && <p class="note">No plan yet. Your {TRIAL.days}-day free trial starts when you add your ARN in the app.</p>}
+      {plan && <div class="plan">
+        <b>{trial ? 'Free trial' : 'Yearly plan'}</b>
+        <span>{!active ? `Ended on ${longDate(plan.ends_on)}` : trial ? `Until ${longDate(plan.ends_on)}` : `Paid until ${longDate(plan.ends_on)}`}</span>
+      </div>}
+      {slots.map((a, i) => a
+        ? <div class="slot"><span class="n">{i + 1}</span><div><b>ARN-{a.arn}</b><span>{a.holder}</span></div><a class="r blue" href={`/support?about=arn&arn=${a.arn}`}>Change this ARN</a></div>
+        : <div class="slot empty"><span class="n">{i + 1}</span><div><b>Empty slot</b></div><span class="addw"><button class="add" type="button" aria-label="Add an ARN" aria-describedby={`tip${i + 1}`}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><span class="tip" id={`tip${i + 1}`} role="tooltip">Add an ARN from inside the app.</span></span></div>)}
+    </div>
+
+    <div class="card sect rv">
+      <div class="sect-h"><h2>{docs}</h2></div>
+      {inv.results.length === 0
+        ? <p class="note">No {docs.toLowerCase()} yet.</p>
+        : <table class="inv">
+        <thead><tr><th>Date</th><th class="hide">{SALES.gst ? 'Invoice' : 'Receipt'}</th><th>For</th><th class="num">Amount</th><th></th></tr></thead>
+        <tbody>
+          {inv.results.map(r => <tr><td>{shortDate(istDay(r.issued_at))}</td><td class="mono hide">{r.number}</td><td>{forWhat(r.kind, r.arns)}</td><td class="num">{rupees(r.total)}</td><td class="num"><a class="pdf blue" href={`/account/invoices/${r.number}`} target="_blank"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>PDF</a></td></tr>)}
+        </tbody>
+      </table>}
+    </div>
+
+    <div class="card sect rv" id="bill" data-bill={JSON.stringify(bill)} data-gst={SALES.gst ? '1' : ''}>
+      <div class="sect-h"><h2>Billing details</h2><div class="act"><button class:list={['btn secondary sm', { dot: unset }]} type="button" id="chg">Change</button></div></div>
+      <div id="billBody"></div>
+    </div>
+
+    <div class="card sect rv" id="everywhere">
+      <div class="sect-h"><h2>Sign out of all devices</h2><div class="act"><button class="btn secondary sm" type="button" id="allB">Sign out everywhere</button></div></div>
+      <p class="note">Signs you out here, on every other browser and in the app. Sign in again with a new code.</p>
+    </div>
+
+    <div class="card sect rv" id="del">
+      <div class="sect-h"><h2>Delete my account</h2><div class="act"><button class="btn danger sm" type="button" id="delB" disabled={!!checking}>Delete</button></div></div>
+      <p class="note">{checking ? 'You can delete your account once we’ve checked your payment.' : 'Removes your account, billing details and ARNs from our servers. The app stops working. Everything on your PC stays.'}</p>
+    </div>
+
+    <p class="foot-l">Something else? <a class="tlink" href="/support">Write to us.</a></p>
+  </section>
+</main>
+</Layout>
+
+<style is:global>
+.acc-h{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.acc-h p{margin-top:8px;color:var(--muted)}
+.acc-h p b{color:var(--ink);font-weight:500}
+.acc-h a{margin-left:auto;font-size:14px}
+.sect{margin-top:24px}
+.sect-h{display:flex;align-items:center;gap:12px;padding:20px 24px;border-bottom:1px solid var(--line-2)}
+.sect-h h2{font-size:17px;font-weight:600;letter-spacing:-.015em}
+.sect-h .act{margin-left:auto;display:flex;align-items:center;gap:8px}
+.plan{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:22px 24px;border-bottom:1px solid var(--line-2)}
+.plan b{font-size:22px;font-weight:600;letter-spacing:-.025em}
+.plan span{color:var(--muted)}
+.sect-h .cnt{font-size:14px;color:var(--ink-2)}
+.slot{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 24px;border-bottom:1px solid var(--line-2)}
+.slot:last-child{border-bottom:0}
+.slot .n{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--blue-wash);color:var(--blue);font-size:13px;font-weight:600}
+.slot.empty .n{background:var(--sunken);color:var(--faint)}
+.slot b{display:block;font-weight:600;font-family:var(--mono);font-size:14.5px;letter-spacing:.01em}
+.slot.empty b{font-family:var(--sans);font-weight:500;color:var(--muted)}
+.slot span{font-size:13.5px;color:var(--muted)}
+.slot .r{font-size:13px}
+.addw{position:relative;display:inline-flex}
+.add{width:32px;height:32px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;transition:border-color 120ms,background 120ms}
+.add:hover{border-color:var(--line-hover);background:var(--subtle)}
+.add:focus-visible{outline:none;box-shadow:var(--ring)}
+.add svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.tip{position:absolute;right:-6px;bottom:calc(100% + 10px);white-space:nowrap;padding:8px 12px;border-radius:8px;background:var(--ink);color:#fff;font-size:13px;box-shadow:var(--e-sheet);opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity 160ms var(--ease),transform 160ms var(--ease)}
+.tip::after{content:"";position:absolute;right:16px;top:100%;border:6px solid transparent;border-top-color:var(--ink)}
+.addw.on .tip{opacity:1;transform:none}
+.slot .tip{color:#fff}
+table.inv{width:100%;border-collapse:collapse;font-size:14px}
+table.inv th{text-align:left;font-weight:500;font-size:12.5px;color:var(--muted);padding:10px 24px;border-bottom:1px solid var(--line);background:var(--subtle)}
+table.inv td{padding:0 24px;height:52px;border-bottom:1px solid var(--line-2)}
+table.inv tr:last-child td{border-bottom:0}
+table.inv .num{text-align:right}
+table.inv .mono{font-family:var(--mono);font-size:13px}
+.pdf{display:inline-flex;align-items:center;gap:6px;font-size:13.5px}
+.pdf svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rows{padding:6px 24px}
+.dr{display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px;padding:14px 0;border-bottom:1px solid var(--line-2);font-size:14.5px}
+.dr:last-child{border-bottom:0}
+.dr span{color:var(--muted)}
+.dr .mono{font-family:var(--mono);font-size:13.5px}
+.edit{padding:22px 24px;display:grid;gap:16px}
+.edit .b{display:flex;gap:8px;justify-content:flex-end}
+.note{padding:18px 24px;font-size:13px;color:var(--muted)}
+.note b{color:var(--ink);font-weight:500}
+.gone{padding:32px 20px;display:grid;justify-items:center;gap:10px;text-align:center}
+.gone h2{font-size:18px;font-weight:600}
+.foot-l{margin:32px 0 110px;font-size:14px;color:var(--muted)}
+@media (max-width:720px){.slot:not(.empty){grid-template-columns:40px 1fr}.slot .r{grid-column:2}.dr{grid-template-columns:1fr;gap:2px}table.inv .hide{display:none}}
+</style>
+<script>
+/* Billing details Change / Save (saved on the server, GSTIN checked there too), Sign out, Delete my account. */
+import { STATES, gstinOk } from '../lib/gstin';
+import { $, esc, post, ask, dialog } from '../scripts/client';
+const signedOut = (r: any) => { if (r.status === 401) { location.href = '/signin?next=/account'; return true; } return false; };
+
+const bill = JSON.parse($('bill').dataset.bill);
+/* SALES.gst off: no GSTIN is asked for or shown, and the documents are receipts */
+const GST = !!$('bill').dataset.gst, DOC = GST ? 'invoice' : 'receipt';
+const dash = '<span style="color:var(--faint);font-family:var(--sans)">—</span>';
+function view() {
+  $('chg').hidden = false;
+  $('billBody').innerHTML = `<div class="rows">
+    <div class="dr"><span>Name</span><div>${bill.name ? esc(bill.name) : dash}</div></div>
+    ${GST ? `<div class="dr"><span>GSTIN</span><div class="mono">${bill.gstin ? `${esc(bill.gstin)} <span style="font-family:var(--sans);color:var(--muted);font-size:13px">· ${STATES[bill.gstin.slice(0,2)]}</span>` : dash}</div></div>` : ''}
+    <div class="dr"><span>Address</span><div>${bill.address ? esc(bill.address) : dash}</div></div></div>`;
+}
+function edit() {
+  $('chg').hidden = true;
+  $('billBody').innerHTML = `<div class="edit">
+    <div class="field"><label for="bn">Name on the ${DOC}</label><input class="input" id="bn" value="${esc(bill.name)}">${GST ? '' : '<span class="err" id="bge" hidden></span>'}</div>
+    ${GST ? `<div class="field"><label for="bg">GSTIN</label><input class="input mono" id="bg" maxlength="15" value="${esc(bill.gstin)}"><span class="err" id="bge" hidden>That GSTIN doesn’t look right.</span></div>` : ''}
+    <div class="field"><label for="ba">Address</label><textarea class="input" id="ba" style="min-height:80px">${esc(bill.address)}</textarea></div>
+    <div class="b"><button class="btn secondary" type="button" id="cx">Cancel</button><button class="btn primary" type="button" id="sv">Save</button></div></div>`;
+  if (GST) $('bg').oninput = (e: any) => { e.target.value = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ''); $('bge').hidden = true; e.target.classList.remove('bad'); };
+  $('cx').onclick = view;
+  $('sv').onclick = async () => {
+    const g = GST ? $('bg').value : null;
+    if (GST && !gstinOk(g)) { $('bge').hidden = false; $('bg').classList.add('bad'); return; }
+    const next = { name: $('bn').value.trim() || bill.name, ...(GST ? { gstin: g } : {}), address: $('ba').value.trim() || bill.address };
+    $('sv').disabled = true;
+    const r = await post('/api/account/billing', next);
+    if (signedOut(r)) return;
+    $('sv').disabled = false;
+    if (!r.ok) {
+      $('bge').textContent = r.error === 'bad_gstin' ? 'That GSTIN doesn’t look right.' : r.error === 'no_name' ? `Add the name on the ${DOC}.` : r.error === 'no_address' ? 'Add the address.' : 'That didn’t save. Try again.';
+      $('bge').hidden = false; if (GST && r.error === 'bad_gstin') $('bg').classList.add('bad');
+      return;
+    }
+    Object.assign(bill, r.bill);
+    $('chg').classList.remove('dot'); document.documentElement.classList.remove('sb');
+    view();
+  };
+  $('bn').focus();
+}
+$('chg').onclick = edit;
+
+$('out').onclick = async (e: Event) => {
+  e.preventDefault();
+  await post('/api/auth/signout', {});
+  location.href = '/';
+};
+
+/* every session ends, this one too */
+$('allB').onclick = () => ask({
+  title: 'Sign out of all devices?',
+  text: 'You’ll be signed out here, on every other browser and in the app.',
+  action: 'Sign out everywhere',
+  run: async () => { const r = await post('/api/account/signout-all', {}); signedOut(r); return r; },
+  done: () => { document.documentElement.classList.remove('si', 'sb'); location.href = '/'; },
+});
+
+/* delete: type the phrase to confirm, like GitHub */
+$('delB').onclick = () => ask({
+  title: 'Delete my account',
+  warn: '<b>This action is irreversible.</b> Your account, billing details and ARNs are removed from our servers, and the app stops working.',
+  phrase: 'DELETE MY ACCOUNT', action: 'Delete my account', danger: true,
+  run: async confirm => { const r = await post('/api/account/delete', { confirm }); signedOut(r); return r; },
+  done: () => {
+    document.documentElement.classList.remove('si');
+    dialog('<div class="gone"><h2 id="dlgT">Your account is deleted.</h2><a class="btn primary" href="/">Go to the home page</a></div>', false);
+  },
+});
+document.querySelectorAll('.addw').forEach(w => (w.querySelector('.add') as HTMLElement).onclick = e => { e.stopPropagation(); w.classList.toggle('on'); });
+document.addEventListener('click', () => document.querySelectorAll('.addw.on').forEach(w => w.classList.remove('on')));
+view();
+</script>

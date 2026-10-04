@@ -1,0 +1,64 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The Worker's name, and so its address: https://site.<your-subdomain>.workers.dev
+  // The owner picks the real name at deploy time.
+  "name": "site",
+  // Astro's handler, with the hosts (admin panel, blog editor), security headers and the scheduled jobs around it
+  "main": "./src/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist",
+    // /pricing is served from pricing.html; an unknown address gets 404.html with a 404 status
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    // the Worker runs first for every request: it decides by host (the admin panel and the blog editor share this
+    // Worker) and adds the security headers to the static pages too
+    "run_worker_first": true
+  },
+  // accounts, sign-in, plans, ARNs, payments, our tax invoices. Schema: migrations/
+  "d1_databases": [
+    { "binding": "DB", "database_name": "site-db", "database_id": "a364b9fd-29f6-4964-a5e1-baab171c8a0a", "migrations_dir": "migrations" }
+  ],
+  // the installer, served only to a signed-in account whose plan hasn't ended (src/pages/api/download.ts)
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "site-files" }
+  ],
+  // Cloudflare Email Service: every email, from no-reply@mfdinvoice.co.in
+  "send_email": [
+    { "name": "EMAIL" }
+  ],
+  // The public site stays on workers.dev until launch day (routes below would switch it off otherwise).
+  "workers_dev": true,
+  // The admin panel and the blog editor: their own hosts on this Worker, each behind Cloudflare Access.
+  "routes": [
+    { "pattern": "control.mfdinvoice.co.in", "custom_domain": true },
+    { "pattern": "write.mfdinvoice.co.in", "custom_domain": true }
+  ],
+  // The scheduled jobs (src/lib/server/jobs.ts): hourly, and daily at 02:00 IST (20:30 UTC).
+  "triggers": { "crons": ["0 * * * *", "30 20 * * *"] },
+  // PAYMENTS: which provider takes new orders: "upi" (paid to the owner, checked by hand, until the company is
+  // registered), "cashfree" or "razorpay" (both parked, ready; an order always
+  // completes with the provider that made it). CASHFREE_MODE: "sandbox" (test keys) or "production" (live keys).
+  // SITE_ORIGIN: the public site's address in emails (workers.dev until launch day, then https://mfdinvoice.co.in).
+  // CONTROL_HOST / WRITE_HOST: the admin panel's and the blog editor's hosts. ACCESS_TEAM: the Cloudflare Access team
+  // domain (<team>.cloudflareaccess.com); ACCESS_AUD_CONTROL / ACCESS_AUD_WRITE: each application's AUD tag.
+  // ADMINS (the panel), WRITERS (the editor): emails, comma-separated.
+  // SOFTWARE_SERVER: the software's own server (server/ at the repo's root), read by the panel's Software tab.
+  "vars": {
+    "PAYMENTS": "upi", "CASHFREE_MODE": "sandbox",
+    "SITE_ORIGIN": "https://site.develop-tbc.workers.dev",
+    "CONTROL_HOST": "control.mfdinvoice.co.in", "WRITE_HOST": "write.mfdinvoice.co.in",
+    "ACCESS_TEAM": "winter-mouse-cce4.cloudflareaccess.com",
+    "ACCESS_AUD_CONTROL": "408b899fc25d3ebc566a9ae0353203b3cbce1a48d235be26f88cab4be9844f4a",
+    "ACCESS_AUD_WRITE": "b9508d63cffafdc5b17e952b0416c2ac8f62ab098117c533e08fe81d5e92f5e2",
+    "ADMINS": "develop.tbc@gmail.com", "WRITERS": "develop.tbc@gmail.com",
+    "SOFTWARE_SERVER": "https://software.develop-tbc.workers.dev"
+  },
+  // Secrets (wrangler secret put; locally in .dev.vars): RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
+  // RAZORPAY_WEBHOOK_SECRET, CASHFREE_APP_ID, CASHFREE_SECRET_KEY, SOFTWARE_ADMIN_KEY (the software's server's admin
+  // key, from ~/.mfdinvoice/server-admin.key). Optional: EMAIL_CONSOLE=1 prints emails to the log instead of sending;
+  // TEST_LOGIN_DOMAIN + TEST_LOGIN_CODE: test accounts (any address at that domain signs in with that code, no email).
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,81 @@
+/* Content pages: widths, the page head, cards, forms, the questions list and the dialog. */
+.page{max-width:1040px;margin:0 auto;padding:0 24px}
+.narrow{max-width:860px;margin:0 auto;padding:0 24px}
+.head{padding:80px 0 40px}
+.head.c{text-align:center}
+.head.c .lede{margin-left:auto;margin-right:auto}
+/* a page that is one centred message (Setup, 404) */
+.page.solo{text-align:center;padding:120px 24px 150px}
+.solo .code{font-family:var(--mono);color:var(--faint);font-size:14px}
+.solo .code + h1{margin-top:10px}
+.solo .lede{margin:16px auto 0}
+.solo .ctas{margin-top:32px;display:flex;gap:10px;justify-content:center}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sheet);box-shadow:var(--e-card)}
+.muted{color:var(--muted)}
+
+/* forms */
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:500}
+.hint{font-size:12.5px;color:var(--muted)}
+.err{font-size:12.5px;color:var(--red)}
+.input{height:44px;width:100%;padding:0 12px;border-radius:var(--r-ctl);border:1px solid var(--line);background:var(--surface);font:inherit;font-size:15px;color:var(--ink);outline:none;transition:border-color 120ms,box-shadow 120ms}
+.input::placeholder{color:var(--faint)}
+.input:hover{border-color:var(--line-hover)}
+.input:focus{border-color:var(--blue);box-shadow:var(--ring)}
+.input.bad{border-color:var(--red)}
+.input.mono{font-family:var(--mono);letter-spacing:.02em}
+textarea.input{height:auto;min-height:120px;padding:10px 12px;resize:vertical;line-height:1.5}
+select.sel{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:36px;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center/16px}
+select.sel:invalid{color:var(--faint)}
+select.sel option{color:var(--ink)}
+.derived{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);padding:8px 12px;border-radius:var(--r-ctl);background:var(--subtle);border:1px dashed var(--line);animation:rise 280ms var(--ease) both}
+.derived b{color:var(--ink);font-weight:500}
+
+/* links in text */
+.tlink{color:var(--ink-2);text-decoration:underline;text-decoration-color:var(--ghost);text-underline-offset:3px}
+.tlink:hover{text-decoration-color:currentColor}
+.blue{color:var(--blue);font-weight:500}
+.blue:hover{text-decoration:underline}
+
+/* questions that open in place (Qa.astro) */
+.qa{border-top:1px solid var(--line)}
+.qa details{border-bottom:1px solid var(--line)}
+.qa summary{list-style:none;display:flex;align-items:center;gap:16px;padding:20px 2px;font-size:16.5px;font-weight:500;letter-spacing:-.01em;cursor:pointer}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary i{margin-left:auto;width:22px;height:22px;flex-shrink:0;position:relative}
+.qa summary i::before,.qa summary i::after{content:"";position:absolute;left:5px;right:5px;top:10.25px;height:1.5px;background:var(--muted);border-radius:2px;transition:transform 200ms var(--ease)}
+.qa summary i::after{transform:rotate(90deg)}
+.qa details[open] summary i::after{transform:rotate(0)}
+.qa .a{padding:0 2px 22px;font-size:15.5px;color:var(--muted);max-width:62ch;animation:ansIn 280ms var(--ease)}
+.qa .a a{color:var(--ink-2);text-decoration:underline;text-decoration-color:var(--ghost);text-underline-offset:3px}
+@keyframes ansIn{from{opacity:0;transform:translateY(-4px)}}
+
+/* the dialog (scripts/client.ts dialog() and ask()) */
+.scrim{position:fixed;inset:0;z-index:100;background:rgba(15,23,42,.45);display:grid;place-items:center;padding:16px;animation:fade 160ms var(--ease)}
+.dlg{width:min(480px,100%);background:var(--surface);border-radius:var(--r-sheet);box-shadow:var(--e-sheet);overflow:hidden;animation:rise 220ms var(--ease)}
+.dlg-h{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line-2)}
+.dlg-h h2{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.dlg-h button{margin-left:auto;width:30px;height:30px;border:0;border-radius:8px;background:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+.dlg-h button:hover{background:var(--sunken);color:var(--ink)}
+.warn{margin:20px 20px 0;padding:12px 14px;border-radius:var(--r-card);background:var(--red-wash);border:1px solid var(--red-line);color:var(--red-ink);font-size:14px}
+.warn b{font-weight:600}
+.dlg-b{padding:18px 20px 20px;display:grid;gap:10px}
+.dlg-b p{font-size:14px;color:var(--ink-2)}
+.dlg-b .input.mono{font-size:14px}
+.dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px;border-top:1px solid var(--line-2);background:var(--subtle)}
+
+/* a draft banner on pages whose words are not ours to write */
+.draft{margin-bottom:28px;padding:12px 16px;border:1px dashed var(--faint);border-radius:var(--r-card);font-size:13.5px;color:var(--muted);background:var(--surface)}
+.ph{color:var(--faint);font-style:italic}
+
+/* The result card (Checkout, Sign in, Support): the tick, or the cross, left of the title; the rest under them.
+   Pages only add their own padding and button width. */
+.done{display:grid;grid-template-columns:auto auto;justify-content:center;align-items:center;gap:12px;text-align:center}
+.done > :where(:not(.dt, .x, h1, h2)){grid-column:1/-1;justify-self:center}
+.done .dt,.done .x{width:36px;height:36px}
+.done h1,.done h2{margin:0}
+.done p{color:var(--muted)}
+.done p b{color:var(--ink);font-weight:500}
+.done .x{border-radius:99px;background:var(--red-wash);display:grid;place-items:center;animation:pop 280ms var(--ease) both}
+.done .x svg{width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2.6;stroke-linecap:round}
+.done .why{margin-top:4px;padding:12px 16px;background:var(--subtle);border:1px solid var(--line);border-radius:var(--r-ctl);color:var(--ink-2);text-align:left;white-space:pre-line;justify-self:stretch}

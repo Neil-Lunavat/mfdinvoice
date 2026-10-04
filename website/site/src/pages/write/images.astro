@@ -1,0 +1,76 @@
+---
+/* Images: every image the blog has (R2, blog/…), newest first, and which posts use each. Upload one to use later,
+   Copy puts its Markdown on the clipboard to paste into any post, Delete takes it out (a warning, and typing DELETE,
+   if a post still uses it). */
+import Panel from '../../layouts/Panel.astro';
+import { accessUser } from '../../lib/server/access';
+import { listImages } from '../../lib/server/blog';
+import { istShort } from '../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'write');
+if (!me) return new Response('Forbidden', { status: 403 });
+const images = await listImages();
+const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+---
+<Panel title="Images" app="write" on="/images" me={me.email}>
+  <div class="ph1"><h1>Images</h1><p>{images.length} image{images.length === 1 ? '' : 's'}. Copy one to paste it into any post.</p>
+    <div class="act"><label class="btn primary" for="up">Upload images</label><input type="file" id="up" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple hidden></div></div>
+  <p class="note" id="upN" hidden></p>
+  {images.length === 0 ? <section class="pc"><p class="empty">No images yet. Upload some, or paste them into a post.</p></section> :
+  <div class="lib">{images.map(i => <div class="img pc">
+    <a class="th" href={i.url} target="_blank"><img src={i.url} alt="" loading="lazy"></a>
+    <div class="im">
+      <span class="mono nm">{i.key.replace(/^blog\//, '')}</span>
+      <span class="note">{kb(i.size)} · {istShort(i.uploaded)}</span>
+      <span class="note">{i.usedIn.length ? <>In {i.usedIn.map((p, n) => <>{n ? ', ' : ''}<a class="blue" href={`/posts/${p.id}`}>{p.title}</a></>)}</> : 'Not in any post'}</span>
+      <div class="row-b">
+        <button class="btn ghost-red sm" type="button" data-del={i.key} data-used={i.usedIn.map(p => p.title).join('\n')}>Delete</button>
+        <button class="btn secondary sm" type="button" data-copy={i.url}>Copy</button>
+      </div>
+    </div>
+  </div>)}</div>}
+</Panel>
+
+<style is:global>
+.lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.img{margin:0;display:flex;flex-direction:column;overflow:hidden}
+.img .th{display:grid;place-items:center;aspect-ratio:4/3;background:var(--sunken);border-bottom:1px solid var(--line-2)}
+.img .th img{max-width:100%;max-height:100%;object-fit:contain}
+.img .im{padding:12px 14px;display:grid;gap:4px}
+.img .nm{font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.img .row-b{margin-top:8px}
+</style>
+<script>
+import { $, post, esc, toast } from '../../scripts/client';
+import { ask, errText } from '../../scripts/panel';
+
+$('up').onchange = async (e: any) => {
+  const files: File[] = [...e.target.files]; e.target.value = '';
+  $('upN').hidden = false;
+  for (const [n, f] of files.entries()) {
+    $('upN').textContent = `Uploading ${n + 1} of ${files.length}…`;
+    const fd = new FormData(); fd.append('image', f);
+    const r = await post('/api/write/image', fd);
+    if (!r.ok) { $('upN').innerHTML = `<span class="err-line">${esc(f.name)}: ${esc(errText(r))}</span>`; return; }
+  }
+  location.reload();
+};
+document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach(b => b.onclick = async () => {
+  const md = `![](${b.dataset.copy})`;
+  try { await navigator.clipboard.writeText(md); toast('Copied. Paste it into a post, and type the caption between the [ ].'); }
+  catch (e) { toast(md); }
+});
+document.querySelectorAll<HTMLButtonElement>('[data-del]').forEach(b => b.onclick = () => {
+  const used = b.dataset.used ? b.dataset.used.split('\n') : [];
+  ask({
+    title: 'Delete this image?',
+    ...(used.length ? {
+      warn: `<b>A post still uses it.</b> It will show a broken image in: ${used.map(t => `<b>${esc(t)}</b>`).join(', ')}.`,
+      phrase: 'DELETE',
+    } : { text: 'It isn’t in any post.' }),
+    action: 'Delete', danger: true,
+    run: () => post('/api/write/image', { action: 'delete', key: b.dataset.del }),
+  });
+});
+</script>

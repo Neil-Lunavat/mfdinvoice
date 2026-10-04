@@ -1,0 +1,101 @@
+# CAMS portal selector map: the only place CAMS selectors live (KFintech: kfin_selectors.toml, beside this file).
+# Prefer formcontrolname (stable) over Angular's generated ids (mat-select-4, mat-radio-9), which change per load.
+# Each entry says where/when it was verified live; the page behaviour is described in the flow modules' docstrings.
+
+[urls]
+mailback = "https://www.camsonline.com/Distributors/Service-Requests/Distributor-Mailback-Services/Request-Mailback/"
+api = "/api/v1/camsonline"
+
+[common]
+cookie_essential = "button.cm__btn--secondary:has-text('Essential only')"
+toast = ".toast-container .toast-message"
+nav_tab = ".mat-tab-label"            # filter by [texts]
+left_menu_item = "li.csp-class-4"     # filter by [texts]
+mat_panel = ".mat-select-panel"
+mat_option = ".mat-select-panel mat-option"
+mat_option_selected = ".mat-select-panel mat-option.mat-selected"
+mat_select_all = ".mat-select-panel mat-option-select-all .mat-option"
+ng_container = ".ng-select-container"
+ng_value = ".ng-value .ng-value-label"   # .ng-value also holds the × clear icon
+ng_option = "ng-dropdown-panel .ng-option"
+
+[texts]
+gst_tab = "GST Invoice Management"
+menu_download = "GST Invoice Download"
+menu_upload = "GST Invoice Upload"
+menu_status = "Invoice Status"
+
+[login]
+email = "input[placeholder='Email']"
+submit = "input[type=submit][value='Submit']"
+logged_in_url = "**/Request-Mailback/WBR1"
+mf_select = "mat-select[formcontrolname=amcnameup]"
+# One session per login. A second login replaces the form with "Your session is still active. Please
+# click here to end the previous session." Clicking ends the old session and returns an EMPTY email form;
+# the email must be submitted again.
+session_active = ":text('Your session is still active')"
+end_session = "a.clickhere"
+logout = "mat-icon.logout"   # power icon by the ARN header; logs out immediately, no confirm
+# Login errors: empty/malformed email -> mat-error under the field ("Please enter the Email",
+# "Please enter the valid Email"); unregistered/suspended -> toast "Either your email id is not registered
+# with CAMS or your access has been suspended, ...". Some mat-errors exist with empty text, so filter on text.
+field_error = "mat-error"
+
+# Shared by Download (IR1) and Status (IR2).
+[invoice_form]
+amc = "mat-select[formcontrolname=amcvalinvoice]"
+month = "ng-select[formcontrolname=mnthdisp]"
+year = "ng-select[formcontrolname=yeardisp]"
+
+[download]
+route = "**/Request-Mailback/IR1"
+# After month+year the portal loads (~3s), then shows OUTPUT FORMAT radios + an AMC | MONTH YEAR | INVOICE table.
+format_group = "mat-radio-group[formcontrolname=downloadformat]"
+format_pdf = "PDF"   # "Single PDF - All AMC" (default)
+format_zip = "ZIP"   # "Separate PDF for each AMC (ZIP)"
+invoice_header_cells = "table.mat-table th"
+invoice_rows = "table.mat-table tr:has(td)"
+submit = "input.check-now-btn[value='Submit']"
+success = ".re-success"
+success_title = ".re-success h1"
+confirmation_no = ".re-success .csp-class-12 b"
+
+[status]
+route = "**/Request-Mailback/IR2"
+table = "table.email_update_success"
+header_cells = "table.email_update_success th"
+rows = "table.email_update_success tr:has(td)"
+empty_text = "No Invoice Number Found."
+
+[upload]
+route = "**/Request-Mailback/IR7"
+entity_individual = "button.gst-tb-btn:has-text('Individual')"
+source_group = "mat-radio-group[formcontrolname=InvoiceSorce]"          # sic
+pathway_group = "mat-radio-group[formcontrolname=selectradio]"
+method_group = "mat-radio-group[formcontrolname=signatureandeceutio]"   # sic
+source_cams = "1"
+source_custom = "2"                  # "Your Own Invoice Format": the own-invoice path
+pathway_manual = "2"      # Manual Document Upload ("1" = Sign with Signature Upload: not used)
+method_single = "single"
+method_multi = "multi"
+proceed = "button.steper-nextBtn:has-text('Proceed to Next Step')"
+# Manual pathway, step 2 = Upload
+step2_marker = ":text('Excel Template Ready')"   # CSS :text() so it can join comma lists
+download_template = "button:has-text('Download Template')"
+zip_input = "input[type=file][accept*='zip']"
+excel_input = "input[type=file][accept*='xls']"
+# Attaching the Excel opens "Review Bulk Invoice Data" (verified 12:57, no request sent on attach)
+review_dialog = "mat-dialog-container:has-text('Review Bulk Invoice Data')"
+review_section = "div.amc-section"                 # h4 "Section: <AMC name>" + one table
+review_header_cells = "thead th"
+review_rows = "tbody tr"
+review_cancel = "input[type=button][value='Cancel']"
+review_continue = "input[type=button][value='Continue']"   # runs the portal's validation (verified 16:05), not a submit
+# Validation screen after Continue (verified 2026-09-19 16:05)
+validation_marker = ":text('Total Records')"
+validation_counts = "div.mr-top20 h3.mt-5"                 # label h3; the number sits in the same parent
+validation_header_cells = "table.acc-status-tbl th"
+validation_rows = "table.acc-status-tbl tr:has(td)"
+reupload = "button.check-now-btn:has-text('Reupload')"
+# UNVERIFIED: only rendered once every row is valid; never seen yet
+final_submit = "button:text-is('Submit'), input[type=submit][value='Submit'], input[type=button][value='Submit']"

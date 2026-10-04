@@ -1,0 +1,46 @@
+# ── Virtual environments ──────────────────────────────────────────────
+.venv/
+*.egg-info/
+
+# ── Python build output and caches ────────────────────────────────────
+__pycache__/
+*.py[cod]
+build/
+dist/
+wheels/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ── Real data. Never commit. ──────────────────────────────────────────
+# /samples holds a real distributor's invoices, GSTIN, PAN and address.
+# config.toml holds the same on this PC.
+/samples/
+config.toml
+
+# ── This PC's run artefacts ───────────────────────────────────────────
+client/workspace/
+
+# ── Labs ──────────────────────────────────────────────────────────────
+# A lab stays on this PC.
+labs/*
+
+# ── Editors and OS ────────────────────────────────────────────────────
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini
+
+
+# local secrets, never committed
+.env
+
+# ── The software's server ─────────────────────────────────────────────
+server/node_modules/
+server/.wrangler/
+server/.dev.vars
+# The signed steps as published: built from client/src/client/automation by ops/automation.py publish.
+server/public/automation/
+
+# ── Real files from a registrar, kept here to try things on ───────────
+/test/

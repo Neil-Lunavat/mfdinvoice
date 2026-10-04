@@ -1,0 +1,46 @@
+---
+/* The floating nav: links in a grouped pill, Sign in (or Account) on the right,
+   and on small screens a menu that drops down under the bar. */
+import Brand from './Brand.astro';
+
+interface Props {
+  path: string;          /* this page's route; Sign in comes back to it */
+  on?: string;           /* the link marked as the current page */
+  home?: boolean;        /* on the home page, the brand and How it works glide in place */
+}
+const { path, on, home = false } = Astro.props;
+const links = [
+  [home ? '#how' : '/#how', 'How it works'],
+  ['/setup', 'Setup'],
+  ['/security', 'Security'],
+  ['/pricing', 'Pricing'],
+  ['/faq', 'FAQ'],
+  ['/downloads', 'Downloads'],
+  ['/contact', 'Contact'],
+];
+---
+<header class="nav" id="nav">
+  <div class="nav-in">
+    <Brand href={home ? '#top' : '/'} />
+    <nav class="links">
+      {links.map(([href, label]) => <a class={href === on ? 'on' : undefined} href={href}>{label}</a>)}
+    </nav>
+    <div class="nav-r">
+      {/* both are rendered; the script in Layout's <head> marks <html class="si"> when signed in, so one shows */}
+      <a class="btn secondary sm nav-account" href="/account">Account</a>
+      <a class="btn secondary sm nav-signin" href={`/signin?next=${path}`}>Sign in</a>
+      <button class="burger" type="button" id="burger" aria-label="Menu" aria-expanded="false" aria-controls="menu"><i></i><i></i></button>
+    </div>
+  </div>
+  <div class="menu" id="menu">
+    <nav>{links.map(([href, label]) => <a class={href === on ? 'on' : undefined} href={href}>{label}</a>)}</nav>
+  </div>
+</header>
+
+<script>
+  const nav = document.getElementById('nav')!, burger = document.getElementById('burger')!;
+  addEventListener('scroll', () => nav.classList.toggle('up', scrollY > 8), { passive: true });
+  const setMenu = (open: boolean) => { nav.classList.toggle('open', open); burger.setAttribute('aria-expanded', String(open)); };
+  burger.onclick = () => setMenu(!nav.classList.contains('open'));
+  document.querySelectorAll<HTMLAnchorElement>('#menu a').forEach(a => a.onclick = () => setMenu(false));
+</script>

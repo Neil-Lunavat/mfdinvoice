@@ -1,0 +1,170 @@
+---
+/* Writing a post, screen 1 of 2: only editing. The heading, the search title and description (with how Google shows
+   them), the address, a cover, and the text in Markdown, where an image can be pasted or dropped. Preview (screen 2,
+   posts/preview.astro) shows it exactly as it will be on the site, and publishes it from there. What's typed is kept
+   in this tab (sessionStorage) until it's published, so going back and forth loses nothing. */
+import Panel from '../../../layouts/Panel.astro';
+import { accessUser } from '../../../lib/server/access';
+import { getPost, imageUrl } from '../../../lib/server/blog';
+import { TITLE_LEN, DESCRIPTION_LEN } from '../../../lib/blog';
+import { istShort, siteOrigin } from '../../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'write');
+if (!me) return new Response('Forbidden', { status: 403 });
+const isNew = Astro.params.id === 'new';
+const p = isNew ? null : await getPost(Number(Astro.params.id));
+if (!isNew && !p) return new Response(null, { status: 404 });
+const data = {
+  id: p?.id ?? null, title: p?.title ?? '', seo_title: p?.seo_title ?? '', slug: p?.slug ?? '', description: p?.description ?? '',
+  body: p?.body ?? '', cover: p?.cover ?? null, coverUrl: imageUrl(p?.cover ?? null),
+  live: p?.path ?? null, site: siteOrigin(), saved: p ? istShort(p.updated_at) : null,
+};
+const host = new URL(siteOrigin()).host;
+---
+<Panel title={p?.title || 'New post'} app="write" on={isNew ? '/posts/new' : '/'} me={me.email}>
+  <div class="ed" id="ed" data-post={JSON.stringify(data)}>
+    <section class="pc"><div class="pc-b ed-f">
+      <div class="field"><label for="fTitle">Heading</label><input class="input big" id="fTitle" placeholder="The post’s heading, at the top of the page"></div>
+      <div class="field"><label for="fSeo">Search title <span class="cnt" id="cSeo"></span></label><input class="input" id="fSeo" data-max={TITLE_LEN}><span class="hint">The browser tab’s title, and the link Google shows.</span></div>
+      <div class="field"><label for="fDesc">Description <span class="cnt" id="cDesc"></span></label><textarea class="input" id="fDesc" rows="2" style="min-height:64px" data-max={DESCRIPTION_LEN}></textarea><span class="hint">The line under the link on Google, and on the blog’s cards.</span></div>
+      <div class="field"><label for="fSlug">Address</label><div class="slug"><span class="mono">/blog/</span><input class="input mono" id="fSlug" placeholder="the-address-in-words"></div></div>
+      <div class="serp" aria-label="How Google shows it">
+        <div class="serp-u"><span class="fav"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span><div><b>MFDInvoice</b><span id="sUrl"></span></div></div>
+        <div class="serp-t" id="sTitle"></div>
+        <p class="serp-d" id="sDesc"></p>
+      </div>
+      <div class="field"><label>Cover image <span class="hint">optional, on the blog’s cards</span></label>
+        <div class="cover"><img id="coverImg" alt="" hidden><label class="btn secondary sm" for="fCover">Choose an image</label><input type="file" id="fCover" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden><button class="btn secondary sm" type="button" id="coverX" hidden>Remove</button></div></div>
+    </div></section>
+    <section class="pc">
+      <div class="pc-h"><h2>Text</h2><span class="note" id="words" style="margin-left:auto"></span></div>
+      <textarea class="md" id="fBody" spellcheck="true" placeholder="Write in Markdown.&#10;&#10;## A heading (it goes in “On this page”)&#10;&#10;Paste or drop an image anywhere: it’s uploaded and put here as ![caption](…). Type its caption between the [ ]."></textarea>
+      <p class="note" style="padding:10px 18px">Markdown. Paste or drop an image anywhere in the text; its caption is what’s between the [ ]. Each ## heading goes in “On this page”.</p>
+    </section>
+  </div>
+  <div class="ed-bar"><div class="ed-bar-in">
+    <span class="note" id="state"></span>
+    <div class="row-b">
+      {p && <button class="btn ghost-red" type="button" id="bDel">Delete</button>}
+      <button class="btn primary" type="button" id="bPrev">Preview</button>
+    </div>
+  </div></div>
+  <form id="toPrev" method="post" action="/posts/preview" hidden><input type="hidden" name="data" id="prevData"></form>
+</Panel>
+
+<style is:global>
+.pmain{max-width:920px;padding-bottom:120px}
+.ed{display:grid;gap:18px}
+.ed-f{display:grid;gap:16px}
+.input.big{height:48px;font-size:18px;font-weight:600;letter-spacing:-.01em}
+.cnt{float:right;font-weight:400;color:var(--muted);font-size:12px}
+.cnt.over{color:var(--red)}
+.slug{display:flex;align-items:center;border:1px solid var(--line);border-radius:var(--r-ctl);background:var(--subtle);overflow:hidden}
+.slug span{padding:0 2px 0 12px;color:var(--muted);white-space:nowrap}
+.slug .input{border:0;border-radius:0;height:40px;background:var(--surface)}
+/* how Google shows it */
+.serp{padding:16px 18px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--surface);font-family:arial,sans-serif;max-width:640px}
+.serp-u{display:flex;align-items:center;gap:10px}
+.serp-u .fav{width:26px;height:26px;border-radius:99px;background:var(--sunken);display:grid;place-items:center}
+.serp-u .fav svg{width:13px;height:13px;fill:none;stroke:var(--blue);stroke-width:3}
+.serp-u b{display:block;font-size:14px;font-weight:400;color:#202124}
+.serp-u span{display:block;font-size:12px;color:#4d5156}
+.serp-t{margin-top:6px;font-size:20px;line-height:1.3;color:#1a0dab;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.serp-d{margin-top:3px;font-size:14px;line-height:1.58;color:#4d5156;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.serp .empty-s{color:var(--faint)}
+.cover{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cover img{height:64px;border-radius:8px;border:1px solid var(--line)}
+.md{display:block;width:100%;min-height:640px;border:0;padding:16px 18px;font:14.5px/1.7 var(--mono);color:var(--ink);resize:vertical;outline:none}
+.md.drop{background:var(--blue-wash)}
+.ed-bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+.ed-bar-in{max-width:920px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ed-bar .row-b{margin-left:auto}
+</style>
+<script>
+import { $, post, esc } from '../../../scripts/client';
+import { ask, errText } from '../../../scripts/panel';
+import { slugify, readMinutes } from '../../../lib/markdown';
+const d = JSON.parse($('ed').dataset.post);
+const KEY = `post-draft:${d.id ?? 'new'}`;
+let cover: string | null = d.cover;
+
+/* what's typed in this tab wins over what's saved (it's newer): it's cleared once published */
+let draft: any = null;
+try { draft = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (e) {}
+const start = draft ?? d;
+$('fTitle').value = start.title; $('fSeo').value = start.seo_title; $('fDesc').value = start.description;
+$('fSlug').value = start.slug; $('fBody').value = start.body; cover = start.cover ?? null;
+
+const fields = () => ({ id: d.id, title: $('fTitle').value.trim(), seo_title: $('fSeo').value.trim(), description: $('fDesc').value.trim(),
+  slug: $('fSlug').value.trim(), body: $('fBody').value, cover });
+const keep = () => { try { sessionStorage.setItem(KEY, JSON.stringify(fields())); } catch (e) {} };
+
+function refresh() {
+  for (const [f, c] of [['fSeo', 'cSeo'], ['fDesc', 'cDesc']]) {
+    const n = $(f).value.length, max = +$(f).dataset.max;
+    $(c).textContent = `${n} / about ${max}`; $(c).classList.toggle('over', n > max + 10);
+  }
+  const f = fields();
+  $('sUrl').textContent = `${new URL(d.site).host} › blog › ${f.slug || '…'}`;
+  $('sTitle').innerHTML = f.seo_title ? esc(f.seo_title) : '<span class="empty-s">The search title</span>';
+  $('sDesc').innerHTML = f.description ? esc(f.description) : '<span class="empty-s">The description</span>';
+  const words = f.body.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
+  $('words').textContent = `${words} words · ${readMinutes(f.body)} min read`;
+  $('coverImg').hidden = !cover; $('coverX').hidden = !cover;
+  if (cover) $('coverImg').src = '/blog/images/' + cover.replace(/^blog\//, '');
+  $('state').innerHTML = d.live ? `On the blog at <a class="blue" href="${esc(d.site + d.live)}" target="_blank">${esc(d.live)}</a> · published ${esc(d.saved)}${draft ? ' · changes not published' : ''}` : 'Not on the blog yet';
+}
+function changed() { draft = fields(); keep(); refresh(); }
+['fTitle', 'fSeo', 'fDesc', 'fSlug', 'fBody'].forEach(f => $(f).addEventListener('input', changed));
+/* the address: lower case words and hyphens, as it's typed */
+$('fSlug').addEventListener('change', () => { $('fSlug').value = slugify($('fSlug').value); changed(); });
+
+/* images: the cover; in the text, pasted or dropped, uploaded and put where the cursor is */
+const upload = (file: File) => { const fd = new FormData(); fd.append('image', file); return post('/api/write/image', fd); };
+$('fCover').onchange = async (e: any) => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  $('state').textContent = 'Uploading…'; const r = await upload(f);
+  if (!r.ok) return ($('state').innerHTML = `<span class="err-line">${esc(errText(r))}</span>`);
+  cover = r.key; changed();
+};
+$('coverX').onclick = () => { cover = null; changed(); };
+async function putImages(files: File[]) {
+  const ta = $('fBody');
+  for (const f of files.filter(x => x.type.startsWith('image/'))) {
+    const mark = `![Uploading ${f.name || 'image'}…]()`;
+    const at = ta.selectionStart ?? ta.value.length;
+    const before = ta.value.slice(0, at), after = ta.value.slice(at);
+    const pad = (before && !before.endsWith('\n\n') ? (before.endsWith('\n') ? '\n' : '\n\n') : '');
+    ta.value = before + pad + mark + '\n\n' + after;
+    changed();
+    const r = await upload(f);
+    ta.value = ta.value.replace(mark, r.ok ? `![](${r.url})` : '');
+    if (!r.ok) $('state').innerHTML = `<span class="err-line">${esc(errText(r))}</span>`;
+    else { const i = ta.value.indexOf(`![](${r.url})`) + 2; ta.focus(); ta.selectionStart = ta.selectionEnd = i; }
+    changed();
+  }
+}
+$('fBody').addEventListener('paste', (e: ClipboardEvent) => {
+  const files = [...(e.clipboardData?.files ?? [])];
+  if (files.some(f => f.type.startsWith('image/'))) { e.preventDefault(); putImages(files); }
+});
+$('fBody').addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); $('fBody').classList.add('drop'); });
+$('fBody').addEventListener('dragleave', () => $('fBody').classList.remove('drop'));
+$('fBody').addEventListener('drop', (e: DragEvent) => {
+  $('fBody').classList.remove('drop');
+  const files = [...(e.dataTransfer?.files ?? [])];
+  if (files.length) { e.preventDefault(); putImages(files); }
+});
+
+/* Preview: the next screen, the post exactly as it will be on the site; Publish is there */
+$('bPrev').onclick = () => { keep(); $('prevData').value = JSON.stringify(fields()); ($('toPrev') as HTMLFormElement).submit(); };
+if ($('bDel')) $('bDel').onclick = () => ask({
+  title: 'Delete this post?',
+  warn: '<b>This can’t be undone.</b> It comes off the blog, and its addresses show “not found”.',
+  phrase: 'DELETE', action: 'Delete', danger: true,
+  run: () => post('/api/write/posts', { action: 'delete', id: d.id }),
+  done: () => { try { sessionStorage.removeItem(KEY); } catch (e) {} location.href = '/'; },
+});
+refresh();
+</script>

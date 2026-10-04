@@ -1,0 +1,33 @@
+---
+/* A blog post in the site's post design: the title, the date and minutes to read, the Markdown body, "On this page"
+   (its ## headings) and what to read next. The public post (/blog/<slug>) and the editor's preview both use it. */
+import '../styles/post.css';
+import { renderMarkdown, headingsOf, readMinutes } from '../lib/markdown';
+import { longDate, istDay } from '../lib/date';
+
+interface Props {
+  post: { title: string; body: string; created_at: string };
+  related: { title: string; path: string }[];
+}
+const { post, related } = Astro.props;
+const html = renderMarkdown(post.body);
+const toc = headingsOf(html);
+---
+<article class="page">
+  <nav class="crumb"><a href="/blog">Blog</a></nav>
+  <header class="art-h">
+    <h1>{post.title}</h1>
+    <div class="by">{longDate(istDay(post.created_at))} · {readMinutes(post.body)} min read</div>
+  </header>
+  <div class="art-grid">
+    <div class="prose"><Fragment set:html={html} /></div>
+    <aside class="side">
+      {toc.length > 0 && <div><h4>On this page</h4>{toc.map(t => <a href={`#${t.id}`}>{t.text}</a>)}</div>}
+    </aside>
+  </div>
+  {related.length > 0 && <section class="more">
+    <h2>Read next</h2>
+    <div class="more-g">{related.map(r => <a class="card" href={r.path}><b>{r.title}</b></a>)}</div>
+  </section>}
+  {related.length === 0 && <div style="height:80px"></div>}
+</article>

@@ -1,0 +1,27 @@
+{
+  "name": "site",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "bun run clean && astro build",
+    "preview": "bun run build && wrangler d1 migrations apply site-db --local && wrangler dev",
+    "deploy": "bun run build && wrangler d1 migrations apply site-db --remote && wrangler deploy",
+    "db:local": "wrangler d1 migrations apply site-db --local",
+    "db:live": "wrangler d1 migrations apply site-db --remote",
+    "astro": "astro",
+    "check": "bun scripts/check.ts",
+    "emails": "bun scripts/emails.ts",
+    "installer": "bun scripts/installer.ts",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.3.3",
+    "astro": "^7.3.5",
+    "marked": "^18.0.14",
+    "qrcode-generator": "^2.0.4",
+    "wrangler": "^4.141.0"
+  }
+}
