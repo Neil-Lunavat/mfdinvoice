@@ -22,9 +22,11 @@ edits this; where it and he disagree, he wins.
   something he knows (what a portal shows), I say so and he shows me.
 - **Words in the window matter to him.** "Verify", not "Test". No deadlines or reminders: that is the person's job.
   Make them feel they own it. He rewrites copy; take his wording.
-- **Commit only when asked; stage files by name.** The rewrite went in on 4 Oct (`808c6a8`), and he wants each
-  finished piece committed from here on. `main` is pushed nowhere. Before it ever is: commits older than `808c6a8`
-  hold the real ARN and KFintech username in files since deleted.
+- **Commit only when asked; stage files by name.** He wants each finished piece committed. `main` is on GitHub
+  (`origin`, `Neil-Lunavat/mfdinvoice`, private) and began there as one fresh commit on 5 Oct. The history before it
+  is the local branch `old-history`, which holds the real ARN and KFintech username in files since deleted: it is
+  never pushed. One repo holds the app, the software's server and the website, because a release writes into all
+  three. A cloud session pushes a branch, never `main`; Neil pulls it and merges.
 - **What I am not allowed to do** (writes to the live database, deploys, gcloud changes) I hand him as one `!` command.
 
 ## What must not be touched
