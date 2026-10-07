@@ -1,4 +1,4 @@
-# The website: everything left (7 Oct 2026)
+# The website: everything left
 
 The one list for the website. Delete a line when it is done, a section when it is empty. Ideas parked for later are
 in `IDEAS.md` at the repo root; the software's list is `TODO.md`.
@@ -26,8 +26,8 @@ in `IDEAS.md` at the repo root; the software's list is `TODO.md`.
 ## Waiting on Neil
 
 - [ ] **The logo** is in (`brand/`, 7 Oct): the header, Downloads, the favicon, the Apple touch icon, the link preview
-      (`og.png`). Left: a default blog cover; the emails' mark (still the ✓: a picture there loads from the site, so
-      it waits for the site to be on mfdinvoice.co.in); a simpler 16px favicon if the tab icon looks smudged.
+      (`og.png`). Left: a default blog cover; the emails' mark (still the ✓; the site is on mfdinvoice.co.in now, so the
+      picture can load from it); a simpler 16px favicon if the tab icon looks smudged.
 - [ ] **His read of every page**, desktop and phone: Home, Setup, Security, Pricing, FAQ, Downloads, Release notes,
       Contact, Support, Blog, Terms, Privacy, Refunds, 404, Sign in, Account, Checkout, a receipt.
 - [ ] **Every email** (`bun run emails`), including the new one: an ARN taken by another account.
@@ -41,30 +41,23 @@ in `IDEAS.md` at the repo root; the software's list is `TODO.md`.
 - [ ] `/setup`: one picture per step, then his videos.
 - [ ] Release notes back to one first release, 1.0.0 (`ops/release.py` writes `RELEASES`; never edit the version or
       sha256 by hand: installed software reads them).
-- [ ] Deploy the software's server first (new report columns, the 90-day delete of run records the Privacy page
-      promises, and `/admin/stats`), then the website, then clean the live databases and the file store, and remove
-      Neil's test account and ARN. The website's Software dashboard, Accounts' run columns and Overview's runs read
-      `/admin/stats`: a website deployed before the server shows "no answer" there.
+- [ ] Clean the live databases and the file store, and remove Neil's test account and ARN.
 - [ ] Zoho Books and DSC signing are on the site (Home, Pricing, FAQ) and being built. If either slips past launch,
       change the pages.
 
-## Launch day: the move to mfdinvoice.co.in
+## Launch day
 
-- [ ] `wrangler.jsonc`: `mfdinvoice.co.in` in `routes`, `SITE_ORIGIN` = `https://mfdinvoice.co.in`. Set up `www`.
-- [ ] **Keep `site.develop-tbc.workers.dev` answering** until every installed copy has updated: the software asks
-      that address whether it must update.
-- [ ] The software's `brand.json` points at the new address; build, release, the forced update moves everyone.
+- [ ] `www.mfdinvoice.co.in` answers (redirects to the apex).
 - [ ] Mail: support@ and hello@ arrive in Neil's inbox; no-reply@ lands in the inbox, not spam (Gmail and one other).
 - [ ] Support › Reply sends from support@ through Cloudflare: send one real reply and see it arrive (and not in spam).
 - [ ] Follow-ups happen in the mailbox. For them to go out from support@ and not the Gmail address: Gmail › Settings ›
       Accounts › Send mail as › add support@mfdinvoice.co.in (SMTP smtp.gmail.com, port 587, the Gmail address and
-      an app password), then check one reaches another inbox, not spam. Optional: a Gmail template (Settings ›
-      Advanced › Templates) with the greeting and the sign-off.
+      an app password), then check one reaches another inbox, not spam.
 - [ ] Cloudflare Access: the blog's writers (and Anand, if he wants the panel).
 - [ ] Cloudflare Web Analytics on, and one line in Privacy ("Cloudflare counts visits, without cookies"); move
       `TERMS_VERSION`.
-- [ ] `INDEXING = true` in `src/consts.ts`; Google Search Console with the sitemap; the other SEO steps; then one
-      Lighthouse pass on a phone (Home, Pricing, Downloads).
+- [ ] `INDEXING = true` in `src/consts.ts`; Google Search Console with the sitemap; then one Lighthouse pass on a phone
+      (Home, Pricing, Downloads).
 - [ ] Neil's own pass on the live site, end to end: sign up, Try for Free, download, trial, pay by UPI, approve in
       the panel, receipt, Buy more ARNs, support request, a copy of my data, delete the account, sign up again with
       the same email (no second trial).

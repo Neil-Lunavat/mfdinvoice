@@ -97,5 +97,10 @@ validation_counts = "div.mr-top20 h3.mt-5"                 # label h3; the numbe
 validation_header_cells = "table.acc-status-tbl th"
 validation_rows = "table.acc-status-tbl tr:has(td)"
 reupload = "button.check-now-btn:has-text('Reupload')"
+# After Submit, before or after the Success page (7 Oct, not yet seen by the app): a survey with Cancel and an X.
+# The Success page itself is [download] success_title, its table [status] rows; the Message is the row's last cell.
+survey = "mat-dialog-container:has-text('Help Us Improve')"
+survey_cancel = "button:has-text('Cancel'), input[value='Cancel']"
+survey_close = "button.close, button[aria-label='Close'], mat-icon:has-text('close')"
 # UNVERIFIED: only rendered once every row is valid; never seen yet
 final_submit = "button:text-is('Submit'), input[type=submit][value='Submit'], input[type=button][value='Submit']"

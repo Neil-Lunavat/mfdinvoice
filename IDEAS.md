@@ -16,3 +16,12 @@ Waits on what the law allows (India's data protection law: consent, purpose, wha
 
 Waits for data: which problems are common and which rare only shows with real users. Until then the panel shows
 more rather than less, so Neil develops a taste for what matters.
+
+## Zoho Books, past the import
+
+Waits for launch: the import comes first. Each was proven in the Zoho lab (`labs/zoho-results.md`, 7 Oct).
+
+- Commission received: a payment against the invoice with the TDS withheld (194H) on the invoice's line, so the
+  invoice reads paid (and the "overdue" that a past-dated sent invoice shows goes).
+- Credit notes against an invoice, as the registrars issue them.
+- GSTR-1: Zoho files it from its own screens; no API for filing was found. Perhaps "GSTR-1 ready" at the month's end.

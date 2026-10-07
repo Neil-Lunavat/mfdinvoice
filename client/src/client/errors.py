@@ -8,7 +8,7 @@ helper:
   portal  the registrar is down, slow, or has locked the login. Not our fault and not theirs. **We never retry by
           ourselves** - the person picks when to try again.
   ours    our bug, or a portal change we have not caught up with. The person is told it is on us and that we have been
-          alerted; we get an alarm.
+          alerted: the run's record reaches us.
   person  not an error at all: nothing to do, or the person said no, or pressed Stop. Ends the run cleanly.
 """
 
@@ -41,12 +41,9 @@ def _c(code: str, kind: str, doc: str, resumable: bool, alarm: bool = False) -> 
 # --- the person, not a failure ---------------------------------------------------------------------------------
 NOTHING_TO_DO = _c("nothing_to_do", PERSON, "Every invoice for this month is already submitted or approved.", False)
 STOPPED = _c("stopped", PERSON, "The person pressed Stop after this step.", True)
-NOT_CONFIRMED = _c("not_confirmed", PERSON, "Your check was not confirmed; nothing was submitted.", True)
 CANCELLED = _c("cancelled", PERSON, "The person closed the question we asked.", True)
 
 # --- the person can fix it -------------------------------------------------------------------------------------
-BAD_CREDENTIALS = _c("bad_credentials", USER, "The portal rejected the username or password.", True)
-MAILBOX_UNREACHABLE = _c("mailbox_unreachable", USER, "We could not sign in to the mailbox.", True)
 NO_SIGNATURE = _c("no_signature", USER, "No signature is set up on this PC.", True)
 # Signing with a USB token. Both are the person's to fix, and the run carries on from Sign.
 TOKEN_NOT_FOUND = _c("token_not_found", USER, "The signing token is not plugged in.", True)
@@ -56,24 +53,15 @@ ARN_MISMATCH = _c("arn_mismatch", USER, "The portal login belongs to a different
 NO_BROWSER = _c("no_browser", USER, "No usable browser on this PC and none could be installed.", True)
 ANOTHER_COPY = _c("another_copy", USER, "Another copy of the software is already running on this PC.", True)
 BROWSER_DOWNLOAD = _c("browser_download", USER, "A browser had to be downloaded and the download failed.", True)
-SETUP_INCOMPLETE = _c("setup_incomplete", USER, "Something this run needs was never set up.", True)
 
 # --- the portal -------------------------------------------------------------------------------------------------
-PORTAL_DOWN = _c("portal_down", PORTAL, "The portal did not respond.", True)
-PORTAL_SLOW = _c("portal_slow", PORTAL, "The portal responded too slowly for this step.", True)
 ACCOUNT_LOCKED = _c("account_locked", PORTAL, "The portal has locked this login for a while.", True)
-PORTAL_REFUSED = _c("portal_refused", PORTAL, "The portal refused the submit and gave a reason.", True)
 PORTAL_VALIDATION = _c("portal_validation", PORTAL, "The portal's own validation failed some invoices.", True)
 MAILBACK_LATE = _c("mailback_late", PORTAL, "The registrar's email has not arrived in time.", True)
-CAPTCHA_WRONG = _c("captcha_wrong", PORTAL, "The portal did not accept the captcha.", True)
 PORTAL_EMPTY = _c("portal_empty", PORTAL, "The portal shows no invoices for this month yet.", True)
 
 # --- ours -------------------------------------------------------------------------------------------------------
-SELECTOR_MISSING = _c("selector_missing", OURS, "A page element we rely on is not there any more.", True, True)
-FIGURES_MISMATCH = _c("figures_mismatch", OURS, "Our figures and the portal's do not agree.", True, True)
 INTERNAL = _c("internal", OURS, "An unexpected failure.", True, True)
-IGST_NOT_DRAWN = _c("igst_not_drawn", OURS, "An own invoice charged IGST: there is no layout for one yet, so none is "
-                    "drawn.", False)
 
 
 @dataclass

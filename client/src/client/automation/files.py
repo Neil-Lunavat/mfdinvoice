@@ -81,9 +81,10 @@ def make_zip(out: Path, members: list[Path]) -> Path:
     return out
 
 
-def sheet_fill(src: Path, out: Path, edits: list[dict]) -> Path:
+def sheet_fill(src: Path, out: Path, edits: list[dict], keep: set[int] | None = None) -> Path:
     """Copy a registrar's own template and write only the cells named in `edits` ({row, column, value}; row 0 is the
-    first under the headings). Cells nobody edits are never touched, so they keep their original type."""
+    first under the headings). Cells nobody edits are never touched, so they keep their original type. With `keep`
+    (row numbers, counted as in `edits`), every other row is left out of the copy."""
     out.parent.mkdir(parents=True, exist_ok=True)
     if src.suffix.lower() == ".xls":
         book = xlrd.open_workbook(src)
@@ -107,6 +108,8 @@ def sheet_fill(src: Path, out: Path, edits: list[dict]) -> Path:
         if not 1 <= r < len(grid):
             raise Changed(f"row {e['row']} is not in this template")
         grid[r][col] = e["value"]                            # a string: openpyxl writes it as text
+    if keep is not None:
+        grid = grid[:1] + [row for i, row in enumerate(grid[1:]) if i in keep]
 
     wb = openpyxl.Workbook()
     ws = wb.active

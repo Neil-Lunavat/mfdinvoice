@@ -728,6 +728,8 @@ class Window:
         arn = draft["arn"].strip().upper()
         if arn in self.profiles():
             return {"ok": False, "said": f"{arn} is already on this account."}
+        if refused := await self._rule_46(invoices_of(draft)["last"]):
+            return {"ok": False, "said": refused}
         if len(self.profiles()) >= 6:
             return {"ok": False, "said": "One account holds up to 6 ARNs. For more, talk to us."}
         if not (draft.get("consent") or {}).get("version"):
@@ -812,6 +814,8 @@ class Window:
                 p[key] = patch[key].strip()
                 what = "Your details changed"
         if "invoices" in patch:
+            if refused := await self._rule_46(invoices_of({"invoices": patch["invoices"]})["last"]):
+                return {"ok": False, "said": refused}
             before = invoices_of(p)
             p["invoices"] = invoices_of({"invoices": patch["invoices"]})
             what = ("Invoices: your own, in your number series" if p["invoices"]["source"] == "own"
@@ -932,6 +936,14 @@ class Window:
         return {"ok": True, "name": out.name}
 
     # --- Tally --------------------------------------------------------------------------------------------------
+
+    async def _rule_46(self, text: str) -> str:
+        """"" when this invoice number may be stored, else why not: GST Rule 46 allows at most 16 characters, only
+        letters, digits, - and / (the same rule as the window's `logic/numbering.ts`)."""
+        text = (text or "").strip()
+        if not text or re.fullmatch(r"[A-Za-z0-9/-]{1,16}", text):
+            return ""
+        return "GST allows up to 16 characters: letters, digits, - and / only."
 
     async def _tally(self):
         """The steps' Tally half. Steps kept from before it existed are replaced by the current ones."""
@@ -1071,6 +1083,8 @@ class Window:
         if not p:
             return {"run": "", "said": "No ARN is set up."}
         if last and last.get("text") and invoices_of(p)["source"] == "own":
+            if refused := await self._rule_46(str(last["text"])):
+                return {"run": "", "said": refused}
             self.set_last_number(p["arn"], str(last["text"]).strip(), int(last.get("at", -1)))
         registrars = [r for r in self.registrars(p) if r in registrars] or self.registrars(p)
         period = period or local.current_period()

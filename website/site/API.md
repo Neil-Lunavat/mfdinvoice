@@ -1,7 +1,6 @@
 # The site's API (for the app and the app's server)
 
-Base URL: the site, `https://mfdinvoice.co.in`. (`https://site.develop-tbc.workers.dev` still answers, for installed
-copies from before the move: they ask it whether they must update.)
+Base URL: the site, `https://mfdinvoice.co.in`.
 Every body is JSON (`content-type: application/json`), and so is every response. An error is always
 `{ "error": "<code>", ...details }` with a 4xx or 5xx status; the codes below are the ones to handle.
 Send a `User-Agent` that names the caller (for example `MFDApp/1.0`). Cloudflare refuses Python's bare `urllib`

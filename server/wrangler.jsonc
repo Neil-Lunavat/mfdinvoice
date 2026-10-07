@@ -1,7 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // The software's own server: https://software.mfdinvoice.co.in (and software.<your-subdomain>.workers.dev, which
-  // keeps answering until every installed app has updated to one that asks the new name: client/src/client/brand.json)
+  // The software's own server: https://software.mfdinvoice.co.in
   // It knows the software and nothing about accounts (that is the website, website/site). Three jobs:
   //   - the current portal steps, as static files under /automation (made by ops/automation.py, signed)
   //   - what the app sends to support: POST /report, and a run's record after it
@@ -19,7 +18,7 @@
   "r2_buckets": [
     { "binding": "FILES", "bucket_name": "software-files" }
   ],
-  "workers_dev": true,
+  "workers_dev": false,
   "routes": [{ "pattern": "software.mfdinvoice.co.in", "custom_domain": true }],
   // Daily at 03:00 IST (21:30 UTC): reports older than 90 days are deleted, with their records (src/index.ts forget)
   "triggers": { "crons": ["30 21 * * *"] },

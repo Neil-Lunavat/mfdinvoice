@@ -107,10 +107,11 @@ def _watch(page: Page) -> None:
     page.on("close", lambda p: log.debug("  tab closed: %s", _bare(p.url)))
 
 
-# How long a portal's sign-in is trusted after the browser was last used. 20 minutes was tested safe on both
-# portals (4 Oct 2026); neither says when it ends a session, so past that the browser is closed and the portals are
-# signed in to afresh.
+# How long KFintech's sign-in is trusted after the browser was last used. 20 minutes was tested safe (4 Oct 2026);
+# KFintech does not say when it ends a session, so past that its tabs and cookies are dropped and it is signed in to
+# afresh. CAMS has no clock: its tab stays for as long as the app is open, and CAMS says when a session has ended.
 IDLE_S = 20 * 60
+KFIN_SITE = "kfintech.com"
 
 
 class Host:
@@ -137,9 +138,8 @@ class Host:
         if self._browser is None:
             used = self.hands.browser_used_at
             if used and time.monotonic() - used > IDLE_S:
-                log.info("the browser was last used %d minutes ago: closed, and the portals are signed in to afresh",
+                log.info("the browser was last used %d minutes ago: KFintech is signed in to afresh",
                          (time.monotonic() - used) // 60)
-                self.hands.browser.close()
                 self._afresh = True
             await self.hands.browser.ensure()
             self.hands.save_ua_cache()
@@ -148,14 +148,14 @@ class Host:
             self._pw = await async_playwright().start()
             self._browser = await self._pw.chromium.connect_over_cdp(f"http://127.0.0.1:{self.hands.browser.port}")
             context = self._browser.contexts[0]
-            if self._afresh:                       # no sign-in is carried over into the new browser
-                await context.clear_cookies()
-                self._afresh = False
             context.set_default_timeout(CLICK_MS)
             context.set_default_navigation_timeout(OPEN_MS)
             for p in context.pages:
                 _watch(p)
             context.on("page", _watch)
+            if self._afresh:
+                self._afresh = False
+                await self._forget(KFIN_SITE)
         return self._browser.contexts[0]
 
     async def page(self, site: str) -> Page:
@@ -171,12 +171,21 @@ class Host:
         """A new tab, for a piece of work that leaves nothing behind (setup's verifications close it)."""
         return await (await self._context()).new_page()
 
-    async def afresh(self) -> None:
-        """Close the browser and start another with no portal signed in: for sign-ins that have been left alone
-        too long to trust. The tabs the steps held are gone; they ask for new ones."""
-        await self.close()
-        self.hands.browser.close()
-        self._afresh = True
+    async def afresh(self, site: str) -> None:
+        """Drop one portal's sign-in: for a sign-in that has been left alone too long to trust. The other portal's
+        tab is not touched. The tab the steps held is gone; it asks for a new one."""
+        await self._forget(site)
+
+    async def _forget(self, site: str) -> None:
+        """Close the tabs on a site and clear what it kept (cookies, local and session storage)."""
+        context = self._browser.contexts[0]
+        for p in list(context.pages):
+            if site in p.url:
+                with contextlib.suppress(Exception):
+                    await p.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
+                with contextlib.suppress(Exception):
+                    await p.close()
+        await context.clear_cookies(domain=re.compile(re.escape(site)))
 
     async def close(self) -> None:
         """Let go of the browser without closing it: its tabs stay as they are, for a run that starts soon."""

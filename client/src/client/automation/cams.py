@@ -5,19 +5,23 @@ Two CAMS facts shape all of it.
 
 **One sign-in, and it locks.** Email only: no password and no captcha. CAMS allows one session per email: if an old
 one is alive it says so, "click here" ends it and hands back an empty form, and the email is submitted again. Signing
-in too often in a short while locks the email for half an hour, so a run signs in once and uses the tab it is already
-signed in on whenever there is one. A reload drops the session, so the flow moves by clicking CAMS's own menus and
-never by address.
+in too often in a short while locks the email for half an hour, so the tab stays signed in for as long as the app is
+open, with no clock. CAMS says its session has ended only on the next data query ("Your session has expired. please
+login again." and the sign-in form, idle or ended from another tab alike): `_signed` then signs in again and redoes
+that step once. A reload drops the session, so the flow moves by clicking CAMS's own menus and never by address.
 
-**The upload is CAMS's whole-month template.** Part of a month is sent by omission: the rows left out keep their place
-but get no FILE NAME and no PDF in the zip.
+**The upload is CAMS's whole-month template, cut down to the rows being sent.** Rows left in with no FILE NAME are
+refused ("Some rows have empty Filename"), so the others are deleted from the Excel. They stay "File Not Uploaded." at
+CAMS and can be sent later.
 """
 
 from __future__ import annotations
 
 import contextlib
+import logging
 import re
 import time
+import weakref
 from pathlib import Path
 
 from playwright.async_api import Error as PWError, Page, expect
@@ -27,6 +31,8 @@ from client.automation.invoices import parties
 from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, seen, texts
 from client.automation.widgets import CAMS as S, grid, missing, toasts
 from client.automation.words import CAMS as REG, MONTHS
+
+log = logging.getLogger(__name__)
 
 C, L, F = S["common"], S["login"], S["invoice_form"]
 D, ST, U = S["download"], S["status"], S["upload"]
@@ -78,6 +84,47 @@ async def dropped(page: Page) -> bool:
         return False
 
 
+EXPIRED = re.compile(r"session has expired", re.I)
+_email_of: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()      # the email each tab signed in with
+_period_of: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()     # the month each tab last listed
+
+
+async def _ended(page: Page) -> str:
+    """CAMS's words if this tab's session has ended (its toast, or the sign-in form back), else ''."""
+    try:
+        said = " ".join(await texts(page, C["toast"]))
+        if EXPIRED.search(said):
+            return said
+        if await dropped(page):
+            return said or "CAMS's sign-in form came back"
+    except PWError:
+        pass
+    return ""
+
+
+async def _signed(page: Page, name: str, do, redo=None):
+    """Run one step (`do()` makes a fresh coroutine). If CAMS has ended the session, sign in again and redo the step
+    once (with `redo`, when the step needs more than itself); a second end during the redo stops."""
+    fails = (Stop, Refused, Changed, PWError, AssertionError)
+    try:
+        return await do()
+    except fails:
+        why, email = await _ended(page), _email_of.get(page)
+        if not why or not email:
+            raise
+    log.info("CAMS ended the session (%s): signing in again, then redoing: %s", why, name)
+    await sign_in(page, email)
+    with contextlib.suppress(PWError, AssertionError):       # the old toast must not be read as a second end
+        await expect(page.locator(C["toast"]).filter(has_text=EXPIRED).first).to_be_hidden(timeout=15_000)
+    try:
+        return await (redo or do)()
+    except fails as e:
+        if again := await _ended(page):
+            raise Stop("session_ended", "CAMS ended the session again", "Nothing was submitted. Run again.",
+                       said=again, registrar=REG) from e
+        raise
+
+
 async def enter(page: Page, email: str, want: str) -> set[str]:
     """Be signed in to CAMS on this tab, and return every ARN the signed-in page shows.
 
@@ -109,15 +156,24 @@ async def _on_invoice_pages(page: Page) -> bool:
 async def sign_in(page: Page, email: str) -> set[str]:
     """Sign in with the email: one press of Submit, or two when CAMS says the old session is still active."""
     await page.goto(S["urls"]["mailback"], timeout=SLOW_MS)
+    _email_of[page] = email
     for attempt in range(2):
         box = page.locator(L["email"]).first
         await seen(box)                       # CAMS draws its form a moment after the page loads
-        await box.fill(email)
+        for _ in range(3):                    # ...and draws it again, which empties a box already typed in
+            await box.fill(email)
+            await page.wait_for_timeout(400)
+            if (await box.input_value()).strip().lower() == email.lower():
+                break
+            await seen(box)
+        else:
+            raise Changed("CAMS's Email box would not keep what was typed (3 tries)")
         await page.locator(L["submit"]).first.click()
         ok = page.locator(L["mf_select"]).first
         active = page.locator(L["session_active"]).first
         field_err = page.locator(L["field_error"]).filter(has_text=re.compile(r"\S"))
-        await seen(ok.or_(active).or_(field_err.first).or_(page.locator(C["toast"]).first).first)
+        answer = page.locator(C["toast"]).filter(has_not_text=EXPIRED).first    # "session has expired" is the old one
+        await seen(ok.or_(active).or_(field_err.first).or_(answer).first)
         if await ok.is_visible():
             shown = await arns_shown(page, "CAMS")
             await _land(page)
@@ -125,7 +181,7 @@ async def sign_in(page: Page, email: str) -> set[str]:
         if await active.is_visible() and attempt == 0:
             await page.locator(L["end_session"]).first.click()
             continue
-        said = await texts(page, C["toast"]) or [t.strip() for t in await field_err.all_inner_texts()]
+        said = [t for t in await texts(page, C["toast"]) if not EXPIRED.search(t)]             or [t.strip() for t in await field_err.all_inner_texts()]
         # "Your email ID is locked. Please try again after 30 minutes" is not a wrong email. Only a lock that waiting
         # fixes counts: "access has been suspended" is CAMS's to explain, in its own words.
         if re.search(r"lock(ed)?\b|try again after|after \d+ minute", " ".join(said), re.I):
@@ -160,8 +216,8 @@ async def arn_of(page: Page, email: str) -> set[str]:
 async def open_menu(page: Page, name: str) -> None:
     if await dropped(page):
         raise Stop("session_ended", "CAMS signed this run out",
-                   "CAMS ends a session that sits idle. Run again: it signs in afresh, reads what CAMS has, and "
-                   "carries on with the files already on this PC.", registrar=REG)
+                   "CAMS ended the session and the app could not sign in again. Run again: it signs in afresh, "
+                   "reads what CAMS has, and carries on with the files already on this PC.", registrar=REG)
     text, route = MENUS[name]
     await w.left_menu(page, text).click()
     await page.wait_for_url(route, timeout=SLOW_MS)
@@ -186,6 +242,10 @@ async def _pick_month(page: Page, period: str) -> None:
 
 
 async def read_status(page: Page, period: str) -> list[dict]:
+    return await _signed(page, "status", lambda: _read_status(page, period))
+
+
+async def _read_status(page: Page, period: str) -> list[dict]:
     """The Invoice Status table: [{key, status, remarks}]. Read-only and safe to repeat.
 
     The query fires as soon as fund house, month and year are set. The page lists an invoice only once it has been
@@ -214,6 +274,11 @@ def invoice_key(row: dict) -> str:
 
 
 async def list_month(page: Page, period: str) -> list[str] | None:
+    _period_of[page] = period
+    return await _signed(page, "listing", lambda: _list_month(page, period))
+
+
+async def _list_month(page: Page, period: str) -> list[str] | None:
     """The invoices CAMS lists for the month on its Download page, by number. None when it lists none yet. Leaves the
     page ready for `request_mailback`."""
     await open_menu(page, "download")
@@ -238,6 +303,13 @@ async def ready_to_ask(page: Page) -> bool:
 
 
 async def request_mailback(page: Page) -> str:
+    async def after_sign_in():               # the Download page has to be listed again first
+        await _list_month(page, _period_of[page])
+        return await _request_mailback(page)
+    return await _signed(page, "the email request", lambda: _request_mailback(page), after_sign_in)
+
+
+async def _request_mailback(page: Page) -> str:
     """Ask CAMS to email the month just listed: always "Separate PDF for each AMC (ZIP)". Returns CAMS's reference
     for the request, or '' when CAMS says the same request is already queued (the first email is still coming).
 
@@ -323,8 +395,8 @@ def read_pdf(pdf: Path) -> dict:
 
 def pack(sending: list[str], report_all: list[dict], report_file: Path, signed: dict[str, Path],
          numbers: dict[str, str] | None, out_zip: Path, out_sheet: Path) -> None:
-    """The upload pair for the invoices in `sending`: CAMS's whole template, every row kept, FILE NAME written only
-    into the rows being sent, and a zip of only their PDFs. `numbers` is given on the own-invoice path: CAMS's rule
+    """The upload pair for the invoices in `sending`: CAMS's template cut down to the rows being sent (the others are
+    deleted: a row with no FILE NAME is refused), each with its FILE NAME, and a zip of only their PDFs. `numbers` is given on the own-invoice path: CAMS's rule
     for a custom format is to fill the Broker Invoice column, and it must be the number printed in that row's PDF."""
     wanted = set(sending)
     files.make_zip(out_zip, [signed[r[CAMS_INVOICE]] for r in report_all if r[CAMS_INVOICE] in wanted])
@@ -336,7 +408,7 @@ def pack(sending: list[str], report_all: list[dict], report_file: Path, signed: 
         edits.append({"row": r["_row"], "column": FILE_NAME, "value": signed[key].name})
         if numbers is not None:
             edits.append({"row": r["_row"], "column": BROKER_INVOICE, "value": numbers[key]})
-    files.sheet_fill(report_file, out_sheet, edits)
+    files.sheet_fill(report_file, out_sheet, edits, keep={r["_row"] for r in report_all if r[CAMS_INVOICE] in wanted})
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -344,6 +416,10 @@ def pack(sending: list[str], report_all: list[dict], report_file: Path, signed: 
 # ---------------------------------------------------------------------------------------------------------------
 
 async def open_upload(page: Page, period: str, own_path: bool) -> None:
+    await _signed(page, "the upload page", lambda: _open_upload(page, period, own_path))
+
+
+async def _open_upload(page: Page, period: str, own_path: bool) -> None:
     """Upload page, step 1. The order matters: each choice resets the ones after it, and picking the pathway clears
     the period. Individual, source, Manual pathway, Multi-AMC batch, month, year, Proceed."""
     month, year = month_year(period)
@@ -420,12 +496,23 @@ async def cancel_review(page: Page) -> None:
         await expect(page.locator(U["review_dialog"])).to_be_hidden(timeout=5_000)
 
 
+async def _validation_counts(page: Page) -> dict[str, int | None]:
+    counts: dict[str, int | None] = {}
+    for h in await page.locator(U["validation_counts"]).all():
+        label = (await h.inner_text()).strip().lower()
+        around = await h.locator("xpath=..").inner_text()
+        found = re.search(r"(\d+)\s*$", around)
+        counts[{"total records": "total"}.get(label, label)] = int(found.group(1)) if found else None
+    return counts
+
+
 async def press_continue(page: Page, sending: list[str]) -> dict:
     """Continue, then CAMS's verdict, row by row. Continue is CAMS's own validation and submits nothing.
 
-    Returns {valid, total, refused: [{key, remarks}], absent: [key]}. Every invoice being sent must be listed and
-    valid. The template's other rows are not ours to judge. CAMS first shows a "Waiting for verification..." toast
-    while it checks; that is not its answer.
+    Returns {valid, invalid, total, refused: [{key, remarks}], absent: [key]}. Every invoice being sent must be listed
+    and say VALIDATED. The template's other rows are not ours to judge. CAMS draws the page first with every row
+    "Waiting for verification..." and Valid 0 / InValid 0, then checks: its verdict is read only once Valid + InValid
+    = Total and no row is waiting.
     """
     await page.locator(U["review_dialog"]).locator(U["review_continue"]).click()
     deadline = time.monotonic() + 3 * SLOW_MS / 1000
@@ -438,18 +525,24 @@ async def press_continue(page: Page, sending: list[str]) -> dict:
             raise Refused(await toasts(page, C["toast"]) or "CAMS gave no validation result", "CAMS")
         await page.wait_for_timeout(500)
 
-    counts: dict[str, int | None] = {}
-    for h in await page.locator(U["validation_counts"]).all():
-        label = (await h.inner_text()).strip().lower()
-        around = await h.locator("xpath=..").inner_text()
-        found = re.search(r"(\d+)\s*$", around)
-        counts[{"total records": "total"}.get(label, label)] = int(found.group(1)) if found else None
+    deadline = time.monotonic() + 2 * 60
+    while True:
+        counts = await _validation_counts(page)
+        body = await page.locator("body").inner_text()
+        total, valid, invalid = counts.get("total"), counts.get("valid"), counts.get("invalid")
+        if (None not in (total, valid, invalid) and valid + invalid == total
+                and not re.search(r"waiting for verification", body, re.I)):
+            break
+        if time.monotonic() > deadline:
+            raise Refused(f"CAMS had not finished checking after 2 minutes (Total Records {total}, Valid {valid}, "
+                          f"InValid {invalid})", "CAMS")
+        await page.wait_for_timeout(500)
     rows = await grid(page, U["validation_rows"], U["validation_header_cells"], tidy=True)
     wanted = set(sending)
     listed = {str(r.get("Cams Invoice Number", "")).strip(): r for r in rows}
-    refused = [{"key": k, "remarks": str(r.get("Remarks", "")).strip()} for k, r in listed.items()
-               if k in wanted and "SUCCESS" not in str(r.get("Validation", "")).upper()]
-    return {"valid": counts.get("valid"), "invalid": counts.get("invalid"), "total": counts.get("total"),
+    refused = [{"key": k, "remarks": " ".join(f"{r.get('Validation', '')} {r.get('Remarks', '')}".split())}
+               for k, r in listed.items() if k in wanted and str(r.get("Validation", "")).strip().upper() != "VALIDATED"]
+    return {"valid": valid, "invalid": invalid, "total": total,
             "refused": refused, "absent": sorted(wanted - listed.keys())}
 
 
@@ -469,21 +562,56 @@ async def find_submit(page: Page):
     return button
 
 
-async def click_submit(page: Page, button) -> tuple[bool, str]:
-    """Click Submit and wait for something the click itself causes: CAMS's toast, or CAMS leaving the validation
-    page. Returns (did CAMS answer within a minute, its words). Not any text saying "Success": the validation table
-    just clicked on says SUCCESS on every row."""
+async def click_submit(page: Page, button, sending: list[str] | None = None) -> tuple[bool, str]:
+    """Click Submit and read CAMS's answer. Returns (did CAMS answer within a minute, its words); the words are empty
+    when every invoice in `sending` has a row saying SUCCESS.
+
+    The answer is the Success page (`.re-success h1`) and its table, one row per invoice, whose last cell is the
+    Message. Submit vanishing proves nothing, and a toast instead is CAMS's no. A survey pop-up ("Help Us Improve the
+    Invoice Upload Experience") sometimes comes first: it is cancelled whenever it shows."""
     await button.click()
+    survey = page.locator(U["survey"])
+    title = page.locator(D["success_title"]).first
     deadline = time.monotonic() + SLOW_MS / 1000
     while time.monotonic() < deadline:
         with contextlib.suppress(PWError):
-            told = await toasts(page, C["toast"])
-            if told:
+            if await w.visible(survey.first):
+                await _cancel_survey(page, survey.first)
+            elif await w.visible(title):
+                break
+            elif told := await toasts(page, C["toast"]):
                 return True, "; ".join(told)
-            if not await page.locator(U["final_submit"]).first.is_visible():
-                return True, "; ".join(await toasts(page, C["toast"]))
         await page.wait_for_timeout(300)
-    return False, ""
+    else:
+        return False, ""
+    rows = []
+    for _ in range(20):                                       # the table is drawn a moment after the title
+        rows = await page.locator(ST["rows"]).evaluate_all(w.ROWS_TO_GRID_TIDY)
+        if rows:
+            break
+        await page.wait_for_timeout(500)
+    said = []
+    if (head := (await title.inner_text()).strip()) != "Success":
+        said.append(head)
+    if sending is None:
+        said += [f"{' '.join(r[:-1])}: {r[-1]}" for r in rows if r and r[-1].strip().upper() != "SUCCESS"]
+    for key in sending or []:
+        mine = [r for r in rows if any(c.partition(" / ")[0].strip() == key for c in r)]
+        if not mine:
+            said.append(f"{key}: no row in CAMS's answer")
+        said += [f"{key}: {r[-1] or 'no message'}" for r in mine if r[-1].strip().upper() != "SUCCESS"]
+    return True, "; ".join(said)
+
+
+async def _cancel_survey(page: Page, survey) -> None:
+    """The survey's Cancel, else its X. It must be gone before the answer behind it can be read."""
+    for pick in (U["survey_cancel"], U["survey_close"]):
+        button = survey.locator(pick).first
+        if await w.visible(button):
+            await button.click()
+            with contextlib.suppress(AssertionError):
+                await expect(survey).to_be_hidden(timeout=5_000)
+            return
 
 
 def _same_amount(a, b) -> bool:

@@ -217,7 +217,7 @@ export const dataCopyMail = (v: { asked: string; sections: { title: string; rows
   { t: 'h', s: 'A copy of your data' },
   { t: 'p', s: `Everything our website stores about your account, as you asked on ${v.asked}. The same data is attached as a JSON file.` },
   ...v.sections.flatMap(s => [{ t: 'h2' as const, s: s.title }, s.rows.length ? { t: 'rows' as const, r: s.rows } : { t: 'p' as const, s: s.empty ?? 'None.' }]),
-  { t: 'note', s: 'The software keeps your passwords, signature and invoices on your PC, so they aren’t here.' },
+  { t: 'note', s: 'The software keeps your passwords, signature and invoices on your PC, so they aren’t here. A forwarded CAMS email is deleted soon after your PC takes it.' },
 ], FOR_YOU);
 
 /* ---- to support@ and the owner ---- */

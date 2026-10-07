@@ -8,13 +8,13 @@ export const total = (x: Invoice) => sum([x.taxable, x.cgst, x.sgst, x.igst]);
 export const gst = (x: Invoice) => sum([x.cgst, x.sgst, x.igst]);
 export const totalOf = (xs: Invoice[]) => sum(xs.map(total));
 
-const APPROVED: Status[] = ['Approved', 'Paid'];
+const APPROVED: Status[] = ['Approved'];
 const WAITING: Status[] = ['Submitted', 'Waiting approval'];
 
 export const isApproved = (x: Invoice) => APPROVED.includes(x.status);
 export const isWaiting = (x: Invoice) => WAITING.includes(x.status);
 export const isRejected = (x: Invoice) => x.status === 'Rejected';
-/** With the registrar: submitted, waiting, approved or paid. A rejection is not: it comes back to be fixed. */
+/** With the registrar: submitted, waiting or approved. A rejection is not: it comes back to be fixed. */
 export const isWithRegistrar = (x: Invoice) => isApproved(x) || isWaiting(x);
 /** Still to be sent by a run. */
 export const isOpen = (x: Invoice) => !isWithRegistrar(x) && !isRejected(x);
@@ -85,7 +85,7 @@ export function card(m: Month): Card {
 /** How far an invoice has come, on the five dots: Fetched · Signed · Checked · Submitted · Approved. */
 const PROGRESS: Record<Status, number> = {
   'Not submitted': 0, Mismatch: 0, 'Needs your attention': 0, Fetched: 1, Signed: 2, Checked: 3,
-  Submitted: 4, 'Waiting approval': 4, Rejected: 4, Approved: 5, Paid: 5
+  Submitted: 4, 'Waiting approval': 4, Rejected: 4, Approved: 5
 };
 
 export interface RegistrarCard {
@@ -141,6 +141,6 @@ export function table(xs: Invoice[], t: TableQuery): Invoice[] {
 
 /** The statuses present, in the order the filter shows them. The status filter appears only when there are two or more. */
 export function statusesIn(xs: Invoice[]): Status[] {
-  const order: Status[] = ['Approved', 'Paid', 'Waiting approval', 'Submitted', 'Rejected', 'Mismatch', 'Needs your attention', 'Checked', 'Signed', 'Fetched', 'Not submitted'];
+  const order: Status[] = ['Approved', 'Waiting approval', 'Submitted', 'Rejected', 'Mismatch', 'Needs your attention', 'Checked', 'Signed', 'Fetched', 'Not submitted'];
   return order.filter(s => xs.some(x => x.status === s));
 }

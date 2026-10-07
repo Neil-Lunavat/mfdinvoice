@@ -9,7 +9,7 @@ import { invoice, fm } from '../lib/sample';
 
 /* the invoice's month, one step at a time. reach: what has reached us by then. */
 const STEPS = [
-  { h: 'It arrives in your mailbox.', p: 'CAMS emails the invoice. The software opens only the registrar’s invoice mails. It never sends, moves or deletes anything.', reach: 'Nothing' },
+  { h: 'It arrives in your mailbox.', p: 'CAMS emails the invoice. The software opens only the registrar’s invoice mails. It never sends, moves or deletes anything. Forwarding them to us is your choice; see below.', reach: 'Nothing unless you forward' },
   { h: 'Your signature goes on.', p: 'Your signature is kept encrypted on your PC, and placed on each invoice there.', reach: 'Nothing' },
   { h: 'Every figure is checked.', p: 'The amounts are read and matched on your PC.', reach: 'Nothing' },
   { h: 'Uploads directly to CAMS<br />(and KFintech).', p: 'From your PC, with your own login. The invoice file never comes to us.', reach: 'Nothing' },
@@ -69,6 +69,7 @@ const ok = '<svg class="ok" viewBox="0 0 24 24"><use href="#tk"/></svg>';
       <div>
         <h2 class="h2 rv">What leaves, and what is taken out first.</h2>
         <p class="rv">When a run ends, the software sends us a record of how it went: each step it took on the portals, how long it took, what the portals said, and pictures of the portals’ pages as the run saw them. Those pages do show that month’s invoices and their amounts but it allows us to see if a portal changed and fix it before your next run.</p>
+        <p class="rv">If you choose to forward CAMS’s invoice emails to us, each one reaches our server and is locked there with a key made on your PC. Only your PC can open it. We delete it 5 minutes after your PC takes it, or after 3 days if it never does. This is the one time your invoice files reach us, and only if you set it up.</p>
         <p class="rv">Before anything is sent, the software blanks your passwords out of its logs. What you type on the portals isn’t logged at all.</p>
       </div>
       <div class="scrub rv" id="scrub">
@@ -83,7 +84,9 @@ const ok = '<svg class="ok" viewBox="0 0 24 24"><use href="#tk"/></svg>';
       <div class="keep-l">
         <div class="rv"><b>Your email and plan</b><p>To sign you in and bill you.</p></div>
         <div class="rv"><b>Your ARNs</b><p>Each ARN on your account is billed.</p></div>
-        <div class="rv"><b>Support reports</b><p>The ones you choose to send.</p></div>
+        <div class="rv"><b>Support reports and ideas</b><p>The ones you choose to send. Deleted after 90 days.</p></div>
+        <div class="rv"><b>Survey answers</b><p>The ones you choose to give, with your account.</p></div>
+        <div class="rv"><b>Forwarded emails</b><p>Only if you forward CAMS’s emails to us. Locked, and deleted soon after your PC takes them.</p></div>
       </div>
       <p class="end rv">Questions about <a class="tlink" href="/privacy">privacy</a> or security? <a class="tlink" href="/support">Write to us.</a></p>
     </div>

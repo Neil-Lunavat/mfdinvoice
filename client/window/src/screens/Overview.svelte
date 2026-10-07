@@ -79,7 +79,7 @@
   const stageNames = (bad: boolean) => ['Fetched', 'Signed', 'Checked', 'Submitted', bad ? 'Rejected' : 'Approved'];
   // CAMS's email hadn't come when the last run went on with KFintech: Run is CAMS's now; both and KFintech are in the menu
   const camsNext = $derived(!!m.camsWaiting && regs.length > 1);
-  const openOf = (r: Registrar) => m.invoices.filter(x => x.registrar === r && !['Waiting approval', 'Approved', 'Paid', 'Submitted'].includes(x.status)).length;
+  const openOf = (r: Registrar) => m.invoices.filter(x => x.registrar === r && !['Waiting approval', 'Approved', 'Submitted'].includes(x.status)).length;
 </script>
 
 <div class="page-in fit enter">

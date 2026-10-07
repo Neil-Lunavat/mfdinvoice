@@ -21,7 +21,7 @@ from client.store.db import Store
 MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
          "November", "December"]
-SENT = {"Submitted", "Waiting approval", "Approved", "Paid", "Rejected"}
+SENT = {"Submitted", "Waiting approval", "Approved", "Rejected"}
 PERIOD = re.compile(r"^[A-Z]{3}-\d{4}$")
 
 
@@ -152,7 +152,7 @@ def month_status(invoices: list[dict]) -> tuple[str, int]:
     sent = [i for i in invoices if i["status"] in SENT]
     if not sent:
         return "Not submitted", 0
-    if all(i["status"] in ("Approved", "Paid") for i in invoices):
+    if all(i["status"] == "Approved" for i in invoices):
         return "Approved", 0
     return "Submitted", 0
 

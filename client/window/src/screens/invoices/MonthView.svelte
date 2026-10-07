@@ -3,7 +3,7 @@
      whose totals row follows the filters. A row opens the invoice as a popup (#18). */
   import { app, type Invoice, type Month, type Status } from '../../bridge';
   import { registrarsOf } from '../../logic/details';
-  import { checkedLine, hhmm, n2, regName, regTag } from '../../logic/format';
+  import { checkedLine, n2, regName, regTag } from '../../logic/format';
   import { blankQuery, chipTone, gst, statusesIn, table, total, type SortKey } from '../../logic/month';
   import { store } from '../../state/store.svelte';
   import { ui } from '../../state/ui.svelte';
@@ -29,11 +29,10 @@
 
   function sortBy(k: SortKey) { q = { ...q, dir: q.sort === k ? (q.dir === 1 ? -1 : 1) : 1, sort: k }; }
   function open(x: Invoice) { ui.open({ type: 'invoice', invoice: x, period }); }
-  // a status read less than ten minutes ago is shown again, not read again
+  // a status read less than ten minutes ago is shown again, not read again: the run does that, as from Overview
   function check() {
-    const at = month?.checkedAt, p = store.snap?.profile;
+    const p = store.snap?.profile;
     if (!p) return;
-    if (at && Date.now() - new Date(at).getTime() < 10 * 60_000) { store.toast(`Checked at ${hhmm(at)}.`); return; }
     ui.runWith = { registrars: registrarsOf(p), period, what: 'check' };
   }
   async function exportIt() {

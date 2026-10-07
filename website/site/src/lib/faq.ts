@@ -86,7 +86,7 @@ export const FAQ: { id: string; title: string; items: [string, string][] }[] = [
         items: [
             [
                 "Where does my data live?",
-                'Your passwords, your signature, your mailbox and your invoice files stay on your PC. A record of how each run went reaches us, so we can fix a portal change fast. <a href="/security">See how</a>.',
+                'Your passwords and your signature stay on your PC. So do your mailbox and your invoice files, unless you forward CAMS’s email to us. A record of how each run went reaches us, so we can fix a portal change fast. <a href="/security">See how</a>.',
             ],
             [
                 "Can I get a copy of my data?",

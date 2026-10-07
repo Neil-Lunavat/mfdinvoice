@@ -34,27 +34,11 @@ build-backend = "uv_build"
 build = [
     "pyinstaller>=6.22.3",
 ]
-dev = [
-    "pytest>=9.1.1",
-    "pytest-asyncio>=1.0",
-]
 
 [tool.ruff]
 line-length = 120
-src = ["src", "tests"]
+src = ["src"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
 split-on-trailing-comma = false
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-markers = ["slow: launches a real browser and drives it over a real tunnel"]
-# Playwright's driver is a subprocess, and on Windows asyncio grumbles about its pipes while being torn down after the
-# loop has closed. It happens after the test has passed, it is not ours, and it buried real failures in noise.
-filterwarnings = [
-    "ignore::ResourceWarning",
-    "ignore:.*I/O operation on closed pipe.*",
-    "ignore::pytest.PytestUnraisableExceptionWarning",
-]

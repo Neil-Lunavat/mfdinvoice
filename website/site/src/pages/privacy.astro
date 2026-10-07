@@ -17,33 +17,36 @@ const sections: Section[] = [
   ] },
   { h: 'What stays on your PC', p: [
     '<ul><li>Your KFintech password and your mailbox password.</li><li>Your CAMS email and KFintech username.</li><li>Your signature.</li><li>The invoice files, and every month’s folder.</li><li>Your mailbox’s contents.</li></ul>',
-    'The software keeps them encrypted on your PC and never sends them to us.',
+    'The software keeps them encrypted on your PC and never sends them to us. The one exception is CAMS’s invoice email, if you choose to forward it to us (see Your mailbox).',
   ] },
   { h: 'What reaches us from the software', p: [
     'Everything a run does happens on your PC: it signs in to the portals from there, and reads, signs and uploads the invoices there. What reaches us:',
-    '<ul><li>Your email, your ARN and the name on it.</li><li>A record of each run, sent when it ends: each step the software took on the portals, how long it took and what the portals said. It names your invoices by their reference numbers and gives the month’s totals.</li><li>Pictures of the portals’ pages as the run saw them, with that record. They show that month’s invoices, their amounts and their status. While the software is new they come with every run; in coming future, only the runs that stopped due to ours or portals\' fault will be sent.</li><li>Your PC’s name, its Windows version, its memory and its free disk space, and the software’s version.</li><li>A support report, only when you send one. It carries what you wrote and the record of your latest run.</li></ul>',
-    'Your passwords are blanked out of the logs on your PC before any of it is sent. Your signature, your mailbox’s contents and the invoice files are never sent.',
+    '<ul><li>Your email, your ARN and the name on it.</li><li>A record of each run, sent when it ends: each step the software took on the portals, how long it took and what the portals said. It names your invoices by their reference numbers and gives the month’s totals.</li><li>Pictures of the portals’ pages as the run saw them, with that record. They show that month’s invoices, their amounts and their status. While the software is new they come with every run; in coming future, only the runs that stopped due to ours or portals\' fault will be sent.</li><li>Your PC’s name, its Windows version, its memory and its free disk space, and the software’s version.</li><li>A support report, only when you send one. It carries what you wrote and the record of your latest run.</li><li>An idea, only when you send one from Settings. It carries what you wrote, the picture if you add one, your email and ARN, and the same details of your PC and the software as a support report.</li></ul>',
+    'Your passwords are blanked out of the logs on your PC before any of it is sent. Your signature is never sent. Your mailbox’s contents and the invoice files are never sent either, except CAMS’s invoice email if you forward it to us (see Your mailbox).',
   ] },
   { h: 'What this website keeps', p: [
-    `<ul><li>Your email, and when you signed in on which browser or in the software.</li><li>Sign-in codes (only a scrambled form) and the IP address that asked for each, for a day.</li><li>The name and address for your receipts${SALES.gst ? ', and your GSTIN' : ''}.</li><li>Your plan, your ARNs and the name on each.</li><li>Your payments: the amount, the reference, the UTR number and the screenshot you send.</li><li>Your receipts.</li><li>Support requests and their screenshots.</li><li>Your answers to the questions at Checkout, if you give them.</li><li>A record of changes to your account (signed in, paid, an ARN added), for support.</li></ul>`,
+    `<ul><li>Your email, and when you signed in on which browser or in the software.</li><li>Sign-in codes (only a scrambled form) and the IP address that asked for each, for a day.</li><li>The name and address for your receipts${SALES.gst ? ', and your GSTIN' : ''}.</li><li>Your plan, your ARNs and the name on each.</li><li>Your payments: the amount, the reference, the UTR number and the screenshot you send.</li><li>Your receipts.</li><li>Support requests and their screenshots.</li><li>Your answers to the questions at Checkout, if you give them.</li><li>Your answers to the short surveys the software asks, if you give them. A survey you close with the X is noted only so it isn’t asked again.</li><li>A record of changes to your account (signed in, paid, an ARN added), for support.</li></ul>`,
   ] },
   { h: 'Why we keep it', p: [
-    'To run the service you pay for, sign you in, check your plan, issue receipts and meet tax law, help you when you write to us, and stop misuse, such as a second free trial on one email. The records of runs is the data we use to fix the software, fast.',
+    'To run the service you pay for, sign you in, check your plan, issue receipts and meet tax law, help you when you write to us, and stop misuse, such as a second free trial on one email. The records of runs are the data we use to fix the software, fast.',
     'We don’t sell your data, show you ads, or track you across other websites.',
   ] },
   { h: 'Your mailbox', p: [
     'Read-only. The software opens only the new-coming registrar’s invoice mails, and never sends, moves or deletes anything.',
+    'If you choose, you can forward CAMS’s invoice emails to us instead. A filter in your Gmail sends them to an address of ours. We keep each one locked, so only your PC can open it: it is locked the moment it arrives with a key made on your PC, and the key to open it never leaves your PC. Your PC takes the email from our server, and we delete our copy 5 minutes after. An email your PC never takes is deleted after 3 days. We refuse mail that is not from CAMS. While it is locked we can see only its subject, its size and when it came.',
+    'This email carries the files CAMS sends you for the month, so it is the one time they reach us. It is only if you set it up in the software; without it, nothing of your mailbox reaches us.',
   ] },
   { h: 'Payments', p: [
     'You pay by UPI from your own software, and we check the payment by hand. We see only what your screenshot shows: the amount, the UTR number, the time, and the names and UPI IDs on it. We never see your bank or card details.',
   ] },
   { h: 'Who else handles it', p: [
-    '<ul><li>Cloudflare runs this website and the software’s server, keeps their data and sends our emails.</li><li>Gmail is our own inbox: your support requests and payment screenshots reach us there.</li></ul>',
+    '<ul><li>Cloudflare runs this website and the software’s server, keeps their data, and sends and receives our emails.</li><li>Gmail is our own inbox: your support requests and payment screenshots reach us there.</li></ul>',
     'Cookies: this website sets only the ones that keep you signed in and remember what its buttons should say. No analytics and no advertising cookies.',
   ] },
   { h: 'How long we keep it', p: [
     'As long as your account exists. When you delete it (your <a href="/account">Account page</a>, after a day’s wait), we delete your account, billing details, plan, ARNs, support requests, answers and activity.',
-    `The record of a run, with its pictures, is kept for ${shown(KEEP.runs)}, only to fix and improve the software and to help you when you write to us. Then it is deleted, whether or not you delete your account.`,
+    `The record of a run, with its pictures, is kept for ${shown(KEEP.runs)}, only to fix and improve the software and to help you when you write to us. The support reports and ideas you send from the software are kept for the same time. Then they are deleted, whether or not you delete your account.`,
+    'Your survey answers are kept as long as your account exists.',
     'A few things stay after that:',
     '<ul><li>Payments and receipts, with their screenshots, as long as tax law requires.</li><li>Your email and the date your account was deleted, so signing in again can tell you so.</li><li>A gift given to your email.</li><li>Each free trial that was started, with its ARN and its email.</li><li>A payment we couldn’t verify, so it is sorted out before another one is made.</li></ul>',
   ] },
@@ -51,7 +54,7 @@ const sections: Section[] = [
     '<ul><li><b>A copy.</b> Ask on the <a href="/support?about=data">Support page</a> and we email you everything this website holds about you.</li><li><b>Correction.</b> Change your billing details on your <a href="/account">Account page</a>; for anything else, write to support.</li><li><b>Deletion.</b> Delete your account on your Account page. That also withdraws your consent.</li><li><b>A complaint.</b> Write to our grievance officer below. If we don’t resolve it, you can go to the Data Protection Board of India.</li></ul>',
   ] },
   { h: 'Keeping it safe', p: [
-    'Your passwords and signature never leave your PC. Sign-in codes and session keys are kept only in a scrambled form. Only the people who run the service can open your account’s records, and each change they make is recorded.',
+    'Your passwords and signature never leave your PC. Forwarded emails are kept locked, as above. Sign-in codes and session keys are kept only in a scrambled form. Only the people who run the service can open your account’s records, and each change they make is recorded.',
   ] },
   { h: 'Changes to this policy', p: [
     'The date at the top says when it last changed. We email you before a change that matters.',
@@ -62,6 +65,6 @@ const sections: Section[] = [
   ] },
 ];
 ---
-<Layout title={`Privacy policy · ${NAME}`} description="Your passwords, your signature and your invoice files stay on your PC. What reaches us, what this website keeps, and for how long." path="/privacy">
+<Layout title={`Privacy policy · ${NAME}`} description="Your passwords and your signature stay on your PC. What reaches us, what this website keeps, and for how long." path="/privacy">
   <Legal title="Privacy policy" sections={sections} />
 </Layout>

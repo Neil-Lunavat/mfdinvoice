@@ -11,6 +11,7 @@ submitted = "https://dss.kfintech.com/dssweb/ViewSubmitGSTInvoice_CreditNote"
 
 [common]
 alert = ".MuiAlert-message"                        # snackbars + inline banners (success, warning, error)
+snackbar = ".MuiSnackbar-root"                     # KFintech's answers (orange, not red): read its text, never by colour
 error_alert = ".MuiAlert-colorError .MuiAlert-message"   # red (filled) alerts, e.g. "Upload not allowed..." (verified)
 option = "[role=listbox] [role=option]"
 # IRIS promo after login. Only dialogs without form fields, so an OTP/upload dialog is never closed by accident.

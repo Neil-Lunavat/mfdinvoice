@@ -12,7 +12,7 @@ export type Registrar = 'CAMS' | 'KFINTECH';
 /** The one status vocabulary. Both registrars are mapped onto these words. */
 export type Status =
   | 'Not submitted' | 'Fetched' | 'Signed' | 'Checked' | 'Needs your attention' | 'Submitted'
-  | 'Waiting approval' | 'Approved' | 'Paid' | 'Rejected' | 'Mismatch';
+  | 'Waiting approval' | 'Approved' | 'Rejected' | 'Mismatch';
 
 /** A hard day. A required update is separate: it blocks everything. */
 export type Condition = 'normal' | 'offline' | 'down';

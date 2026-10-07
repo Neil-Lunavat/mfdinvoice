@@ -18,19 +18,14 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from client import errors
-from client.hands.ops_sig import prepare_signature
 
 
 @lru_cache(maxsize=4)
 def _signature(path: str, mtime: float) -> Image.Image:
-    """The cleaned signature, cached against the file's timestamp so a re-uploaded one is picked up.
+    """The signature, cached against the file's timestamp so a re-uploaded one is picked up.
 
-    A signature made by the window's intake (`ops_sig`) is already clean: a PNG whose paper is transparent. Anything
-    else is a photo from before the intake existed, cleaned the old way."""
-    im = Image.open(path)
-    if im.mode == "RGBA" and im.getchannel("A").getextrema()[0] < 255:
-        return im.copy()
-    return prepare_signature(Path(path))
+    It was made by the window's intake (`ops_sig`), so it is already clean: a PNG whose paper is transparent."""
+    return Image.open(path).copy()
 
 
 def meta_of(signature_path: Path) -> dict:

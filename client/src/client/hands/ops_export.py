@@ -21,17 +21,6 @@ REGISTER = ["Registrar", "Fund house", "Fund house GSTIN", "Invoice number", "Da
             "IGST", "Total", "Status", "The registrar's word", "Number in Tally", "Signed PDF"]
 
 
-def find_signed(workspace: Path, key: str) -> Path | None:
-    """A signed invoice by its number, when no token names it: the registrar's own file name carries the number
-    without its slashes (CAMS: `B_ARN-104512_BM26-27E5.pdf`; KFintech: the reference)."""
-    needle = key.replace("/", "")
-    for build in sorted(workspace.glob("*/*/build")):
-        for pdf in build.glob("*.pdf"):
-            if needle and needle in pdf.stem.replace("/", ""):
-                return pdf
-    return None
-
-
 def first_page(pdf: Path, width: int = 900) -> str:
     """The first page as a PNG data URL, for the window's preview."""
     import pypdfium2 as pdfium

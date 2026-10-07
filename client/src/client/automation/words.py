@@ -16,9 +16,13 @@ MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", 
 LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
         "November", "December"]
 
-# Words that mean an invoice is already with KFintech. Matched as substrings: the portal writes sentences
-# ("Accepted & Payment pending"), and an exact-match list would miss one and send the invoice again.
-KFIN_DONE = ("ACCEPT", "PAID", "PROCESSED", "APPROVED", "SUBMITTED", "UPLOADED")
+# The status words the two registrars wrote on 7 Oct 2026, compared after `norm`, whole, never as substrings. What each
+# means: "open" the registrar does not have it, so it can be sent; "with" it has it and has not decided, so it must not
+# be sent again; "done" approved; "rejected" it came back, to be sent again. A word not listed is unknown, and a run
+# that meets one stops and shows it (`Month.read_status`): a guess could send an invoice twice or never.
+CAMS_WORDS = {"FILE NOT UPLOADED": "open", "APPROVED": "done", "REJECTED": "rejected"}
+KFIN_WORDS = {"SIGNED INVOICE UPLOAD PENDING": "open", "UPLOADED & VERIFICATION PENDING": "with",
+              "PAYMENT PROCESSED": "done"}
 
 # The fund houses CAMS names by a code, for when neither its report nor the invoice gives the name. Read off the
 # September 2026 mailback: the code in each PDF's file name against the name printed on that invoice.
@@ -50,37 +54,38 @@ def commission_label(period: str) -> str:
     return f"{MONTHS[MONTHS.index(m.upper()) - 1].title()} Commission"
 
 
-def is_final(registrar: str, status: str | None) -> bool:
-    """Is this invoice already with its registrar, so that sending it again would be a duplicate?
+def norm(said: str | None) -> str:
+    """A registrar's words, ready to compare: case, runs of spaces and a closing full stop do not matter."""
+    return re.sub(r"\s+", " ", (said or "").strip().rstrip(".").strip().upper())
 
-    CAMS: anything its Invoice Status page lists at all, except a rejection. That page lists an invoice only once it
-    has been uploaded, so "PENDING" there means "we have it, waiting on approval".
-    KFintech: the words in KFIN_DONE, as substrings. Its own pending and rejected are open.
-    A rejection is never final on either: that is the invoice coming back to be sent again.
-    """
-    s = (status or "").strip().upper()
-    if not s or "REJECT" in s:
-        return False
-    if registrar == CAMS:
-        return True
-    return any(word in s for word in KFIN_DONE)
+
+def meaning(registrar: str, said: str | None) -> str:
+    """'open', 'with', 'done', 'rejected' or 'unknown': what the registrar's status words mean (see CAMS_WORDS)."""
+    s = norm(said)
+    got = (CAMS_WORDS if registrar == CAMS else KFIN_WORDS).get(s)
+    if got:
+        return got
+    # KFintech's rejection words have not been seen: a status that says rejected, as a whole word, is taken as one.
+    return "rejected" if re.search(r"\bREJECT(ED)?\b", s) else "unknown"
+
+
+def is_final(registrar: str, status: str | None) -> bool:
+    """Is this invoice already with its registrar, so that sending it again would be a duplicate? A rejection is not:
+    that is the invoice coming back to be sent again. An unknown word is not either; the run stops on it first."""
+    return meaning(registrar, status) in ("with", "done")
 
 
 def status_of(row: dict) -> str:
-    """One invoice's status in the window's words. The registrar's own word is kept beside it (`said`)."""
+    """One invoice's status in the window's words. The registrar's own word is kept beside it (`said`). The final
+    state of both registrars is "Approved"."""
     said = str(row.get("said") or "").strip()
-    s = said.upper()
-    if "REJECT" in s:
+    got = meaning(row["registrar"], said) if said else ""
+    if got == "rejected":
         return "Rejected"
-    if row["registrar"] == CAMS and s:
-        return "Paid" if "PAID" in s else "Approved" if "APPROV" in s else "Waiting approval"
-    if row["registrar"] == KFIN and s:
-        if re.search(r"\bPAID\b|PROCESSED", s):
-            return "Paid"
-        if "ACCEPT" in s or "APPROV" in s:
-            return "Approved"
-        if is_final(KFIN, said):
-            return "Waiting approval"
+    if got == "done":
+        return "Approved"
+    if got == "with":
+        return "Waiting approval"
     if row.get("sentAt"):
         return "Submitted"
     if row.get("signedAt"):

@@ -1,13 +1,3 @@
-# Copy to config.toml and fill in. config.toml is gitignored.
-#
-# Development only: an installed app has no config.toml.
-
-[distributor]
-arn = "ARN-00000"
-
-[paths]
-signature = "../samples/example_sign.png"
-workspace = "workspace"             # the month folders, the browser profile, logs
-inbox = "workspace/inbox"           # CAMS mailback GST_REPORT_*.zip + .xls land here
-db = "workspace/client.db"          # local SQLite store
-
+# Copy to config.toml. Development only: a run in a checkout (`uv run app`) stops just before Submit unless this is true.
+[dev]
+submit = false

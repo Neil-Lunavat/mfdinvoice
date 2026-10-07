@@ -37,7 +37,3 @@ def scan(folder: Path) -> dict[str, Mailback]:
         if m:
             found.setdefault(m.group(1), {})[m.group(2).lower()] = p
     return {ref: Mailback(ref, f["zip"], f["xls"]) for ref, f in found.items() if "zip" in f and "xls" in f}
-
-
-def find(folder: Path, confirmation: str) -> Mailback | None:
-    return scan(folder).get(ref_of(confirmation))

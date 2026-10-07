@@ -615,14 +615,6 @@ class Browser:
     def browser_ws(self) -> str:
         return self.version_json()["webSocketDebuggerUrl"]
 
-    def init_script(self) -> str:
-        if self.fingerprint != "hardened":
-            return ""
-        return (
-            "Object.defineProperty(Navigator.prototype,'webdriver',{get:()=>undefined,configurable:true});"
-            "try{window.outerWidth=window.innerWidth;window.outerHeight=window.innerHeight+74;}catch(e){}"
-        )
-
 
 def min_spec() -> dict:
     import platform

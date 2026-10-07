@@ -4,7 +4,7 @@
      printed, and the part that goes up by 1, as at setup. The run starts at the one after it. */
   import { untrack } from 'svelte';
   import type { NextNumber } from '../../bridge';
-  import { bump, counterOf, parts } from '../../logic/numbering';
+  import { bump, counterOf, parts, rule46 } from '../../logic/numbering';
 
   let { value, ondone }: { value: NextNumber; ondone: (last: NextNumber | null) => void } = $props();
 
@@ -13,7 +13,8 @@
   const segs = $derived(parts(text));
   const counting = $derived(counterOf(text, at));
   const next = $derived(counting >= 0 ? bump(text.trim(), counterOf(text.trim(), at)) : '');
-  const ok = $derived(!!next);
+  const refused = $derived(rule46(text));
+  const ok = $derived(!!next && !refused);
 </script>
 
 <div class="rm-stage">
@@ -32,7 +33,8 @@
           {/each}
         </div></div>
     {/if}
-    {#if next}<div class="derived"><span>This run starts at <b>{next}</b></span></div>{/if}
+    {#if refused}<span class="err" role="alert">{refused}</span>{/if}
+    {#if next && !refused}<div class="derived"><span>This run starts at <b>{next}</b></span></div>{/if}
   </div>
 </div>
 <div class="rm-foot">

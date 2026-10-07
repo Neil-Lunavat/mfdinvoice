@@ -1,6 +1,6 @@
 # MFDInvoice: how Neil and I work on it
 
-Written on 4 Oct 2026 by the session that took the cloud server out, so the next one starts where it stopped. Neil
+How we work, what the software is, and the rules Neil has decided. Where things stand is `TODO.md`, not here. Neil
 edits this; where it and he disagree, he wins.
 
 ## How we work
@@ -9,147 +9,160 @@ edits this; where it and he disagree, he wins.
   it, and my lean with the reason. He answers. Nothing is trashed, kept or changed in behaviour on my own say.
 - **Decisions come as numbered items**, grouped by screen or step: what is there today, then "Lean:" and one reason.
   He answers by number. Short and plain; he wants an informed decision with little to hold in his head.
+- **Master and workers.** The main session (Opus) holds the context and the decisions. It turns each decided piece
+  into a deterministic brief (files, the exact change, the checks to run, what not to touch) and spawns a worker for
+  it (`Agent`, model `sonnet`). The worker edits and checks, never commits; the master reviews its diff and checks,
+  then hands it to Neil. Workers keep their output out of the master's context: tokens matter.
 - **Priorities, in order:** it is reliable; it works or it says why; the UX feels good. After those: low cost, speed.
   Secrecy is not a priority. Simple and working beats clever. What serves neither function nor form goes.
-- **Old reasons are not trusted.** Comments and docstrings were written for an architecture that is gone; many still
-  say "brain", "contract", "SOFTWARE.md". Read what the code does, question every inherited rule, and clean the stale
-  words in a file when touching it.
-- **Neil is the tester, by hand, in the real app, with real credentials.** No test suites (they were deleted on his
-  word) and nothing faked for him unless he says "fake". I check my own work before handing it over (type-check,
-  build, a script that drives it, looking at the image it drew) and say exactly what was checked and what was not.
+- **Old reasons are not trusted.** Comments and docstrings may describe an architecture that is gone ("brain",
+  "contract", "SOFTWARE.md"). Read what the code does, question every inherited rule, and clean the stale words in a
+  file when touching it.
+- **Neil is the tester, by hand, in the real software, with real credentials.** No test suites, and nothing faked for
+  him unless he says "fake". I check my own work before handing it over (type-check, build, a script that drives it,
+  looking at the image it drew) and say exactly what was checked and what was not.
 - **One working piece at a time:** build it, he runs it, he reports with screenshots, I fix, then the next piece.
 - **He is blunt and fast.** Match the pace: no hedging, no padding, no obvious questions. When I am unsure of
   something he knows (what a portal shows), I say so and he shows me.
-- **Words in the window matter to him.** "Verify", not "Test". No deadlines or reminders: that is the person's job.
-  Make them feel they own it. He rewrites copy; take his wording.
-- **Commit only when asked; stage files by name.** He wants each finished piece committed. `main` is on GitHub
-  (`origin`, `Neil-Lunavat/mfdinvoice`, private) and began there as one fresh commit on 5 Oct. The history before it
-  is the local branch `old-history`, which holds the real ARN and KFintech username in files since deleted: it is
-  never pushed. One repo holds the app, the software's server and the website, because a release writes into all
-  three. A cloud session pushes a branch, never `main`; Neil pulls it and merges.
-- **What I am not allowed to do** (writes to the live database, deploys, gcloud changes) I hand him as one `!` command.
+- **Words in the window matter to him.** "Verify", not "Test". "Software", not "app". No deadlines or reminders: that
+  is the person's job. Make them feel they own it. He rewrites copy; take his wording.
+- **Commit only when asked; stage files by name.** `main` is on GitHub (`origin`, `Neil-Lunavat/mfdinvoice`,
+  private). The local branch `old-history` holds the real ARN and KFintech username in files since deleted: it is
+  never pushed. One repo holds the software, its server and the website, because a release writes into all three. A
+  cloud session pushes a branch, never `main`; Neil pulls it and merges.
+- **What I am not allowed to do** (deleting files outside the code, writes to the live databases, deploys, the app's
+  data) I hand him as one `!` command.
 
 ## What must not be touched
 
-- `%LOCALAPPDATA%\MFDInvoice\` is the app's data, in development as in production. Neil onboarded there for real
-  (his own invoices, CAMS's files chosen by hand). It stays through every change, as it would through an update.
+- `%LOCALAPPDATA%\MFDInvoice\` is the software's data, in development as in production. It stays through every change,
+  as it would through an update. Only Neil wipes it.
 - `labs/`, `.env`, `client/config.toml`, `website/site/.dev.vars`.
-- Real data never goes in the repo: real invoices, and his partner's name, GSTIN, PAN and ARN. It lives in
-  `Desktop\Automation-old-data\` (samples, the two registrar invoices and the script that makes the previews from them).
+- Real data never goes in the repo: real invoices, CAMS's reports, and his partner's name, GSTIN, PAN and ARN. It
+  lives in `Desktop\Automation-old-data\`.
+- The signing key `~/.mfdinvoice/automation.key`: whoever holds it can put code on every user's PC. Never commit it,
+  never print it. `~/.mfdinvoice/server-admin.key` reads the reports back.
 
-## The architecture now
+## The architecture
 
-- **Everything runs on the PC:** the window, a hidden browser the app owns (headless Edge), files, mailbox, vault,
-  signing, and the run.
+- **Everything runs on the PC:** the window, a hidden browser the software owns (headless Edge), files, mailbox,
+  vault, signing, the books (Tally, Zoho Books), and the run.
 - **Two servers, kept apart** (Neil: SOFTWARE + its server, WEBSITE + accounts).
-  - The website (`website/site`, Cloudflare Worker + D1): sign-in, plan, free trial, binding an ARN to an account,
-    the current app version. The app's routes are `/api/app/*` (`website/site/API.md`).
-  - The software's server (`server/`, its own Cloudflare Worker + D1 + R2): the current portal steps as a signed zip,
-    and what the app sends to support, with each run's record. Nobody signs in to it.
-- **The portal steps are not baked into the app.** `client/src/client/automation/` is zipped, signed with our key
-  (`ops/automation.py publish`) and deployed with the server. Before any portal work the app asks which version is
-  current, downloads it if it is new, checks the signature, and runs it locally (`hands/loader.py`). No answer from the
-  server means no portal work. In a checkout (`uv run app`) the steps are run straight from the folder.
-  The boundary between app and steps is `hands/host.py`: anything behind it needs an app update; the steps do not.
-- **The signing key** is `~/.mfdinvoice/automation.key`, outside the repo. Whoever holds it can put code on every
-  user's PC. Never commit it, never print it. `~/.mfdinvoice/server-admin.key` reads the reports back.
-- **Updates are forced:** an app older than `APP.version` in `website/site/src/consts.ts` shows only Update now.
-- **Accounts:** email + code. An account is made on the website only: the app signs in to one and never makes one
-  (`/api/app/code` answers `no_account`). One free trial per account, 15 days; a second ARN is bought. Finishing
+  - The website (`website/site`, Cloudflare Worker + D1, `mfdinvoice.co.in`, the panel at `control.`): sign-in, plan,
+    free trial, binding an ARN to an account, surveys, the current software version. The software's routes are
+    `/api/app/*` (`website/site/API.md`).
+  - The software's server (`server/`, its own Worker + D1 + R2, `software.mfdinvoice.co.in`): the current portal
+    steps as a signed zip; what the software sends to support, with each run's record (kept 90 days, a daily job
+    deletes them); CAMS's mailbacks forwarded to us (Email Routing on `mailback.mfdinvoice.co.in`, kept encrypted for
+    the person's PC only, deleted once fetched). Nobody signs in to it.
+- **The portal steps are not baked into the software.** `client/src/client/automation/` is zipped, signed
+  (`ops/automation.py publish`) and deployed with the server. Before any portal work the software asks which version
+  is current, downloads it if new, checks the signature, and runs it locally (`hands/loader.py`). No answer from the
+  server means no portal work. In a checkout (`uv run app`) the steps run straight from the folder. The boundary is
+  `hands/host.py`: anything behind it needs a software update; the steps do not.
+- **Updates are forced:** a software older than `APP.version` in `website/site/src/consts.ts` shows only Update now.
+- **Accounts:** email + code. An account is made on the website only; the software signs in to one and never makes
+  one (`/api/app/code` answers `no_account`). One free trial per account, 15 days; a second ARN is bought. Finishing
   setup binds the ARN (on a plan); Activate free trial binds it and starts the trial. An ARN set up without KFintech
-  is bound later: CAMS's sign-in proves too little, so the first run binds it once CAMS's files for it are read
-  (`bindOnRun`, `confirm_arn`), and its trial starts then. The law: the ARN typed = the ARN CAMS shows = the ARN
-  KFintech shows, at setup and on every run; a mismatch stops, and nothing is suggested. An ARN belongs to one
-  account while that account's plan runs; once it has ended, another account that binds it takes it.
-- **The Google Cloud server is stopped** (`ops/stop-cloud.sh start` would bring it back). Nothing uses it.
+  is bound by its first run once CAMS's files for it are read (`bindOnRun`, `confirm_arn`). The law: the ARN typed =
+  the ARN CAMS shows = the ARN KFintech shows, at setup and on every run; a mismatch stops, and nothing is
+  suggested. An ARN belongs to one account while that account's plan runs; once it has ended, another account that
+  binds it takes it.
 
 ## Where the code is
 
 | | |
 |---|---|
-| `client/src/client/hands/shell.py` | `uv run app`: the launcher. In a checkout a run stops just before Submit unless `client/config.toml` has `[dev]` `submit = true`. `uv run app --show-browser` shows the browser a run drives; otherwise it is hidden. The log is always full: every action on a page, every answer from a portal, every stop with its traceback, in `workspace\logs\app.log` (I may read it; typed text is logged by length only), and each run's own part in `workspace\runs\<id>\log.txt` |
+| `client/src/client/hands/shell.py` | `uv run app`: the launcher. In a checkout a run stops just before Submit unless `client/config.toml` has `[dev]` `submit = true`. `--show-browser` shows the browser a run drives. The log is always full (every action on a page, every portal answer, every stop with its traceback) in `workspace\logs\app.log` (I may read it; typed text is logged by length only), and each run's own part in `workspace\runs\<id>\log.txt` |
 | `client/src/client/hands/window.py` | the window's Python side: every method the window calls; `_drive` runs a run, a check or a download |
 | `client/src/client/hands/host.py` | what the steps are given: tabs, the person, files, signature, mailbox, the run's record |
-| `client/src/client/hands/loader.py`, `server.py` | getting the steps (download, signature check), and the software's server |
-| `client/src/client/hands/site.py` | the website's API |
-| `client/src/client/automation/` | the steps: `flow.py` (the run, top to bottom), `cams.py`, `kfin.py` (every page), `month.py` (the month's record on disk), `numbering.py`, `own.py`, `files.py`, `words.py`, `invoices/` |
+| `client/src/client/hands/loader.py`, `server.py`, `site.py`, `forward.py` | getting the steps; the software's server; the website's API; CAMS's forwarded mailbacks |
+| `client/src/client/automation/` | the steps: `flow.py` (the run, top to bottom), `cams.py`, `kfin.py` (every page), `words.py` (status words), `month.py` (the month on disk), `numbering.py`, `own.py`, `tally.py`, `files.py`, `invoices/` |
 | `client/window/src/` | the window (Svelte). `bridge/types.ts` is the boundary; `bridge/fake/` is a made-up backend for `bun run dev` (mine, for looking at screens) |
-| `server/` | the software's server. `bun run first` once, then `bun run deploy` |
-| `ops/automation.py`, `ops/reports.py` | sign and publish the steps; read what was sent to support |
-| `website/site/`, `website/todo/WEBSITE-TODO.md`, `TODO.md`, `IDEAS.md` | the website, its list, the software's list, and ideas parked for later. `bun run check` in `website/site` runs its own checks on a fresh local database (52 of them; nothing live); `-- --keep` leaves the panel up on :8800 with sample data |
-| `labs/15_tally/`, `labs/tally-results.md` | the Tally lab (not in git): what Tally's XML server on port 9000 can and cannot do, found on a paid TallyPrime 7.1. `e21_import.py` is the working import; `e27_own.py`, `e28_reserve.py` are the own-number findings |
-
-The run was ported from the old server's code, which is in git history, not on disk: `git show HEAD:demo/cams.py`,
-`demo/kfin.py`, `demo/run.py` (the one-script version) and `git show HEAD:server/src/server/flow/cams.py`.
+| `server/` | the software's server: `bun run deploy` |
+| `ops/automation.py`, `ops/reports.py`, `ops/release.py` | sign and publish the steps; pull what was sent to support; release the software |
+| `website/site/` | the website: `bun run check` runs its own checks on a fresh local database (nothing live); `-- --keep` leaves the panel up on :8800 with sample data |
+| `TODO.md`, `website/todo/WEBSITE-TODO.md`, `IDEAS.md` | what is left for the software and servers, for the website, and ideas parked for later |
+| `labs/` (not in git) | what the portals, Tally and Zoho really do: `*-results.md` and `portals-report.md`, with the scripts that found it |
 
 Each ARN's data: `%LOCALAPPDATA%\MFDInvoice\workspace\arns\<ARN>\<OCT-2026>\` (`month.json`, `invoices.json`,
 `cams/`, `kfintech/`), `books.json` (own invoice numbers given for good). A run's record: `workspace\runs\<id>\`.
 
-## The run, as Neil decided it (4 Oct 2026)
+**Where each change ships from** (only Neil's PC holds the keys):
+
+| A change to | Ships by |
+|---|---|
+| `client/src/client/automation/` (the steps) | `uv run --project client python ops/automation.py publish`, then `cd server && bun run deploy`. No software update |
+| anything else under `client/` | raise `version` in `client/pyproject.toml`, `uv lock`, commit, `uv run python packaging/build.py` in `client/`, `ops/release.py "<one sentence>"`, deploy the website |
+| `server/` | `cd server && bun run deploy` |
+| `website/site/` | `bun run check`, then `cd website/site && bun run deploy` |
+
+## Setup, as Neil decided it
+
+CAMS → KFintech → name and GSTIN → Signature → Books → Your invoices → Mailbox.
+
+- Name and GSTIN: CAMS gives the name; KFintech (Distributor Profile, View Uploaded) gives the name and GSTIN and
+  overrides CAMS's. The step shows them, "Is this correct?", editable. KFintech skipped: the name is prefilled, the
+  GSTIN typed. No CAMS page shows the GSTIN.
+- Books: Tally, Zoho Books, or neither; one per ARN, whichever they pick. Before Your invoices, so the last invoice
+  number is read from the books.
+- "I don't use CAMS" exists like "I don't use KFintech"; one of the two must be used.
+
+## The run, as Neil decided it
 
 Check (sign in, ARN, status, listing) → Get → Read → Sign → **Your check** → per registrar: prepare, the registrar's
 own check, Submit, status again. Your check comes before anything is prepared, so there is one round for every case.
 
-- A run needs nothing asked first, except on own invoices: "Is this still your last invoice number?"
-- Session reuse while the app is open, for 20 minutes of being left alone (tested safe); after that the browser is
-  closed and the portals are signed in to afresh. No sign-out; no counting of sign-ins. A CAMS lock says try again in 15 minutes.
+- A run needs nothing asked first, except on own invoices: "Is this still your last invoice number?" (with books
+  connected, the number shown is read from them).
+- Sessions: CAMS keeps one browser for good, and signs in again only on its expiry toast or sign-in form, then redoes
+  that step once. KFintech: reused for 20 minutes of being left alone, then closed and signed in afresh. No sign-out;
+  no counting of sign-ins. A CAMS lock says try again in 15 minutes.
+- Status words are matched as whole words, forgivingly (case, extra spaces, a trailing full stop). An unknown word
+  stops and shows the registrar's words. Several rows for one invoice: the latest wins. Both registrars' final state
+  shows as "Approved" (KFintech's "Payment processed" too).
+- CAMS and KFintech approve on their own; neither reads the PDF. The person's tick at Your check is the real check.
 - Status is read fresh by every run. Submitted and approved invoices are not shown at Your check; rejected ones come
   back with the registrar's words.
-- Files are reused when the registrar still lists exactly what they held when fetched; else fetched again. No clock.
-  (Neil wants this explained again; he may add a clock.)
-- CAMS's email: the app asks, waits 10 minutes, then stops; the next run looks first and never asks twice. With no
-  mailbox, the app still asks CAMS, then the person drops or opens the zip and the Excel. Nothing is checked by name.
-- Own invoice numbers: only ticked invoices get one, no gaps; a number is the invoice's for good when Submit is
-  pressed, and when the month is imported into Tally (which numbers the unsubmitted ones after the rest).
-- IGST on own invoices: set aside at Your check, for now. He means to do IGST after launch: keep the door open.
+- Files are reused when the registrar still lists exactly what they held when fetched; a listed invoice with no file
+  means they are fetched again on the next run.
+- CAMS's email, three ways, in this order: forwarded to us, Gmail with an app password, by hand. Any mailback for this
+  ARN and month will do (checked by the Excel's month, BROKER CODE and listing). 10 minutes without it falls back to
+  by hand; a late one is read in by itself while the software is open. Skip CAMS lets KFintech carry on.
+- CAMS's upload holds only the ticked rows.
 - A problem at one registrar does not stop the other. Nothing is retried by itself. Stop is at once, except while a
   Submit's answer is being read. A stop is how a run ended (`run_ended.stop`), never a question.
-- Every run, check and download is sent to the software's server when it ends (kind `run`), with its own log. An
-  "ours" stop also brings the run's record (pictures of the invoice pages, the page's HTML). Send to support
-  attaches the latest run's record too. The person sees none of this.
-- Download invoices reads what each registrar lists, not what is already submitted (CAMS's status page is its
-  slowest). The listing stays: it is how a later run knows the files on this PC are still the month's.
-- The files screen has Skip CAMS when KFintech is in the same run: CAMS is left out, KFintech carries on, and the
-  next run does not ask CAMS for the email again.
-- Month picker at the top right of Overview: Run, Check now and Download work on the month shown.
+- Every run, check and download is sent to the software's server when it ends (kind `run`), with its own log and the
+  pictures of the pages. Send to support attaches the latest run's record too. The person sees none of this.
+- Run is one month (the month picker at the top right of Overview). Downloads takes any months at once.
 - Check now: a reading under 10 minutes old is shown again.
-- "I don't use CAMS" exists like "I don't use KFintech"; one of the two must be used.
+- IGST on own invoices: set aside at Your check, for now. Keep the door open.
 
-## Where it stands (5 Oct 2026)
+## Invoice numbers, as Neil decided it (8 Oct)
 
-`TODO.md` at the repo root is the full list of what is left, and says what ships from where.
+**The problem.** An own invoice's number lives in four places: the PDF; the registrar (CAMS's Excel column BROKER
+INVOICE NUMBER, which CAMS requires to equal the PDF's; KFintech's number box), which passes it to the AMC; the
+person's books; and GSTR-1, filed from the books, which the AMC matches in its GSTR-2B. All four must be the same.
+The law (GST Rule 46): unique in the financial year, consecutive, at most 16 characters of letters, digits, `-` and
+`/`; an issued number is never changed or reused; an invoice that won't go ahead is cancelled, never deleted.
 
-- **Live:** the app 1.0.3, the website, the software's server and the steps, all released and deployed on 4 Oct.
-- **Works, tested by Neil for real:** sign-in, setup with both portal verifications, the trial, Send to support,
-  Settings, the own-invoice preview, the installer on a clean PC, an update (1.0.0 to 1.0.1), an update that fails
-  and brings the old version back (1.0.2 was made to die at start), the Software tab taking what the app sends.
-- **Run by him on the live portals (4 Oct):** both sign-ins inside a run, Check status (October: neither registrar
-  lists it yet), Download invoices for September with CAMS's files added by hand (17 invoices read), the month
-  picker. A Run of August for KFintech ended "already submitted".
-- **Built on 4 Oct, in 1.0.3, not yet seen by him:** the app never making an account; CAMS's setup step needing a
-  passed verify; the ARN bound by the first run when KFintech is not used; setup's optional Tally step (7 steps
-  now); the Tally tab as one scrolling page with a tick before Import; the preview's full-screen button. What I
-  checked: the window's type-check, the Tally tab and the Tally step on the made-up backend, the Tally look against
-  his TallyPrime (read-only), the website's own checks (51 of 51). The bind in a run has not run for real.
-- **Built and checked by me, not yet run by him:** everything in a run after Read (Sign, Your check, prepare, the
-  registrar's own check), CAMS's email through the mailbox, Skip CAMS, "not listed yet", CAMS not used, the
-  20-minute sign-in rule, the Tally import (tested by me on MFD Test only). **Nothing after Read has run against a
-  signed-in portal.**
-- **Never seen live by anyone:** CAMS's final Submit and what it says after; KFintech's number and date boxes on own
-  invoices; what CAMS shows for a row left out of an upload; where a rejection's words appear; whether KFintech's
-  header shows the ARN on every page. The code stops and keeps the page when a page is not what it expects.
-- **Tally lab, 4 Oct** (`labs/tally-results.md`): a password on the company is no new case (logged in, it works;
-  shut, it is a company that isn't open); a missing IGST ledger is made right; Tally moved off port 9000 is found
-  by asking Windows which port `tally.exe` listens on.
-- **Portals lab, 7 Oct** (`labs/portals-report.md`, not in git): what CAMS and KFintech really do, the bugs it found
-  in the software, Neil's answers (section 4), and the live run of 7 Oct night (section 5: what passed live, two
-  bugs fixed in the lab that the software also has, and what was left untested on purpose). Read it before
-  integrating.
-- **Not built:** Zoho Books (before launch; a lab first), the deleting of run records after 90 days (the Privacy
-  page says 90 days), IGST on own invoices (after launch).
-- **Parked on his word:** the USB signing token (hidden, code kept; he has no token now).
-- **His plan for October:** finish the software, give it to about ten distributors through his partner, collect
-  every problem, fix, ship one update. Four kinds of work: sure now; needs the two of us to clear up; needs a lab;
-  cannot be known without real invoices. Do the first three, make the fourth easy to learn from.
-- **Cloud sessions** work on a copy of this repo with no keys: they change code and push a branch; building,
-  publishing, releasing and deploying happen on his PC.
+**Own invoices with books connected: books first.** The run goes Check → Get → Read → Your check → **into the books**
+→ Sign → Submit. "Fetching your last invoice number" (shown at least half a second) reads the books; the ticked
+invoices go in one at a time, in date order (Manual numbering: the books' highest at that moment + 1; Automatic: the
+books choose); each number is read back; then each PDF is drawn with exactly that number. A number is the invoice's
+for good once it is in the books, and is sent again unchanged after a failed or rejected submit. Unticked invoices get
+no number. An open invoice someone already typed into the books (same fund house, month, within a rupee) takes that
+voucher's number instead of a second voucher. The books must answer: if TallyPrime is not open, the run waits on a
+red line saying so, with a refresh button; nothing reaches the portals without the books' numbers.
+
+**Own invoices without books:** the person types the last number before each run; it may skip ahead but never go below
+the highest number the software has used (no repeats). A number is fixed at Submit. The run's end lists "enter these
+in your books with these numbers".
+
+**Registrar invoices:** the number is the registrar's. With books connected, the import numbers each voucher the
+books' way (+1 from their last) and reads it back; nothing of ours is remembered.
+
+**Past (submitted) invoices are never numbered, matched or imported:** they already carry their number, on the PDF the
+registrar holds and in the person's books. Running September before July is allowed: July takes the numbers after
+September's, and Your check says so. A new financial year with Manual numbering: Your check proposes the year's
+first number from the pattern (`1/27-28`), editable. Rule 46 is checked wherever a number is typed.

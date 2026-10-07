@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 MAIL_EVERY_S = 15                # CAMS's email takes from a minute to several (asked 17:07, sent 17:09 on 6 Oct)
 MAIL_GIVE_UP_S = 10 * 60
 ASKED_KEPT_S = 2 * 24 * 60 * 60  # an email asked for longer ago than this is not waited for; CAMS is asked again
-IDLE_S = 20 * 60                 # a portal left alone longer than this is signed in to afresh (tested safe, 4 Oct 2026)
+IDLE_S = 20 * 60                 # KFintech left alone longer than this is signed in to afresh (tested safe, 4 Oct 2026)
 
 
 class Job:
@@ -144,14 +144,15 @@ class Job:
             host.signed_in(reg)
         self.portals_at = time.monotonic()
 
-    async def again(self, going: list[str]) -> None:
-        """The portals were left alone too long to trust their sign-ins (the person took their time at a screen):
-        close the browser and sign in to the ones still needed. Nothing has been prepared on a portal yet."""
-        log.info("the portals were left alone for %d minutes: signing in afresh",
+    async def again(self) -> None:
+        """KFintech was left alone too long to trust its sign-in (the person took their time at a screen): forget it
+        and sign in again. CAMS has no clock: its tab stays, and `cams` signs in again if CAMS says it ended. Nothing
+        has been prepared on a portal yet."""
+        log.info("the portals were left alone for %d minutes: signing in to KFintech afresh",
                  (time.monotonic() - self.portals_at) // 60)
-        await self.host.afresh()
-        self.pages.clear()
-        await self.enter(step=NAMES[going[0]], only=going)
+        await self.host.afresh("kfintech.com")
+        self.pages.pop(KFIN, None)
+        await self.enter(step=NAMES[KFIN], only=[KFIN])
 
     async def status(self, listing_only: bool = False) -> None:
         """What each registrar already has, and what it lists for the month. `listing_only`: a download, which needs
@@ -222,7 +223,7 @@ class Job:
         fetched = m.facts.setdefault("fetched", {})
         if KFIN in self.active():
             have, folder = fetched.get(KFIN), m.folder(KFIN, "fetched")
-            if not (have and have.get("listed") == self.listed[KFIN] and _newest(folder, ".zip")):
+            if not (_kfin_files_good(have, self.listed[KFIN]) and _newest(folder, ".zip")):
                 await self.at("Get", "Downloading KFintech's invoices")
                 fetched.pop(KFIN, None)
                 got = await kfin.fetch(self.pages[KFIN], self.period, m.folder(KFIN, "fetched", empty=True))
@@ -284,7 +285,7 @@ class Job:
                    else host.waiting_email(asked["at"], asked["ref"]))
             deadline = time.monotonic() + MAIL_GIVE_UP_S
             while True:
-                pair = await host.mail_look(asked["ref"]) or await self._month_mail(fetch=False)
+                pair = await self._ours(await host.mail_look(asked["ref"])) or await self._month_mail(fetch=False)
                 if pair:
                     break
                 if skip and skip():
@@ -312,7 +313,13 @@ class Job:
             self.skipped.add(CAMS)
             self.aside[CAMS] = "CAMS's files weren't added"
             return None
-        return [Path(got["zip"]), Path(got["xls"])]
+        pair = [Path(got["zip"]), Path(got["xls"])]
+        rows = await asyncio.to_thread(cams.read_report, pair[1], self.period)       # not this month's: refused here
+        if not self._arn_rows(rows):
+            raise Stop("wrong_files", "These files aren't for this ARN",
+                       f"The Excel report is for another ARN. Choose the zip and the Excel from CAMS's email for "
+                       f"{self.label}.", registrar=CAMS)
+        return pair
 
     def _take_cams(self, pair: list[Path], said: str) -> bool:
         dest = self.month.folder(CAMS, "fetched", empty=True)        # the latest pair only, never two
@@ -321,19 +328,33 @@ class Job:
         self.host.activity(said.format(self.label), CAMS)
         return True
 
+    def _arn_rows(self, rows: list[dict]) -> bool:
+        arn = re.sub(r"\D", "", str(self.host.profile.get("arn") or ""))
+        return {re.sub(r"\D", "", str(r.get("BROKER CODE") or "")) for r in rows} == {arn}
+
+    async def _ours(self, pair: list[Path] | None) -> list[Path] | None:
+        """A pair from the mailbox only if its Excel is this ARN's and this month's; else it is ignored, so a
+        mailback for another month never reaches this month's folder."""
+        if not pair:
+            return None
+        try:
+            rows = await asyncio.to_thread(cams.read_report, pair[1], self.period)
+        except (Stop, Changed, OSError, ValueError):
+            return None
+        return pair if self._arn_rows(rows) else None
+
     async def _month_mail(self, fetch: bool) -> list[Path] | None:
         """The newest of CAMS's emails in the mailbox that is this ARN's month and holds every invoice CAMS lists now,
         whichever request it answered (Neil, 7 Oct). None when there is none, or the software is too old to say."""
         look = getattr(self.host, "mail_pairs", None)
         if look is None:
             return None
-        arn = re.sub(r"\D", "", str(self.host.profile.get("arn") or ""))
         for zip_file, xls in await look(fetch):
             try:
                 rows = await asyncio.to_thread(cams.read_report, xls, self.period)
             except (Stop, Changed, OSError, ValueError):
                 continue                                             # another month's, or not a report we know
-            if {re.sub(r"\D", "", str(r.get("BROKER CODE") or "")) for r in rows} != {arn}:
+            if not self._arn_rows(rows):
                 continue
             if set(self.listed[CAMS]) - {r[cams.CAMS_INVOICE] for r in rows}:
                 continue                                             # older than what CAMS lists now
@@ -361,7 +382,10 @@ class Job:
             await asyncio.to_thread(self._read_kfin)
             # KFintech lists it and its download holds no file for it (seen 7 Oct): said, and the rest go on
             self.no_file = [k for k in self.listed.get(KFIN, []) if k not in self.items]
+            m.facts.get("fetched", {}).get(KFIN, {}).pop("lacks", None)
             if self.no_file:
+                # the files are not the whole listing: the next run fetches them again, this one goes on without
+                m.facts.setdefault("fetched", {}).setdefault(KFIN, {})["lacks"] = list(self.no_file)
                 self.host.activity(f"KFintech lists {plural(len(self.listed[KFIN]), 'invoice')} for {self.kf_label} "
                                    f"and its download held {len(self.listed[KFIN]) - len(self.no_file)}. "
                                    f"No file for {', '.join(self.no_file)}.", tone="warn")
@@ -505,7 +529,7 @@ class Job:
         for key in self.open:
             i = self.items[key]
             said = m.said_about(i["registrar"], key)
-            rejected = "REJECT" in str(said.get("status", "")).upper()
+            rejected = words.meaning(i["registrar"], said.get("status")) == "rejected"
             row = {"key": key, "registrar": i["registrar"], "amc": i["house"], "number": proposed.get(key, ""),
                    "taxable": i["taxable"], "gst": round(i["cgst"] + i["sgst"] + i["igst"], 2), "igst": i["igst"] > 0,
                    "included": key not in left_out and key not in self.blocked,
@@ -602,7 +626,7 @@ class Job:
         host.hold_stop(True)                             # Stop waits for the registrar's answer to this one press
         try:
             if reg == CAMS:
-                answered, said = await cams.click_submit(page, button)
+                answered, said = await cams.click_submit(page, button, sending)
             else:
                 answered, said, _all = await kfin.click_submit(page, button)
         finally:
@@ -668,6 +692,13 @@ class Job:
         return " · ".join(parts)
 
 
+def _kfin_files_good(have: dict | None, listed: list[str]) -> bool:
+    """Are the KFintech files on this PC still this month's, and all of it? They are when KFintech lists exactly what
+    it listed when they were fetched, and no listed fund was found to lack a file when they were read (its download
+    can trail its listing; seen 7 Oct). One that lacked a file sends the next run back to fetch them again."""
+    return bool(have) and have.get("listed") == listed and not have.get("lacks")
+
+
 def _newest(folder: Path, *suffixes: str) -> Path | None:
     got = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in suffixes] if folder.is_dir() else []
     return max(got, key=lambda p: p.stat().st_mtime) if got else None
@@ -718,8 +749,8 @@ async def _run(job: Job) -> dict:
         return {"how": "closed"}
     await job.done("Your check", f"{len(ticked)} ticked")
     going = [r for r in job.regs if r not in job.aside and any(job.items[k]["registrar"] == r for k in ticked)]
-    if going and time.monotonic() - job.portals_at > IDLE_S:
-        await job.again(going)
+    if KFIN in going and time.monotonic() - job.portals_at > IDLE_S:
+        await job.again()
     for reg in job.regs:
         mine = [k for k in ticked if job.items[k]["registrar"] == reg]
         if reg in job.aside or not mine:

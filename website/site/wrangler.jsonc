@@ -29,10 +29,7 @@
   "send_email": [
     { "name": "EMAIL" }
   ],
-  // site.develop-tbc.workers.dev keeps answering until every installed app has updated to one that asks
-  // mfdinvoice.co.in (client/src/client/brand.json): an app asks it whether it must update, so switching it off first
-  // would strand that app.
-  "workers_dev": true,
+  "workers_dev": false,
   // The public site on mfdinvoice.co.in; the admin panel and the blog editor on their own hosts on this Worker, each
   // behind Cloudflare Access.
   "routes": [

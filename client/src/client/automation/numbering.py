@@ -20,6 +20,15 @@ class NumberError(ValueError):
     """The number has no part that can go up by 1 there."""
 
 
+RULE_46 = "GST allows up to 16 characters: letters, digits, - and / only."
+
+
+def rule_46(text: str) -> str:
+    """"" when the invoice number may be used (GST Rule 46: at most 16 characters, only letters, digits, - and /; empty
+    is not set yet), else the words to refuse it with. The window checks the same at its box (logic/numbering.ts)."""
+    return "" if re.fullmatch(r"[A-Za-z0-9/-]{0,16}", (text or "").strip()) else RULE_46
+
+
 def counter_at(text: str, at: int) -> tuple[int, int]:
     """The run of digits that starts at `at`: (start, end). Raises if there is none."""
     if not 0 <= at < len(text) or not text[at].isdigit() or (at > 0 and text[at - 1].isdigit()):

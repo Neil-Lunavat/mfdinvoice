@@ -12,7 +12,7 @@
      own page, where Change is beside it). Setup shows both. */
   import type { ProfileDraft } from '../../bridge';
   import { nextInvoice } from '../../logic/details';
-  import { counterOf, parts } from '../../logic/numbering';
+  import { counterOf, parts, rule46 } from '../../logic/numbering';
   import InvoicePreview from '../../ui/InvoicePreview.svelte';
   import RegistrarPreview from '../../ui/RegistrarPreview.svelte';
   import Signature from './Signature.svelte';
@@ -22,6 +22,7 @@
   const s = $derived(d.invoices.settings);
   const segs = $derived(parts(d.invoices.last));
   const at = $derived(counterOf(d.invoices.last, d.invoices.at));
+  const refused = $derived(rule46(d.invoices.last));
   const next = $derived(nextInvoice(d.invoices));
   let addressText = $state(d.invoices.settings.address.join('\n'));
 
@@ -76,6 +77,7 @@
               {/each}
             </div></div>
         {/if}
+        {#if refused}<span class="err" role="alert">{refused}</span>{/if}
         {#if next}<div class="derived"><span>Your next invoice <b>{next}</b></span></div>{/if}
       </div>
       <div class="field"><span class="label">Your signature</span></div>

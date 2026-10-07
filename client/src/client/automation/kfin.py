@@ -38,6 +38,8 @@ from client.automation.words import KFIN as REG, MONTHS
 C, L, D, U = K["common"], K["login"], K["download"], K["upload"]
 
 DATA = "/dssapi/GetGeneric"   # the call that fills the upload page's table: as the page opens, and per month chosen
+LOGIN_API = "/dssapilogin/login/loginAPI"   # the sign-in's call: statusCode 10000 signed in, 10001 "Invalid Password"
+TAB_CLICKS = 10            # a tab clicked too soon after the page loads is dropped; ~2 s between clicks
 CAPTCHA_TRIES = 3          # each wrong captcha is another image for the person to read; keep it small
 
 # (the captcha's picture, which attempt this is, what to say above it) -> {"text": what they typed, "refresh": bool}
@@ -140,42 +142,78 @@ async def enter(page: Page, username: str, password: str, ask_captcha: AskCaptch
     return await sign_in(page, username, password, ask_captcha)
 
 
+async def _snack(page: Page) -> str:
+    """What KFintech's snackbar says. It is orange (a warning), never the red `.MuiAlert-colorError`, so it is read by
+    what it is, not by colour."""
+    return " ".join(await w.toasts(page, C["snackbar"]))
+
+
 async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCaptcha) -> set[str]:
-    """Username and password typed here, the captcha by the person. Done when the dashboard is up or the portal says
-    no, whichever comes first: waiting only for success would turn a refusal into a mystery."""
+    """Username and password typed here, the captcha by the person. KFintech's answer is read from the server's reply
+    to the sign-in (statusCode 10000 signed in, 10001 "Invalid Password", anything else is refused in its own words)
+    and from the snackbar. A wrong captcha is caught by the page itself ("Captcha Does Not Match"), never reaches
+    the server and so costs no sign-in attempt: the person is shown a new one."""
     await go(page, "base")
-    watch = f"{C['error_alert']}, {L['field_error']}"
-    for attempt in range(1, CAPTCHA_TRIES + 1):
-        await seen(page.locator(L["username"]).first)
-        await page.locator(L["username"]).fill(username)
-        await page.locator(L["password"]).fill(password)
-        picture = await page.locator(L["captcha_image"]).first.screenshot()
-        answer = await ask_captcha(picture, attempt, "" if attempt == 1 else "Not quite. Here's a new one.")
-        if answer.get("refresh"):
-            await page.reload()
-            continue
-        typed = (answer.get("text") or "").strip()
-        if not typed:
-            raise Cancelled()
-        await page.locator(L["captcha"]).fill(typed)
-        await page.locator(L["submit"]).click()
-        await page.wait_for_function(
-            "sel => location.pathname.endsWith('/Dashboard') || "
-            "[...document.querySelectorAll(sel)].some(e => e.innerText.trim())", arg=watch, timeout=SLOW_MS)
-        if page.url.rstrip("/").endswith("/Dashboard"):
-            shown = await arns_shown(page, "KFintech")
-            await _in_as(page)
-            return shown
-        said = await texts(page, watch)
-        first = said[0] if said else ""
-        if re.search(r"captcha", first, re.I) and attempt < CAPTCHA_TRIES:
-            continue
-        if re.search(r"lock|block|disabled", first, re.I):
-            raise Stop("account_locked", "KFintech has locked this login",
-                       "Nothing was submitted. KFintech's own words say what to do next.",
-                       said="; ".join(said), registrar=REG)
-        raise Refused(said or "KFintech refused the login without saying why", "KFintech")
-    raise Refused("KFintech did not accept the characters", "KFintech")
+    replies: list[dict] = []
+
+    async def on_response(r) -> None:
+        if LOGIN_API in r.url:
+            try:
+                replies.append(await r.json())
+            except Exception:
+                replies.append({"statusCode": "?", "message": await r.text()})
+    page.on("response", on_response)
+    try:
+        for attempt in range(1, CAPTCHA_TRIES + 1):
+            await seen(page.locator(L["username"]).first)
+            await page.locator(L["username"]).fill(username)
+            await page.locator(L["password"]).fill(password)
+            picture = await page.locator(L["captcha_image"]).first.screenshot()
+            answer = await ask_captcha(picture, attempt, "" if attempt == 1 else "Not quite. Here's a new one.")
+            if answer.get("refresh"):
+                await page.reload()
+                continue
+            typed = (answer.get("text") or "").strip()
+            if not typed:
+                raise Cancelled()
+            await page.locator(L["captcha"]).fill(typed)
+            replies.clear()
+            await page.locator(L["submit"]).click()
+            said = ""
+            for _ in range(SLOW_MS // 500):               # the dashboard, a reply from the server, or a snackbar
+                if page.url.rstrip("/").endswith("/Dashboard") or replies:
+                    break
+                said = await _snack(page)
+                if said:
+                    break
+                await page.wait_for_timeout(500)
+            else:
+                raise Changed("KFintech gave no dashboard, no reply and no snackbar within a minute of Sign In")
+            await page.wait_for_timeout(800)              # a reply's snackbar trails it
+            said = said or await _snack(page)
+            reply = replies[-1] if replies else None
+            if page.url.rstrip("/").endswith("/Dashboard") or (reply and str(reply.get("statusCode")) == "10000"):
+                await page.wait_for_url("**/Dashboard", timeout=SLOW_MS)
+                shown = await arns_shown(page, "KFintech")
+                await _in_as(page)
+                return shown
+            if reply is None and re.search(r"captcha", said, re.I):
+                continue                                  # nothing reached the server: not an attempt
+            if reply is None:
+                raise Changed(f"KFintech's sign-in page said {said!r}, and the server was not asked")
+            message = reply.get("message")
+            words_ = (message.get("message") if isinstance(message, dict) else message) or said
+            words_ = str(words_ or f"statusCode {reply.get('statusCode')}").strip()
+            if re.search(r"lock|block|disabled|attempt", words_, re.I):
+                raise Stop("account_locked", "KFintech has locked this login",
+                           "Nothing was submitted. KFintech's own words say what to do next.",
+                           said=words_, registrar=REG)
+            raise Stop("refused", "KFintech didn't accept the sign-in",
+                       "Nothing was submitted. Check the KFintech username and password in Settings.",
+                       said=words_, registrar=REG)
+        raise Refused("KFintech did not accept the characters", "KFintech")
+    finally:
+        page.remove_listener("response", on_response)
 
 
 async def arn_of(page: Page, username: str, password: str, ask_captcha: AskCaptcha) -> set[str]:
@@ -203,6 +241,21 @@ async def _answered(page: Page, wait: bool):
         yield
 
 
+async def _select_tab(page: Page, tab: str) -> None:
+    """Click an upload page's tab until it is the selected one. KFintech drops a click made in the first seconds after
+    the page loads (seen 7 Oct), so a click proves nothing: `aria-selected` does."""
+    button = page.locator(U["tab"].format(name=tab))
+    await seen(button)
+    for _ in range(TAB_CLICKS):
+        await button.click()
+        for _ in range(10):
+            if await button.get_attribute("aria-selected") == "true":
+                return
+            await page.wait_for_timeout(200)
+    shows = await texts(page, f"{C['alert']}, {C['snackbar']}")
+    raise Changed(f"the {tab!r} tab never became selected after {TAB_CLICKS} clicks; the page shows {shows or 'no message'}")
+
+
 async def open_upload_tab(page: Page, period: str, tab: str, table: bool = False) -> bool:
     """Open the upload page on one tab with this run's month selected. False when the month is not offered at all.
     `table`: the tab's table is about to be read, so KFintech's answer is waited for, first for the month the page
@@ -210,7 +263,7 @@ async def open_upload_tab(page: Page, period: str, tab: str, table: bool = False
     async with _answered(page, table):
         await go(page, "upload")
         await inside(page)
-        await page.locator(U["tab"].format(name=tab)).click()
+        await _select_tab(page, tab)
     select = page.locator(U["month"]).filter(visible=True).first
     value = upload_value(period)
     listed = [v for v in await select.locator("option").evaluate_all("os => os.map(o => o.value)") if v]
@@ -504,8 +557,11 @@ async def fill_grid(page: Page, period: str, invoices: list[dict], signed: dict[
         at = hits[0]
         row = rows.nth(at)
         box = row.locator(U["row_file"])
-        if await box.is_disabled():
-            raise Stop("refused", f"KFintech isn't taking an upload for {house}",
+        # A row KFintech has closed (pending its verification, or processed) is greyed with `pointer-events: none` on
+        # the file box's parent; the box itself is not `disabled`. Not an error: the invoice cannot be sent now.
+        if await box.is_disabled() or not await box.evaluate("b => getComputedStyle(b.parentElement).pointerEvents !== 'none'"):
+            raise Stop("refused", f"KFintech isn't taking an upload for {house} now",
+                       "Its row is closed: KFintech is still verifying an earlier upload, or has finished with it. "
                        "Nothing was sent to KFintech. Untick it at Your check and run again.",
                        said=shown[at][columns["Current Status"]], registrar=REG)
         if own_path:

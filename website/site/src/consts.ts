@@ -81,7 +81,7 @@ export const BUSINESS = {
 
 /* The date the Terms, the Privacy policy or the Refund policy last changed. The three pages show it as "Last
    updated", and every payment records the version it was made under. Change it whenever any of them changes. */
-export const TERMS_VERSION = '2026-10-06';
+export const TERMS_VERSION = '2026-10-08';
 
 /* How long the record of a run (its steps, the portals' words, the pictures of the portals' pages) is kept on the
    software's server before it is deleted. The server's daily job deletes them (server/src/index.ts, KEEP_DAYS). */

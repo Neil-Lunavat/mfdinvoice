@@ -42,7 +42,7 @@ URL = "http://127.0.0.1:9000"
 # The start of our id on every invoice we put in. It never changes, whatever the product is called.
 OURS = "MFDInvoice/"
 KEEPS_OUR_NUMBER = ("Manual", "Automatic (Manual Override)")
-SUBMITTED = ("Submitted", "Waiting approval", "Approved", "Paid")
+SUBMITTED = ("Submitted", "Waiting approval", "Approved")
 GSTIN = re.compile(r"\b\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z]\b")
 # Tally's own spelling, where it differs from the one printed on an invoice
 TALLY_STATE = {"01": "Jammu & Kashmir", "26": "Dadra & Nagar Haveli and Daman & Diu", "35": "Andaman & Nicobar Islands"}

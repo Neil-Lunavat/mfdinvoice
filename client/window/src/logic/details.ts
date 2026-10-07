@@ -3,7 +3,7 @@ import { NAME } from '../brand';
 
 import type { ProfileDraft } from '../bridge/types';
 import { arnOk, emailOk, gstinOk } from './validate';
-import { bump, counterOf } from './numbering';
+import { bump, counterOf, rule46 } from './numbering';
 
 /** The details alone, as a Change in Settings checks them. */
 export const detailsValid = (d: ProfileDraft) => arnOk(d.arn) && gstinOk(d.gstin) && d.name.trim().length >= 3;
@@ -36,7 +36,7 @@ export const signatureLine = (s: ProfileDraft['signature']) =>
   s.way === 'dsc' ? `USB token · ${s.cert?.name ?? 'not picked'}` : 'Your signature';
 
 /** The next number the person's own series will use, from the last one they issued: '' when it cannot count. */
-export const nextInvoice = (i: ProfileDraft['invoices']) => (i.last.trim() ? bump(i.last.trim(), counterOf(i.last.trim(), i.at)) : '');
+export const nextInvoice = (i: ProfileDraft['invoices']) => (i.last.trim() && !rule46(i.last) ? bump(i.last.trim(), counterOf(i.last.trim(), i.at)) : '');
 
 /** Which invoice is uploaded is chosen; their own needs the last number (with a part that counts) and an address. */
 export const invoicesValid = (d: ProfileDraft) =>
