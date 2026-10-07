@@ -5,6 +5,7 @@
   import { registrarsOf } from '../../logic/details';
   import { checkedLine, n2, regName, regTag } from '../../logic/format';
   import { blankQuery, chipTone, gst, statusesIn, table, total, type SortKey } from '../../logic/month';
+  import { runOffOf } from '../../logic/runoff';
   import { store } from '../../state/store.svelte';
   import { ui } from '../../state/ui.svelte';
   import { icons } from '../../ui/icons';
@@ -30,9 +31,10 @@
   function sortBy(k: SortKey) { q = { ...q, dir: q.sort === k ? (q.dir === 1 ? -1 : 1) : 1, sort: k }; }
   function open(x: Invoice) { ui.open({ type: 'invoice', invoice: x, period }); }
   // a status read less than ten minutes ago is shown again, not read again: the run does that, as from Overview
+  const runOff = $derived(!!store.snap && runOffOf(store.snap));    // off exactly when Overview's Run and Check now are
   function check() {
     const p = store.snap?.profile;
-    if (!p) return;
+    if (!p || runOff) return;
     ui.runWith = { registrars: registrarsOf(p), period, what: 'check' };
   }
   async function exportIt() {
@@ -58,7 +60,7 @@
       <div><h1>{month?.label ?? ''}</h1><p class="sub">{rows.length} invoices · ₹{n2(sumOf(rows, total))}</p></div></div>
     <div class="hdr-r">
       <span class="chkd">{checkedLine(month?.checkedAt ?? '', store.snap?.today ?? '')}</span>
-      <button class="btn ghost" onclick={check}>{@html icons.sync}Check status</button>
+      <button class="btn ghost" disabled={runOff} onclick={check}>{@html icons.sync}Check status</button>
       <button class="btn secondary" onclick={exportIt}>{@html icons.dl}Export</button>
       {#if rows.length}<button class="btn secondary" onclick={() => { ui.tallyMonth = period; ui.go('tally'); }}>{@html icons.book}Import into Tally</button>{/if}
     </div>

@@ -38,10 +38,14 @@ export const signatureLine = (s: ProfileDraft['signature']) =>
 /** The next number the person's own series will use, from the last one they issued: '' when it cannot count. */
 export const nextInvoice = (i: ProfileDraft['invoices']) => (i.last.trim() && !rule46(i.last) ? bump(i.last.trim(), counterOf(i.last.trim(), i.at)) : '');
 
-/** Which invoice is uploaded is chosen; their own needs the last number (with a part that counts) and an address. */
+/** Tally is connected: the books give the person's own invoice numbers, so no last number is asked. */
+export const booked = (d: Pick<ProfileDraft, 'tally'>) => !!d.tally?.company;
+
+/** Which invoice is uploaded is chosen; their own needs the last number (with a part that counts, unless Tally gives
+    the numbers) and an address. */
 export const invoicesValid = (d: ProfileDraft) =>
   d.invoices.source === 'registrar'
-  || (d.invoices.source === 'own' && !!nextInvoice(d.invoices) && d.invoices.settings.address.some(a => a.trim().length > 2));
+  || (d.invoices.source === 'own' && (booked(d) || !!nextInvoice(d.invoices)) && d.invoices.settings.address.some(a => a.trim().length > 2));
 
 /** Your invoices: which invoice is uploaded, and the signature that goes on it, seen on that invoice. */
 export const invoicesStepValid = (d: ProfileDraft) => invoicesValid(d) && signatureValid(d);
@@ -50,8 +54,9 @@ export const invoicesStepValid = (d: ProfileDraft) => invoicesValid(d) && signat
 export const tallyValid = (d: ProfileDraft) => !d.tally?.company || d.tally.same || d.tally.sure;
 export const tallyLine = (t: ProfileDraft['tally']) => (t?.company ? t.company : 'Not connected');
 
-export const STEP_TITLES = ['Who you are', 'CAMS', 'Mailbox', 'KFintech', 'Your invoices', 'Tally', 'Check everything'] as const;
-const STEPS_VALID = [whoValid, camsValid, mailboxValid, kfintechValid, invoicesStepValid, tallyValid] as const;
+// Tally comes before Your invoices: with books connected, the books give the invoice numbers
+export const STEP_TITLES = ['Who you are', 'CAMS', 'Mailbox', 'KFintech', 'Tally', 'Your invoices', 'Check everything'] as const;
+const STEPS_VALID = [whoValid, camsValid, mailboxValid, kfintechValid, tallyValid, invoicesStepValid] as const;
 /** Check everything finishes only when every step still holds (an ARN changed late unsettles the others) and a
     portal has shown the ARN. */
 export const allValid = (d: ProfileDraft) => STEPS_VALID.every(v => v(d)) && arnProven(d);
@@ -65,5 +70,5 @@ export function mailboxLine(m: ProfileDraft['mailbox']): string {
 
 export const kfintechLine = (k: ProfileDraft['kfintech']) => (!k.used ? 'Not used' : k.loggedInAs ? `Logged in as ${k.loggedInAs}` : k.username);
 
-export const invoicesLine = (i: ProfileDraft['invoices']) =>
-  i.source === 'own' ? `Your own · next ${nextInvoice(i) || '—'}` : "The registrar's, signed by you";
+export const invoicesLine = (i: ProfileDraft['invoices'], books = false) =>
+  i.source === 'own' ? (books ? 'Your own · numbered by Tally' : `Your own · next ${nextInvoice(i) || '—'}`) : "The registrar's, signed by you";

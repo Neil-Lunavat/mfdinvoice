@@ -164,5 +164,7 @@ books' way (+1 from their last) and reads it back; nothing of ours is remembered
 
 **Past (submitted) invoices are never numbered, matched or imported:** they already carry their number, on the PDF the
 registrar holds and in the person's books. Running September before July is allowed: July takes the numbers after
-September's, and Your check says so. A new financial year with Manual numbering: Your check proposes the year's
+September's, and Your check says so. Tally set to renumber (a back-dated invoice would shift every later invoice
+number): such an invoice is offered "Date it today" (it goes in last; nothing shifts) or "Put it aside"; we never
+suggest changing Tally's setting (switching it renumbers existing invoices itself). A new financial year with Manual numbering: Your check proposes the year's
 first number from the pattern (`1/27-28`), editable. Rule 46 is checked wherever a number is typed.

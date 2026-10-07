@@ -4,7 +4,7 @@
      every step to hold and a portal's sign-in to have shown the ARN: finishing binds the ARN to the account. */
   import { onMount } from 'svelte';
   import { app } from '../../bridge';
-  import { arnProven, tallyLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP_TITLES, stepValid } from '../../logic/details';
+  import { arnProven, booked, tallyLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP_TITLES, stepValid } from '../../logic/details';
   import { store } from '../../state/store.svelte';
   import { ui } from '../../state/ui.svelte';
   import { icons } from '../../ui/icons';
@@ -77,8 +77,8 @@
             {#if ui.draft.camsUsed}<Mailbox bind:d={ui.draft} />
             {:else}<p class="line">The mailbox is only for CAMS's invoice mails, and this ARN doesn't use CAMS. Nothing to connect.</p>{/if}
           {:else if ui.step === 3}<Kfintech bind:d={ui.draft} />
-          {:else if ui.step === 4}<YourInvoices bind:d={ui.draft} />
-          {:else if ui.step === 5}<TallyStep bind:d={ui.draft} />
+          {:else if ui.step === 4}<TallyStep bind:d={ui.draft} />
+          {:else if ui.step === 5}<YourInvoices bind:d={ui.draft} />
           {:else}
             {@const d = ui.draft}
             <div class="cklist">
@@ -92,10 +92,11 @@
               {/each}
               <div class="ck"><span class="k">Signature</span>{#if d.signature.way === 'dsc'}<span class="v">{signatureLine(d.signature)}</span>
                 {:else}<span class="v sigmini"><img class="sigimg" src={d.signature.image} alt="Your signature" /></span>{/if}
-                <a href="#change" onclick={e => { e.preventDefault(); change(4); }}>Change</a></div>
-              <div class="ck"><span class="k">Invoices</span><span class="v">{invoicesLine(d.invoices)}</span>
-                <a href="#change" onclick={e => { e.preventDefault(); change(4); }}>Change</a></div>
+                <a href="#change" onclick={e => { e.preventDefault(); change(5); }}>Change</a></div>
               <div class="ck"><span class="k">Tally</span><span class="v">{tallyLine(d.tally)}</span>
+                {#if !stepValid[4](d)}<span class="err">Needs a change</span>{/if}
+                <a href="#change" onclick={e => { e.preventDefault(); change(4); }}>Change</a></div>
+              <div class="ck"><span class="k">Invoices</span><span class="v">{invoicesLine(d.invoices, booked(d))}</span>
                 {#if !stepValid[5](d)}<span class="err">Needs a change</span>{/if}
                 <a href="#change" onclick={e => { e.preventDefault(); change(5); }}>Change</a></div>
             </div>

@@ -241,8 +241,24 @@ class Host:
     async def looks_right(self, key: str, amc: str) -> dict:
         return await self.w.signature_check(self.run, key, amc)
 
-    async def your_check(self, rows: list[dict], notes: list[str]) -> dict:
-        return await self.w.your_check(self.run, rows, notes)
+    async def your_check(self, rows: list[dict], notes: list[str], books: dict | None = None) -> dict:
+        """`books`: own invoices with books connected: {company, after, first}, shown above the table."""
+        return await self.w.your_check(self.run, rows, notes, books)
+
+    # --- the person's books (Tally) -----------------------------------------------------------------------------------
+
+    def books_waiting(self, on: bool, company: str = "", said: str = "") -> None:
+        """The books are not answering: the window shows a red line with a refresh button (on), or takes it down."""
+        self.w.books_waiting(self.run, on, company, said)
+
+    async def books_nap(self, seconds: float = 3.0) -> None:
+        """Wait for the person's refresh, or this long, before the books are asked again."""
+        await self.w.books_nap(seconds)
+
+    async def books_ask(self, asks: list[dict]) -> dict:
+        """The books' questions (which kind of sales voucher, which ledger, whether it is the right company):
+        {id: answer}."""
+        return await self.w.books_ask(self.run, asks)
 
     # --- telling the window -------------------------------------------------------------------------------------------
 

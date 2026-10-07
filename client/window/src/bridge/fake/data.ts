@@ -134,7 +134,7 @@ export const RK: Omit<Profile, 'signature'> = {
   invoices: { source: 'own', last: 'RKM/26-27/073', at: 10, settings: {
     template: 'tally', address: ['12, Shanti Kunj, College Road', 'Nashik 422005'], phone: '98220 12345',
     email: 'rkmehta@gmail.com', website: '', particulars: 'Commission', particularsAmc: true, remarks: '' } },
-  lastLogin: { CAMS: '2026-10-03', KFINTECH: '2026-10-03' }, tally: { company: 'Lunavat & Co', ledgers: 17 },
+  lastLogin: { CAMS: '2026-10-03', KFINTECH: '2026-10-03' }, tally: { company: 'Lunavat & Co', ledgers: 17 }, books: 'tally', usedTop: '',
   consent: { version: 1, text: `I authorise ${NAME} to sign in and act for me on CAMS and KFintech for ARN-104512.`, at: '2026-06-02T10:14:00', device: 'THIS-PC' }
 };
 
@@ -145,7 +145,7 @@ export const SR: Omit<Profile, 'signature'> = {
   kfintech: { used: true, username: 'srmehta_mfd', loggedInAs: 'S R MEHTA', arn: 'ARN-118830' },
   invoices: { source: 'registrar', last: '', at: -1, settings: {
     template: 'tally', address: [], phone: '', email: '', website: '', particulars: 'Commission', particularsAmc: true, remarks: '' } },
-  lastLogin: { CAMS: '2026-09-04', KFINTECH: '2026-09-04' }, tally: { company: '', ledgers: 0 },
+  lastLogin: { CAMS: '2026-09-04', KFINTECH: '2026-09-04' }, tally: { company: '', ledgers: 0 }, books: '', usedTop: '',
   consent: { version: 1, text: `I authorise ${NAME} to sign in and act for me on CAMS and KFintech for ARN-118830.`, at: '2026-08-11T16:40:00', device: 'THIS-PC' }
 };
 

@@ -25,7 +25,6 @@
   const rows = $derived(look?.state === 'ready' ? look.rows : []);
   const going = $derived(rows.filter(r => r.action === 'import'));
   const adopting = $derived(rows.filter(r => r.action === 'by_hand' && adopt[r.key]));
-  const clash = $derived(going.some(r => r.clash));
   const waiting = $derived((look?.asks?.length ?? 0) > 0);
   const needsLast = $derived(!!look?.askLast && !last.trim());
   const count = $derived(going.length + adopting.length);
@@ -81,7 +80,8 @@
 
   const CHIP: Record<TallyRow['action'], [string, string]> = {
     import: ['neutral', 'Will go in'], in_books: ['good', 'In your books'], by_hand: ['wait', 'Typed by hand?'],
-    ask: ['wait', 'Needs your answer'], stop: ['bad', "Can't go in"], later: ['neutral', 'Not submitted']
+    ask: ['wait', 'Needs your answer'], stop: ['bad', "Can't go in"], later: ['neutral', 'Not submitted'],
+    run: ['neutral', 'Goes in at its run'], past: ['neutral', 'Already sent']
   };
   const numberOf = (r: TallyRow) => r.number || (r.action === 'import' ? r.will : '');
   const span = (xs: string[]) => (xs.length > 1 ? `${xs[0]} to ${xs.at(-1)}` : xs[0] ?? '');
@@ -144,12 +144,8 @@
         </div></div>
       {/if}
       {#each look.warn as w (w)}<div class="banner wait sm"><div>{w}</div></div>{/each}
-      {#if clash}
-        <div class="banner bad"><div><b>Tally will give these invoices different numbers from the ones printed on them.</b>
-          An invoice has been added in Tally since your numbers were given. Tally's numbers can't be set from outside, so this can only be shown.</div></div>
-      {/if}
-      {#if look.own && which === 'all' && going.some(r => !r.submitted)}
-        <div class="banner info sm"><div>The ones not submitted take the numbers after the rest, and keep them when you submit them later.</div></div>
+      {#if look.own}
+        <div class="banner info sm"><div>Your own invoices go into Tally when you run them, and are numbered then. This page shows what is there.</div></div>
       {/if}
       {#if parties.length || taxes.length}
         <div class="banner info sm"><div>
@@ -199,8 +195,8 @@
             {@const c = CHIP[r.action]}
             <tr class:dim={r.action === 'later'}>
               <td>{r.amc} <span class="reg">{regTag(r.registrar)}</span>{#if r.party && r.action !== 'later'}<div class="line">{r.partyNew ? 'New ledger: ' : ''}{r.party}{r.sales ? ` · ${r.sales}` : ''}</div>{/if}</td>
-              <td class="mono">{r.ours || r.key}{#if r.ours && r.ours !== r.key}<div class="line">{r.key}</div>{/if}</td>
-              <td class="mono" class:bad={r.clash}>{numberOf(r) || '—'}</td>
+              <td class="mono">{r.key}</td>
+              <td class="mono">{numberOf(r) || '—'}</td>
               <td class="num">{n2(r.total)}</td>
               <td><span class="chip {c[0]}">{c[1]}</span>
                 {#if r.refused}<div class="line bad">{r.refused}</div>{:else if r.note && r.action !== 'in_books' && r.action !== 'later'}<div class="line">{r.note}</div>{/if}
@@ -223,7 +219,7 @@
           <span>I've checked these {count} {count === 1 ? 'invoice' : 'invoices'}{adopting.length ? `, ${adopting.length} of them to be changed` : ''}. Tally can't undo an import.</span></label>
       {:else}<span class="line">{look.counts.inBooks && look.counts.inBooks === rows.length ? `All of ${look.label} is in your books.` : count ? '' : 'Nothing to import.'}</span>{/if}
       <button class="btn primary" data-primary disabled={!!busy || !count || waiting || needsLast || !checked} onclick={bringIn}>
-        {#if busy === 'import'}<span class="spin"></span>Importing{:else}{clash ? 'Import anyway' : `Import ${count || ''} into Tally`}{/if}</button>
+        {#if busy === 'import'}<span class="spin"></span>Importing{:else}Import {count || ''} into Tally{/if}</button>
     </div>
   {/if}
 </div>
@@ -249,6 +245,6 @@
   .tl-ask-grid select { width: 170px; }
   .tl-foot .btn { margin-left: auto; }
   tr.dim td { opacity: .55; }
-  td.bad, .line.bad { color: var(--red); }
+  .line.bad { color: var(--red); }
   td .line { white-space: normal; font-family: var(--sans, inherit); font-size: 12px; color: var(--muted); margin-top: 2px; }
 </style>

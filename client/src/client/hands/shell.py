@@ -66,7 +66,7 @@ METHODS = {
     "signOut": ("sign_out", "pos"),
     "activateTrial": ("activate_trial", "pos"), "checkPlan": ("check_plan", "pos"), "agree": ("agree", "pos"),
     "here": ("here", "pos"), "pickFile": ("pick_file", "pos"), "dropFile": ("drop_file", "kw"),
-    "tallyLook": ("tally_look", "kw"), "tallyImport": ("tally_import", "kw"), "tallyLast": ("tally_last", "pos"),
+    "tallyLook": ("tally_look", "kw"), "tallyImport": ("tally_import", "kw"), "booksNext": ("books_next", "pos"), "refreshBooks": ("refresh_books", "pos"),
     "tallySetup": ("tally_setup", "pos"),
     "tallyForget": ("tally_forget", "pos"),
 }

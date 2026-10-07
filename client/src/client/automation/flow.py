@@ -8,6 +8,9 @@
     Read         every figure, from the registrars' own files
     Sign         the registrar's invoices signed; the first run for an ARN shows one first, "Does this look right?"
     Your check   the person compares with their bank statement and unticks what does not match. The one yes.
+    Your books   own invoices with books connected (Tally): after Your check, each ticked invoice is written into the
+                 books in date order and the invoice number the books hold is read back; only then is each PDF drawn
+                 with exactly that number (Sign comes after it). Tally is read before Your check too.
     CAMS         the upload made for what stayed ticked, attached, CAMS's own reading of it compared, CAMS's own
                  validation, Submit, and its status read again
     KFintech     the same on KFintech's page
@@ -20,7 +23,8 @@ Rules that hold throughout:
   already on this PC.
 - Submit is written down before it is pressed. If the registrar never answers, the next run's status reading settles
   it, and nothing is pressed twice.
-- The person's own invoice numbers are given for good when Submit is pressed, and only then.
+- The person's own invoice numbers are given for good when they are in the books (Tally connected), else when
+  Submit is pressed.
 - A problem at one registrar does not stop the other.
 """
 
@@ -36,7 +40,7 @@ from pathlib import Path
 
 from playwright.async_api import Error as PWError
 
-from client.automation import cams, files, kfin, numbering, own, signature, words
+from client.automation import books, cams, files, kfin, numbering, own, signature, tally, words
 from client.brand import NAME
 from client.automation.month import Month, now
 from client.automation.page import Changed, Refused, Stop
@@ -47,6 +51,11 @@ log = logging.getLogger(__name__)
 MAIL_EVERY_S = 15                # CAMS's email takes from a minute to several (asked 17:07, sent 17:09 on 6 Oct)
 MAIL_GIVE_UP_S = 10 * 60
 ASKED_KEPT_S = 2 * 24 * 60 * 60  # an email asked for longer ago than this is not waited for; CAMS is asked again
+# An own invoice dated before the newest invoice in an Auto Renumber type would make Tally renumber the ones after it.
+# The person may date it the day it is sent instead: in Tally, on the drawn PDF and in KFintech's date box (`dated` on
+# the item; CAMS's upload carries no date). Switch this off and the invoice can only be put aside.
+DATE_IF_RENUMBERED = True
+MIN_SHOWN_S = 0.5                # "Fetching your last invoice number" stays on screen at least this long
 IDLE_S = 20 * 60                 # KFintech left alone longer than this is signed in to afresh (tested safe, 4 Oct 2026)
 
 
@@ -55,6 +64,8 @@ class Job:
         self.host, self.period = host, period
         self.arn = host.profile["arn"]
         self.own = host.profile["invoices"]["source"] == "own"
+        # own invoices with books connected: the books give the invoice numbers, and are written to before Sign
+        self.books = books.Tally(host.base, period, host.profile) if self.own and books.connected(host.base) else None
         self.month = Month(host.base, period)
         self.label, self.kf_label = words.labels(period)
         self.regs = [r for r in (CAMS, KFIN) if r in registrars]          # the order things are sent in
@@ -62,12 +73,19 @@ class Job:
         self.aside: dict[str, str] = {}          # registrar -> why it takes no part in this run
         self.unlisted: set[str] = set()          # ... the ones that do not list the month yet
         self.skipped: set[str] = set()           # ... the ones the person left out of this run
-        self.locked: dict[str, str] = {}         # own invoices: the numbers already given for good
+        self.locked: dict[str, str] = {}         # own invoices without books: the numbers already given for good
+        self.numbers: dict[str, str] = {}        # own invoices with books: key -> the invoice number the books gave
+        self.glanced: dict = {}                  # what the books said at the look before Your check
+        self.first = ""                          # a new financial year's first invoice number, as the person typed it
+        self.entered: list[dict] = []            # own invoices without books, submitted: for the person's books
+        self.left: list[dict] = []               # own invoices the books would not take: {amc, why}
         self.listed: dict[str, list[str]] = {}   # registrar -> the invoices it lists for the month
         self.no_file: list[str] = []             # listed by KFintech, with no file in its download
         self.items: dict[str, dict] = {}         # every invoice read off the month's files, by key
         self.open: list[str] = []                # the ones this run may send, CAMS's first
         self.blocked: dict[str, str] = {}        # key -> why it cannot be sent by this run
+        self.cannot_draw: dict[str, str] = {}    # ... of those, the ones that cannot be drawn as the person's own
+        self.renumber: dict[str, dict] = {}      # key -> why Tally would renumber others for it: dated today, or aside
         self.report: list[dict] = []             # CAMS's Excel, every row
         self.report_file: Path | None = None
         self.signed: dict[str, Path] = {}
@@ -365,7 +383,7 @@ class Job:
 
     async def read(self) -> None:
         m = self.month
-        self.locked = self.books().locked if self.own else {}
+        self.locked = self.issued().locked if self.own and not self.books else {}
         if CAMS in self.active():
             await self.at("Read", "Reading CAMS's invoices")
             await asyncio.to_thread(self._read_cams)
@@ -392,7 +410,8 @@ class Job:
         self.open = [k for reg in self.regs for k, i in self.items.items()
                      if i["registrar"] == reg and reg in self.active() and k not in m.with_registrar(reg)]
         if self.own:
-            self.blocked = {k: why for k in self.open if (why := own.drawable(self.items[k]))}
+            self.cannot_draw = {k: why for k in self.open if (why := own.drawable(self.items[k]))}
+            self.blocked = dict(self.cannot_draw)
         m.save()
         await self.host.changed()
 
@@ -444,8 +463,9 @@ class Job:
         had = m.rows.get(key, {})
         said = m.said_about(reg, key)
         kept = had.get("file") if had.get("file") and m.path(had["file"]).is_file() else m.rel(item["pdf"])
+        item["dated"] = (had.get("dated") or "") if self.own else ""      # sent dated another day than the registrar's
         if self.own:                                  # the number on the person's own invoice, once it has one
-            number = self.locked.get(key, "")
+            number = had.get("number", "") if self.books else self.locked.get(key, "")
         party = item.get("party")                     # the fund house as the invoice names it: Tally finds it by GSTIN
         gstin = (party.gstin if party else "") or (item.get("one") or {}).get("amc_gstin", "")
         m.put(reg, key, gstin=gstin.upper(), party=party.name if party else "",
@@ -472,49 +492,167 @@ class Job:
     def _draw_one(self, key: str, number: str) -> Path:
         """The person's own invoice for this one, with this number, signed."""
         item = self.items[key]
-        out = own.draw(self.host, item, number, self.period, self.month.folder(item["registrar"], "signed"))
+        shown = {**item, "date": item.get("dated") or item["date"]}
+        out = own.draw(self.host, shown, number, self.period, self.month.folder(item["registrar"], "signed"))
         self.signed[key] = out
         self.month.put(item["registrar"], key, file=self.month.rel(out), signedAt=now(), own=True, number=number)
         return out
 
-    def books(self) -> numbering.Books:
+    def issued(self) -> numbering.Issued:
         inv = self.host.profile["invoices"]
-        return numbering.Books(self.host.base / "books.json", inv.get("last") or "", int(inv.get("at", -1)))
+        return numbering.Issued(self.host.base / "books.json", inv.get("last") or "", int(inv.get("at", -1)))
 
-    async def sign(self) -> None:
-        host, m = self.host, self.month
-        if not host.signature().get("present"):
+    def _need_signature(self) -> None:
+        if not self.host.signature().get("present"):
             raise Stop("setup", "Your signature isn't set up on this PC",
                        "Add it in Settings › Your invoices, then run again. Nothing was submitted.")
+
+    async def _look(self, first: str, number: str, step: str) -> None:
+        """The first run for this ARN: one real invoice, before the rest are signed. `number` is shown, not given."""
+        host, m = self.host, self.month
+        while True:
+            await self.at(step, "Signing one invoice for you to look at")
+            if self.own:
+                await asyncio.to_thread(self._draw_one, first, number)
+                m.put(self.items[first]["registrar"], first, number="")
+            else:
+                await asyncio.to_thread(self._sign_one, first)
+            m.save()
+            answer = await host.looks_right(first, self.items[first]["house"])
+            if answer.get("looks_right"):
+                host.put("signature_seen", now())
+                return
+            if not answer.get("fixed"):
+                raise Stop("ended", "Stopped", "The signature wasn't confirmed, so nothing was signed or submitted.")
+
+    async def sign(self) -> None:
+        """Registrar invoices signed; own invoices without books: only the first-run look (they are drawn after Your
+        check). Own invoices with books never come here: `preview_first`, then `sign_own`."""
+        host, m = self.host, self.month
+        self._need_signature()
         can = [k for k in self.open if k not in self.blocked]
-        if self.own and can and not self.books().ready:
+        if self.own and can and not self.issued().ready:
             raise Stop("setup", "Your last invoice number is missing",
                        "Add it in Settings › Your invoices, then run again. Nothing was submitted.")
         if can and not host.get("signature_seen"):
-            # the first run for this ARN: one real invoice, before the rest are signed
-            first = can[0]
-            while True:
-                await self.at("Sign", "Signing one invoice for you to look at")
-                if self.own:
-                    number = self.books().hand_out([first])[first]
-                    await asyncio.to_thread(self._draw_one, first, number)
-                    m.put(self.items[first]["registrar"], first, number="")      # shown, not given
-                else:
-                    await asyncio.to_thread(self._sign_one, first)
-                m.save()
-                answer = await host.looks_right(first, self.items[first]["house"])
-                if answer.get("looks_right"):
-                    host.put("signature_seen", now())
-                    break
-                if not answer.get("fixed"):
-                    raise Stop("ended", "Stopped", "The signature wasn't confirmed, so nothing was signed or "
-                                                   "submitted.")
+            number = self.issued().hand_out([can[0]])[can[0]] if self.own else ""
+            await self._look(can[0], number, "Sign")
         if not self.own:
             await self.at("Sign", "Signing the invoices")
             for key in can:
                 await asyncio.to_thread(self._sign_one, key)
             m.save()
             await host.changed()
+
+    # --- the books (own invoices, Tally connected) --------------------------------------------------------------------
+
+    def _books_line(self, on: bool, got: dict | None = None) -> None:
+        self.host.books_waiting(on, books.company(self.host.base) if on else "", (got or {}).get("said", ""))
+
+    async def _tally(self, call, *args) -> dict:
+        """Run a call on the books (in a thread). While they are not answering the run waits, on a red line with a
+        refresh button, and goes on when they answer. Stop works throughout. A refusal passes through."""
+        waiting = False
+        try:
+            while True:
+                try:
+                    got = await asyncio.to_thread(call, *args)
+                except tally.Off:
+                    got = {"state": "off"}
+                if got.get("state", "ready") == "ready":
+                    return got
+                waiting = True
+                self._books_line(True, got)
+                await self.host.books_nap()
+        finally:
+            if waiting:
+                self._books_line(False)
+
+    def _blocked_by_books(self, got: dict) -> None:
+        """What the books say cannot go in this run, on top of what cannot be drawn. An invoice that Tally would
+        renumber others for is not blocked: Your check offers to date it today."""
+        self.renumber = {}
+        blocks = {}
+        for r in got["rows"]:
+            if not r.get("block"):
+                continue
+            if (r.get("why") or {}).get("kind") == "renumber" and DATE_IF_RENUMBERED:
+                self.renumber[r["key"]] = r["why"]
+            else:
+                blocks[r["key"]] = r["block"]
+        self.blocked = {**self.cannot_draw, **blocks}
+
+    async def glance(self) -> None:
+        """Read the books before Your check: what each open invoice would do there, what is blocked and why, the
+        year's first number, the older-month line. The books' questions are asked here, once, and remembered."""
+        keys = [k for k in self.open if k not in self.blocked]
+        await self.at("Read", "Reading your Tally")
+        for _round in range(4):
+            got = await self._tally(self.books.glance, keys)
+            if not got["asks"]:
+                break
+            answers = await self.host.books_ask(got["asks"])
+            await asyncio.to_thread(self.books.answer, answers)
+        else:
+            raise Stop("ours", "Tally's questions weren't settled", "Nothing was submitted.")
+        self.glanced = got
+        self._blocked_by_books(got)
+
+    async def preview_first(self) -> None:
+        """The first run for this ARN, own invoices with books: one invoice drawn with the number Tally would give next
+        (looked at, nothing written to Tally), before Your check."""
+        self._need_signature()
+        can = [k for k in self.open if k not in self.blocked]
+        if can and not self.host.get("signature_seen"):
+            await self._look(can[0], self.glanced.get("peek") or "1", "Read")
+
+    async def fetch_numbers(self, ticked: list[str]) -> list[str]:
+        """Each ticked invoice into the books, in date order, and the invoice number it holds there read back. One the
+        books refuse is not numbered or sent this run, with the books' words; the others go on."""
+        host, m = self.host, self.month
+        started = time.monotonic()
+        await self.at("Your books", "Fetching your last invoice number")
+        await self._tally(self.books.glance, ticked)
+        await asyncio.sleep(max(0.0, MIN_SHOWN_S - (time.monotonic() - started)))
+        order = sorted(ticked, key=lambda k: (self.items[k]["date"], self.items[k]["registrar"] != CAMS,
+                                              self.items[k]["house"].lower()))
+        said = []
+        for key in order:
+            item = self.items[key]
+            await self.at("Your books", f"Putting {item['house']}'s invoice into Tally")
+            try:
+                placed = await self._tally(self.books.place, key, self.first)
+            except tally.Refused as e:
+                self.blocked[key] = str(e)
+                self.left.append({"amc": item["house"], "why": str(e)})
+                said.append(f"{item['house']}: {e}")
+                continue
+            self.numbers[key] = placed["number"]
+            m.put(item["registrar"], key, number=placed["number"], tally=placed["number"], tallyAt=now())
+            m.save()
+            host.activity(f"{item['house']}'s invoice is in Tally as {placed['number']}"
+                          + (" (it was typed there already)" if placed["adopted"] else
+                             "" if placed["fresh"] else " (it was there already)"))
+        try:
+            self.issued().keep(self.numbers)
+        except OSError:
+            log.warning("books.json could not be written", exc_info=True)
+        good = [k for k in ticked if k in self.numbers]
+        if not good:
+            raise Stop("books_refused", "Tally took none of the invoices", "Nothing was submitted.",
+                       said="\n".join(said[:8]))
+        await self.done("Your books", plural(len(good), "invoice") + " in Tally")
+        return good
+
+    async def sign_own(self, ticked: list[str]) -> None:
+        """Every invoice that is in the books, drawn with exactly the invoice number the books hold, and signed."""
+        self._need_signature()
+        await self.at("Sign", "Making your invoices")
+        for key in ticked:
+            await asyncio.to_thread(self._draw_one, key, self.numbers[key])
+        self.month.save()
+        await self.host.changed()
+        await self.done("Sign", f"{len(ticked)} made")
 
     # --- Your check ---------------------------------------------------------------------------------------------------
 
@@ -523,27 +661,54 @@ class Job:
         host, m = self.host, self.month
         left_out = set(m.facts.get("leftOut") or [])
         can = [k for k in self.open if k not in self.blocked]
-        proposed = self.books().hand_out(can) if self.own and can else {}
-        books = self.books() if self.own else None
+        issued = self.issued() if self.own and not self.books else None
+        proposed = issued.hand_out(can) if issued and can else {}
         rows = []
+        by_key = {r["key"]: r for r in self.glanced.get("rows", [])} if self.books else {}
         for key in self.open:
             i = self.items[key]
             said = m.said_about(i["registrar"], key)
             rejected = words.meaning(i["registrar"], said.get("status")) == "rejected"
             row = {"key": key, "registrar": i["registrar"], "amc": i["house"], "number": proposed.get(key, ""),
                    "taxable": i["taxable"], "gst": round(i["cgst"] + i["sgst"] + i["igst"], 2), "igst": i["igst"] > 0,
-                   "included": key not in left_out and key not in self.blocked,
+                   "included": key not in left_out and key not in self.blocked and key not in self.renumber,
                    "blocked": self.blocked.get(key, ""),
                    "rejection": (said.get("remarks") or said.get("status") or "") if rejected else ""}
             if key in proposed:
-                row.update(seq=can.index(key), kept=bool(books.number_of(key)))
+                row.update(seq=can.index(key), kept=bool(issued.number_of(key)))
+            if key in self.renumber:
+                row["renumber"] = {"date": self.renumber[key]["date"], "type": self.renumber[key]["type"]}
+            if key in by_key:
+                got = by_key[key]
+                if got["action"] == "in_books":
+                    row["note"] = f"In Tally as {got['number']}, not sent yet" if got["number"] else "In Tally, not sent yet"
+                elif got["action"] == "by_hand":
+                    row["note"] = (f"Typed in Tally as {got['number']}. It will be changed to the registrar's "
+                                   "figures, keeping that number.")
             rows.append(row)
+        extra = None
+        if self.books:
+            g = self.glanced
+            extra = {"company": books.company(host.base), "after": g.get("after", ""), "first": g.get("first")}
         await self.at("Your check", "Your check")
-        answer = await host.your_check(rows, [f"{self.aside[r]}." for r in self.regs if r in self.aside])
+        notes = [f"{self.aside[r]}." for r in self.regs if r in self.aside]
+        answer = await (host.your_check(rows, notes, extra) if extra else host.your_check(rows, notes))
         if not answer.get("confirmed"):
             return None
         ticked = [k for k in self.open if k in set(answer.get("included") or []) and k not in self.blocked]
+        today = datetime.now().date().isoformat()
+        dated = set(answer.get("dated") or [])
+        # one Tally would renumber for: ticked only when the person chose to date it today, else it is put aside
+        ticked = [k for k in ticked if k not in self.renumber or k in dated]
+        for key in ticked:
+            if key in self.renumber:
+                self.items[key]["dated"] = today
+                m.put(self.items[key]["registrar"], key, dated=today)
         m.facts["leftOut"] = [k for k in self.open if k not in ticked and k not in self.blocked]
+        if self.books:
+            self.first = str(answer.get("first") or "").strip()
+            if self.first and (why := numbering.rule_46(self.first)):
+                raise Stop("setup", "That first invoice number can't be used", why, "Nothing was submitted.")
         m.save()
         host.activity(f"Checked {plural(len(self.open), 'invoice')}, {len(ticked)} ticked")
         return ticked
@@ -555,10 +720,13 @@ class Job:
         name = NAMES[reg]
         sending = [k for k in ticked if self.items[k]["registrar"] == reg]
         numbers: dict[str, str] | None = None
-        if self.own:
+        issued = None
+        if self.own and self.books:
+            numbers = {k: self.numbers[k] for k in sending}      # in the books already, and drawn after Your books
+        elif self.own:
             await self.at(name, "Making your invoices")
-            books = self.books()
-            numbers = books.hand_out(sending)
+            issued = self.issued()
+            numbers = issued.hand_out(sending)
             for key in sending:
                 await asyncio.to_thread(self._draw_one, key, numbers[key])
                 m.put(reg, key, number="")                 # the number is the invoice's only once Submit is pressed
@@ -597,7 +765,8 @@ class Job:
             button = await cams.find_submit(page)
         else:
             await self.at(name, "Filling in KFintech's page")
-            ones = [self.items[k]["one"] for k in sending]
+            ones = [{**self.items[k]["one"], "date": self.items[k]["dated"]} if self.items[k].get("dated")
+                    else self.items[k]["one"] for k in sending]
             filled = await kfin.fill_grid(page, self.period, ones, self.signed, numbers)
             await self.at(name, "Checking KFintech's page")
             await kfin.verify_grid(page, filled)
@@ -616,8 +785,9 @@ class Job:
         await self.at(name, f"Submitting to {name}")
         m.facts.setdefault("pressed", {})[reg] = {"at": now(), "keys": sending}
         if numbers:
-            top = books.lock(numbers)
-            host.set_last_number(top, books.at)
+            if issued:                                   # without books: given for good now
+                top = issued.lock(numbers, numbering.fy_of(self.items[sending[0]]["date"]))
+                host.set_last_number(top, issued.at)
             self.used += [numbers[k] for k in sending]
             for key in sending:
                 m.put(reg, key, number=numbers[key])
@@ -647,6 +817,9 @@ class Job:
         landed = [k for k in sending if k in m.with_registrar(reg)]
         for key in landed:
             m.put(reg, key, sentAt=now())
+            if self.own and not self.books and numbers:   # no books: for the person to enter in theirs
+                self.entered.append({"registrar": reg, "amc": self.items[key]["house"], "key": key,
+                                     "number": numbers[key]})
         m.save()
         await host.changed()
         if landed:
@@ -676,7 +849,11 @@ class Job:
         return f"{plural(done, 'invoice')} submitted for {month}." + (f" {left} left for later." if left else "")
 
     def used_line(self) -> str:
-        return numbering.used_line(self.used, self.books().at) if self.used else ""
+        if not self.used:
+            return ""
+        if self.books:
+            return numbering.used_line(self.used, numbering.default_counter(self.used[0]), "Invoice numbers from Tally:")
+        return numbering.used_line(self.used, self.issued().at)
 
     def so_far(self) -> str:
         parts = []
@@ -717,12 +894,16 @@ def _pair(folder: Path) -> tuple[Path, Path] | None:
 async def run(host, period: str, registrars: list[str]) -> dict:
     """The month's run. Returns how it ended: {how: done | stopped | nothing | closed, stop, summary, used, so_far}."""
     job = Job(host, period, registrars)
-    await job.plan(["Check", "Get", "Read", "Sign", "Your check", *[NAMES[r] for r in job.regs]])
+    order = ["Your check", "Your books", "Sign"] if job.books else ["Sign", "Your check"]
+    await job.plan(["Check", "Get", "Read", *order, *[NAMES[r] for r in job.regs]])
     return await _guarded(job, _run)
 
 
 async def _run(job: Job) -> dict:
     host = job.host
+    if job.books and not hasattr(host, "books_waiting"):
+        raise Stop("setup", f"This version of {NAME} can't put invoices into Tally",
+                   "Update it, then run again. Nothing was submitted.")
     await job.enter()
     await job.status()
     job.portals_at = time.monotonic()
@@ -738,16 +919,27 @@ async def _run(job: Job) -> dict:
     if not job.open:
         raise Stop("nothing_to_do", f"Nothing to do for {words.month_name(job.period)}",
                    "Every invoice the registrars have raised is already submitted.")
+    if job.books:
+        await job.glance()                               # Tally is read, and waited for, before the person ticks
+        await job.preview_first()
     await job.done("Read", job.read_line())
 
-    await job.sign()
-    await job.done("Sign", "Made after your check" if job.own else f"{len(job.signed)} signed")
-
-    ticked = await job.your_check()
-    if ticked is None:
-        job.month.ended("stopped", "You closed Your check", code="not_now")
-        return {"how": "closed"}
-    await job.done("Your check", f"{len(ticked)} ticked")
+    if job.books:
+        ticked = await job.your_check()
+        if ticked is None:
+            job.month.ended("stopped", "You closed Your check", code="not_now")
+            return {"how": "closed"}
+        await job.done("Your check", f"{len(ticked)} ticked")
+        ticked = await job.fetch_numbers(ticked)
+        await job.sign_own(ticked)
+    else:
+        await job.sign()
+        await job.done("Sign", "Made after your check" if job.own else f"{len(job.signed)} signed")
+        ticked = await job.your_check()
+        if ticked is None:
+            job.month.ended("stopped", "You closed Your check", code="not_now")
+            return {"how": "closed"}
+        await job.done("Your check", f"{len(ticked)} ticked")
     going = [r for r in job.regs if r not in job.aside and any(job.items[k]["registrar"] == r for k in ticked)]
     if KFIN in going and time.monotonic() - job.portals_at > IDLE_S:
         await job.again()
@@ -773,7 +965,8 @@ async def _run(job: Job) -> dict:
     job.month.ended("done", summary)
     host.activity(summary + (f" {job.used_line()}." if job.used else ""))
     total = sum(sum(job.items[k][f] for f in ("taxable", "cgst", "sgst", "igst")) for k in ticked)
-    return {"how": "done", "summary": summary, "used": job.used_line(), "counts": job.sent, "total": round(total, 2)}
+    return {"how": "done", "summary": summary, "used": job.used_line(), "counts": job.sent, "total": round(total, 2),
+            "enter": job.entered, "left": job.left}
 
 
 async def download(host, period: str, registrars: list[str]) -> dict:
@@ -878,7 +1071,8 @@ async def _guarded(job: Job, steps, keeps_last_run: bool = False) -> dict:
             job.month.ended(how, stop.title, stop.said, stop.kind)
         out = {"kind": stop.kind, "title": stop.title, "lines": stop.lines, "said": stop.said,
                "registrar": stop.registrar, "so_far": job.so_far()}
-        return {"how": how, "stop": out, "used": job.used_line(), "counts": job.sent}
+        return {"how": how, "stop": out, "used": job.used_line(), "counts": job.sent, "enter": job.entered,
+                "left": job.left}
 
 
 async def _why(job: Job, e: Exception, reg: str) -> Stop:

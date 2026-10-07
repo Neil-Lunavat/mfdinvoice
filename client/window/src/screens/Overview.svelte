@@ -5,10 +5,10 @@
      scroll. Problems show only when something is wrong, as a red banner with the fix, and Run turns off. */
   import { app, type Month, type Registrar, type RunKind } from '../bridge';
   import { consentCurrent } from '../logic/consent';
-  import { nextInvoice, registrarsOf } from '../logic/details';
+  import { registrarsOf } from '../logic/details';
   import { checkedLine, dayMon, inr, regName } from '../logic/format';
   import { card, registrarCard, rejections } from '../logic/month';
-  import { planBlocksRun } from '../logic/plan';
+  import { missingOf, runOffOf } from '../logic/runoff';
   import { store } from '../state/store.svelte';
   import { ui } from '../state/ui.svelte';
   import { icons } from '../ui/icons';
@@ -50,11 +50,7 @@
   const c = $derived(card(m));
   const regs = $derived<Registrar[]>(registrarsOf(p));
   const rej = $derived(rejections(m));
-  const missing = $derived([
-    !p.signature.present && { text: 'Signature missing', fix: 'Add signature', which: 'sig' as const },
-    p.camsUsed && !p.mailbox.connected && { text: 'Mailbox not connected', fix: 'Connect mailbox', which: 'mb' as const },
-    p.invoices.source === 'own' && !nextInvoice(p.invoices) && { text: 'Your last invoice number is missing', fix: 'Add it', which: 'inv' as const }
-  ].filter(x => !!x));
+  const missing = $derived(missingOf(p));
   function fix(which: 'sig' | 'mb' | 'inv') {
     if (which === 'mb') ui.open({ type: 'edit', which });
     else { ui.go('settings'); ui.goSection('Your invoices'); }     // the signature and the number are both there
@@ -62,7 +58,7 @@
   // the plan could not be read just now (never "no plan"), and the authority sentence not yet agreed for this ARN
   const planUnknown = $derived(s.plan?.state === 'unknown');
   const needsConsent = $derived(!consentCurrent(p.consent));
-  const runOff = $derived(!!banner || missing.length > 0 || planBlocksRun(s.plan, s.arn) || needsConsent);
+  const runOff = $derived(runOffOf(s));
   let asking = $state(false);
   async function checkPlan() { asking = true; await app.checkPlan(); setTimeout(() => (asking = false), 1500); }
   const monthName = $derived(m.label.split(' ')[0]);

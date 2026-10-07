@@ -53,6 +53,10 @@ class Off(Exception):
     """Tally gave no answer."""
 
 
+class Refused(Exception):
+    """Tally would not take an invoice, or it cannot be numbered: the words are the person's to read."""
+
+
 # --- one request ------------------------------------------------------------------------------------------------
 
 def _post(name: str, body: str = "", timeout: float = 60) -> str:
@@ -161,6 +165,19 @@ def companies() -> list[dict]:
             for n, b in re.findall(r'<COMPANY NAME="([^"]*)"[^>]*>(.*?)</COMPANY>', text, re.DOTALL)]
 
 
+def read_vtypes(company: str) -> dict:
+    """Each voucher type: its parent, Tally's own name for it, its numbering method (Manual, Automatic, ...) and the
+    numbering option on the series (Auto Retain keeps each voucher's number, Auto Renumber renumbers by date)."""
+    text = _post("voucher types", _collection("Voucher Type", "*", company))
+    vtypes = {}
+    for n, res, b in re.findall(r'<VOUCHERTYPE NAME="([^"]*)" RESERVEDNAME="([^"]*)">(.*?)</VOUCHERTYPE>', text, re.DOTALL):
+        series = re.findall(r"<VOUCHERNUMBERSERIES.LIST>(.*?)</VOUCHERNUMBERSERIES.LIST>", b, re.DOTALL)
+        vtypes[_unxml(n)] = {"parent": _g(b, "PARENT"), "reserved": _unxml(res),
+                             "method": _g(series[0], "NUMBERINGMETHOD") if series else _g(b, "NUMBERINGMETHOD"),
+                             "sub": _g(series[0], "NUMBERINGSUBMETHOD") if series else _g(b, "NUMBERINGSUBMETHOD")}
+    return vtypes
+
+
 def read(company: str, fy_from: str, fy_to: str) -> dict:
     """Everything an import needs to know about this company's books, as Tally says it."""
     text = _post("gstin", _collection("TaxUnit", "Name,GSTRegNumber", company))
@@ -179,12 +196,7 @@ def read(company: str, fy_from: str, fy_to: str) -> dict:
                               "duty": _g(b, "GSTDUTYHEAD"), "rate": _g(b, "RATEOFTAXCALCULATION").strip(),
                               "billwise": _g(b, "ISBILLWISEON") == "Yes"}
 
-    text = _post("voucher types", _collection("Voucher Type", "*", company))
-    vtypes = {}
-    for n, res, b in re.findall(r'<VOUCHERTYPE NAME="([^"]*)" RESERVEDNAME="([^"]*)">(.*?)</VOUCHERTYPE>', text, re.DOTALL):
-        series = re.findall(r"<VOUCHERNUMBERSERIES.LIST>(.*?)</VOUCHERNUMBERSERIES.LIST>", b, re.DOTALL)
-        vtypes[_unxml(n)] = {"parent": _g(b, "PARENT"), "reserved": _unxml(res),
-                             "method": _g(series[0], "NUMBERINGMETHOD") if series else _g(b, "NUMBERINGMETHOD")}
+    vtypes = read_vtypes(company)
 
     text = _post("sales invoices", _collection(
         "Voucher", "Date,VoucherNumber,VoucherTypeName,PartyLedgerName,Amount,MasterID,IsCancelled,IsOptional,"
@@ -207,6 +219,26 @@ def _vouchers(text: str) -> list[dict]:
                     "off": _g(head, "ISCANCELLED") == "Yes" or _g(head, "ISOPTIONAL") == "Yes", "lines": lines,
                     "bill": _unxml(bills[0]) if bills else ""})
     return out
+
+
+def _when(r: dict) -> str:
+    """The date an invoice goes into the books with: the day the run set for it (`dated`, an invoice that Tally would
+    renumber everything after, dated the day it is sent) else the registrar's date on it."""
+    return str(r.get("dated") or r.get("date") or "")[:10]
+
+
+def _placed(v: dict, fresh: bool, adopted: bool = False) -> dict:
+    return {"number": v["number"], "mid": v["mid"], "date": v["date"], "fresh": fresh, "adopted": adopted}
+
+
+def _sales_vouchers(company: str, fy: int, since: str = "", until: str = "") -> list[dict]:
+    """The company's sales vouchers in a financial year (start year `fy`), or between two dates: number, date, type,
+    master id, our id, whether cancelled or optional. Small and quick; read fresh before every write."""
+    text = _post("sales vouchers", _collection(
+        "Voucher", "Date,VoucherNumber,VoucherTypeName,MasterID,IsCancelled,IsOptional,RemoteGUID", company,
+        filters={"MFDSales": "$$IsSales:$VoucherTypeName"},
+        SVFROMDATE=since or f"{fy}0401", SVTODATE=until or f"{fy + 1}0331"), timeout=180)
+    return _vouchers(text)
 
 
 def gstin_ok(g: str) -> bool:
@@ -281,8 +313,6 @@ class Session:
         self.month = Month(base, period)
         inv = profile.get("invoices") or {}
         self.own = inv.get("source") == "own"
-        self.books_of_ours = numbering.Books(base / "books.json", str(inv.get("last") or ""),
-                                             int(inv.get("at") if inv.get("at") is not None else -1))
         self.which = "all" if which == "all" else "submitted"
         self.asked_company, self.said_last, self.answers = company, (last or "").strip(), dict(answers or {})
         self.remember: dict = _load(base / "tally.json")
@@ -296,6 +326,12 @@ class Session:
         self.tax: dict[str, tuple[str, bool]] = {}
         self.read_now = False
         self.order: list[str] = []
+        self.sub = ""
+        self.run_mode = False                    # a run's glance: own invoices are planned for the run, not left to it
+        self.guid = ""
+        self.fy = 0
+        self.plan: dict[str, dict] = {}
+        self.open_names: list[str] = []
 
     # --- which company -------------------------------------------------------------------------------------------
 
@@ -327,22 +363,7 @@ class Session:
         if stopped:
             return self._answer(**stopped)
         rows = sorted(self.month.rows.values(), key=lambda r: (r["registrar"] != CAMS, str(r.get("amc", "")).lower()))
-        dates = sorted(str(r.get("date") or "")[:10] for r in rows if r.get("date"))
-        y, m = (int(dates[0][:4]), int(dates[0][5:7])) if dates else (datetime.now().year, datetime.now().month)
-        fy = y if m >= 4 else y - 1
-        self.books = read(self.company, f"{fy}0401", f"{fy + 1}0331")
-        self._numbering()
-        self._taxes()
-        mine = str(self.profile.get("gstin") or "").strip().upper()
-        if not self.books["gstin"]:
-            self.warn.append(f"{self.company} has no GSTIN in Tally, so GSTR-1 will list every invoice as uncertain.")
-        elif mine and self.books["gstin"] != mine and self.answers.get("gstin") != "yes"                 and self.remember.get("gstin_ok") != self.books["gstin"]:
-            # a question, not a warning: Import waits for it, and the yes is remembered for this company's GSTIN
-            self.asks.append({"id": "gstin", "options": ["yes"],
-                              "question": f"{self.company}'s GSTIN in Tally is {self.books['gstin']}. "
-                                          f"Yours here is {mine}. Is this the right company?"})
-        if self.method == "None":
-            self.warn.append(f"'{self.vtype}' invoices have no numbers in this company (its numbering is None).")
+        mine = self._prepare(rows)
         used_by_hand: set[int] = set()
         for r in rows:
             self.rows.append(self._plan_one(r, mine, used_by_hand))
@@ -350,6 +371,28 @@ class Session:
         if self.read_now:
             self.month.save()                          # a fund house's GSTIN read off its PDF just now is kept
         return self._answer(state="ready")
+
+    def _prepare(self, rows: list[dict]) -> str:
+        """Read the company's books for the year these invoices are in and settle its numbering, taxes and GSTIN.
+        Returns this ARN's GSTIN."""
+        dates = sorted(_when(r) for r in rows if _when(r))
+        y, m = (int(dates[0][:4]), int(dates[0][5:7])) if dates else (datetime.now().year, datetime.now().month)
+        self.fy = y if m >= 4 else y - 1
+        self.books = read(self.company, f"{self.fy}0401", f"{self.fy + 1}0331")
+        self._numbering()
+        self._taxes()
+        mine = str(self.profile.get("gstin") or "").strip().upper()
+        if not self.books["gstin"]:
+            self.warn.append(f"{self.company} has no GSTIN in Tally, so GSTR-1 will list every invoice as uncertain.")
+        elif (mine and self.books["gstin"] != mine and self.answers.get("gstin") != "yes"
+              and self.remember.get("gstin_ok") != self.books["gstin"]):
+            # a question, not a warning: Import waits for it, and the yes is remembered for this company's GSTIN
+            self.asks.append({"id": "gstin", "options": ["yes"],
+                              "question": f"{self.company}'s GSTIN in Tally is {self.books['gstin']}. "
+                                          f"Yours here is {mine}. Is this the right company?"})
+        if self.method == "None":
+            self.warn.append(f"'{self.vtype}' invoices have no numbers in this company (its numbering is None).")
+        return mine
 
     def _numbering(self) -> None:
         vouchers, vtypes = self.books["vouchers"], self.books["vtypes"]
@@ -362,11 +405,12 @@ class Session:
             self.vtype = said if said in sales else kept
         else:
             self.vtype = next((n for n in sales if vtypes[n]["reserved"] == "Sales"), sales[0] if sales else "Sales")
-            if len(sales) > 1:
+            if len(sales) > 1 and (self.run_mode or not self.own):
                 self.asks.append({"id": "vtype", "options": sales,
                                   "question": f"{self.company} has {len(sales)} kinds of sales voucher. Which one do "
                                               "these invoices go in as?"})
         self.method = vtypes.get(self.vtype, {}).get("method", "")
+        self.sub = vtypes.get(self.vtype, {}).get("sub", "")
         self.sends = self.method in KEEPS_OUR_NUMBER
         of_type = [v for v in live if v["type"] == self.vtype and v["number"]]
         self.last = of_type[-1]["number"] if of_type else ""       # the latest entered, not the latest dated
@@ -410,8 +454,8 @@ class Session:
         total = taxable + cgst + sgst + igst
         gstin = self._gstin_of(r, mine)
         submitted = words.status_of(r) in SUBMITTED
-        p = {"key": key, "registrar": reg, "amc": r.get("amc") or key, "date": str(r.get("date") or "")[:10],
-             "total": float(total), "submitted": submitted, "gstin": gstin, "ours": "", "number": "", "will": "",
+        p = {"key": key, "registrar": reg, "amc": r.get("amc") or key, "date": _when(r),
+             "total": float(total), "submitted": submitted, "gstin": gstin, "number": "", "will": "",
              "party": "", "partyNew": False, "sales": "", "action": "import", "note": "",
              "rid": f"{OURS}{self.arn}/{reg}/{key}",
              "_": {"taxable": taxable, "cgst": cgst, "sgst": sgst, "igst": igst}}
@@ -420,6 +464,10 @@ class Session:
             p.update(action="in_books", number=done["number"], party=done["party"],
                      note=f"Already in your books as {done['number']}" if done["number"] else "Already in your books")
             return p
+        if self.own and not self.run_mode:
+            # an own invoice goes into Tally during its run, numbered then; one already sent is never numbered here
+            return {**p, "action": "past" if submitted else "run",
+                    "note": "Already sent with its invoice number" if submitted else "Goes into Tally when you run it"}
         if self.which == "submitted" and not submitted:
             return {**p, "action": "later", "note": "Not submitted yet"}
         if not gstin:
@@ -531,28 +579,8 @@ class Session:
         """The number each invoice will carry in Tally, worked out before anything is written."""
         # the submitted ones first: the rest take the numbers after them
         going = sorted((p for p in self.rows if p["action"] == "import"), key=lambda p: not p["submitted"])
-        if self.own:
-            # Tally is the truth (Neil, 7 Oct): an own invoice already in the books, typed by hand, has the number it
-            # has there. It is kept as that invoice's number, so the series never gives it another.
-            truth = {p["key"]: p["number"] for p in self.rows if p["action"] == "by_hand" and p["number"]
-                     and self.books_of_ours.number_of(p["key"]) != p["number"]}
-            if truth:
-                self.books_of_ours.lock(truth)
-                for key, n in truth.items():
-                    row = next(p for p in self.rows if p["key"] == key)
-                    self.month.put(row["registrar"], key, number=n)
-                self.read_now = True                   # the month is saved with them
-            held = {p["key"]: self.books_of_ours.number_of(p["key"]) for p in self.rows}
-            for p in self.rows:
-                p["ours"] = held.get(p["key"], "")
-            new = [p["key"] for p in going if not p["ours"]]
-            if new and self.books_of_ours.ready:
-                given = self.books_of_ours.hand_out(new)
-                for p in going:
-                    p["ours"] = p["ours"] or given.get(p["key"], "")
-            going.sort(key=lambda p: self._count(p["ours"]))
         self.order = [p["key"] for p in going]
-        start = self.last if (self.own or not self.sends) else (self.said_last or self.last)
+        start = self.last if not self.sends else (self.said_last or self.last)
         try:
             at = numbering.default_counter(start) if start else -1
             nexts = [numbering.bump(start, at, i + 1) for i in range(len(going))] if at >= 0 else []
@@ -561,24 +589,12 @@ class Session:
         taken = {v["number"] for v in self.books["vouchers"]
                  if v["type"] == self.vtype and not v["off"] and v["number"]}
         for i, p in enumerate(going):
+            p["will"] = nexts[i] if nexts else ""
             if self.sends:
-                p["will"] = p["ours"] if self.own else (nexts[i] if nexts else "")
                 if p["will"] and p["will"] in taken:
                     p.update(action="stop", note=f"{p['will']} is already another invoice in Tally.")
                 elif not p["will"]:
-                    p.update(action="stop", note="Your last invoice number is needed first." if not self.own
-                             else "This invoice has no number yet.")
-            else:
-                p["will"] = nexts[i] if nexts else ""
-                if self.own and p["will"] and p["ours"] and p["will"] != p["ours"]:
-                    p["note"] = f"Tally will give {p['will']}; your invoice says {p['ours']}"
-                    p["clash"] = True
-
-    def _count(self, number: str) -> int:
-        try:
-            return numbering.count(number, self.books_of_ours.at)
-        except numbering.NumberError:
-            return 10 ** 9
+                    p.update(action="stop", note="Your last invoice number is needed first.")
 
     def _answer(self, state: str, **more) -> dict:
         public = [{k: v for k, v in p.items() if k not in ("_", "rid")} for p in self.rows]
@@ -593,6 +609,170 @@ class Session:
                 "rows": public, "creates": self.creates, "asks": self.asks, "warn": self.warn, "counts": counts,
                 **more}
 
+    # --- a run: glance (reads only), then place (writes one invoice) ------------------------------------------------
+
+    def glance(self, keys: list[str]) -> dict:
+        """What putting these open invoices of a run into Tally would do. Nothing in Tally changes. `state` is ready
+        or what `connect` said (off, closed, pick). When ready: `rows` (each with `action`, `note`, and `block`, the
+        words when it cannot go in this run, with `why` for an Auto Renumber type), `asks`, `first` (a new financial
+        year with Manual numbering: the first invoice number is the person's to type), `after` (the name of the
+        month of a newer invoice already in Tally), `peek` (the next invoice number, to be shown, not given)."""
+        self.run_mode, self.which = True, "all"
+        stopped = self.connect()
+        if stopped:
+            return self._answer(**{**stopped, "company": self.remember.get("company", "")})
+        want = set(keys)
+        rows = sorted((r for r in self.month.rows.values() if r["key"] in want),
+                      key=lambda r: (_when(r), r["registrar"] != CAMS, str(r.get("amc", "")).lower()))
+        mine = self._prepare(rows)
+        used_by_hand: set[int] = set()
+        for r in rows:
+            self.rows.append(self._plan_one(r, mine, used_by_hand))
+        self.plan = {p["key"]: p for p in self.rows}
+        if self.read_now:
+            self.month.save()
+        live = [v for v in self.books["vouchers"] if v["type"] == self.vtype and not v["off"]]
+        numbered = sorted((v for v in live if v["number"]), key=lambda v: v["mid"])
+        sample = numbered[-1]["number"] if numbered else ""
+        at = numbering.default_counter(sample) if sample else -1
+        top = numbering.highest([v["number"] for v in numbered], sample, at) if sample else ""
+        newest = max((v["date"] for v in live), default="")
+        renumbers = self.sub == "Auto Renumber" and self.method != "Manual"
+        first = None
+        if self.sends and not top and any(p["action"] == "import" for p in self.rows):
+            first = {"fy": numbering.fy_of(f"{self.fy}-04-01"), "proposed": self._first_of_year()}
+        for p in self.rows:
+            if p["action"] in ("ask", "stop"):
+                p["block"] = p["note"]
+            elif self.method == "None" and p["action"] == "import":
+                p["block"] = f"Your Tally gives '{self.vtype}' invoices no invoice numbers."
+            elif renumbers and p["action"] == "import" and newest and p["date"].replace("-", "") < newest:
+                # Tally would renumber the invoices after it. The run offers: date it today, or put it aside.
+                p["block"] = "Can't go into Tally as it's set up."
+                p["why"] = {"kind": "renumber", "type": self.vtype, "date": p["date"]}
+        dates = [p["date"].replace("-", "") for p in self.rows if p["action"] == "import" and not p.get("block")]
+        after = ""
+        if dates and newest and not renumbers and newest[:6] > max(dates)[:6]:
+            after = datetime.strptime(newest, "%Y%m%d").strftime("%B")
+        peek = ""
+        if self.method != "None":
+            peek = numbering.bump(top, numbering.default_counter(top)) if top else (first or {}).get("proposed", "")
+        return {**self._answer("ready"), "first": first, "after": after, "peek": peek, "renumbers": renumbers}
+
+    def _first_of_year(self) -> str:
+        """The first invoice number of this financial year in the style of last year's last, or ''."""
+        prev = [v for v in _sales_vouchers(self.company, self.fy - 1) if v["type"] == self.vtype and not v["off"]
+                and v["number"]]
+        prev.sort(key=lambda v: v["mid"])
+        if not prev:
+            return ""
+        at = numbering.default_counter(prev[-1]["number"])
+        return numbering.next_year(prev[-1]["number"], at) if at >= 0 else ""
+
+    def _check_open(self) -> None:
+        """Our company must be open in Tally right now: a company that is not open reads back empty with no error."""
+        if not alive() or self.company not in [c["name"] for c in companies()]:
+            raise Off("the company is not open")
+
+    def place(self, key: str, first: str = "") -> dict:
+        """Put one invoice into Tally and read its number back: {number, mid, date, fresh, adopted}. Already there
+        (found by our id): its number, nothing written. Typed by hand: changed to the registrar's figures, keeping its
+        number. Manual numbering: the highest of the person's own series + 1 (`first` when the year has none), then
+        checked against every other voucher of the type. Automatic: none sent, Tally's read back. Raises `Refused`
+        with Tally's words, and `Off` when Tally stops answering (ask again: nothing is written twice). The ledgers
+        it used are remembered for the next time."""
+        got = self._place(key, first)
+        if got["fresh"]:
+            self._remember([self.plan[key]], {key})
+        return got
+
+    def _place(self, key: str, first: str) -> dict:
+        p = self.plan.get(key)
+        if not p:
+            raise Refused("This invoice wasn't part of the look at Tally.")
+        if p.get("block"):
+            raise Refused(p["block"])
+        self._check_open()
+        while self.creates:                                     # a ledger the fund house or the IGST needs: made, not asked
+            ok, said = self._create(self.creates[0])
+            if not ok:
+                raise Refused(f"Tally didn't make the ledger '{self.creates[0]['name']}': {said}")
+            self.creates.pop(0)
+        rid = p["rid"]
+        fy = int(p["date"][:4]) - (1 if int(p["date"][5:7]) < 4 else 0)
+        voucher = self._by_rid(rid, fy)
+        if voucher:
+            return _placed(voucher, fresh=False)
+        hand = p["_"].get("hand") if p["action"] == "by_hand" else None
+        if hand and not any(v["mid"] == hand["mid"] and not v["off"] for v in _sales_vouchers(self.company, fy)):
+            hand = None                                                    # it was changed or deleted since the look
+        if hand:
+            bill = hand["bill"] or (hand["number"] if self._billwise(p) else "")
+            ok, said, _text = self._send(p, hand["number"], hand, bill)
+            if not ok:
+                raise Refused(said)
+            voucher = self._by_rid(rid, fy)
+            if not voucher:
+                raise Refused("Tally took the change but didn't show the invoice back.")
+            return _placed(voucher, fresh=True, adopted=True)
+        number = ""
+        for _try in range(6):
+            number = self._next(_sales_vouchers(self.company, fy), first) if self.sends else ""
+            ok, said, text = self._send(p, number, None, "")
+            if ok:
+                break
+            if self.sends and _g(text, "EXCEPTIONS") not in ("", "0") and "<LINEERROR>" not in text:
+                continue                                  # the number was taken between our look and our write
+            raise Refused(said)
+        else:
+            raise Refused(f"Tally refused the invoice number {number}.")
+        voucher = self._by_rid(rid, fy)
+        if not voucher:
+            raise Refused("Tally took the invoice but didn't show it back.")
+        for _try in range(5):
+            sales = _sales_vouchers(self.company, fy)
+            clash = [o for o in sales if o["type"] == self.vtype and not o["off"] and o["number"] == voucher["number"]
+                     and o["mid"] != voucher["mid"]]
+            if not clash or not self.sends:
+                break
+            # another voucher holds our number (prevent-duplicates is off, or it was typed meanwhile): ours changes,
+            # by Tally's own id
+            number = self._next([o for o in sales if o["mid"] != voucher["mid"]] + [{**voucher, "mid": 10 ** 12}], first)
+            ok, said, _text = self._send(p, number, {"mid": voucher["mid"], "date": voucher["date"],
+                                                      "type": self.vtype}, "")
+            if not ok:
+                raise Refused(said)
+            voucher = self._by_rid(rid, fy) or voucher
+        else:
+            raise Refused("Couldn't find an invoice number nobody else holds.")
+        if voucher["number"] and self._billwise(p):
+            ok, said, _text = self._send(p, voucher["number"], None, voucher["number"])
+            if not ok:
+                log.warning("tally: the bill for %s was not added: %s", key, said)
+        return _placed(voucher, fresh=True)
+
+    def _send(self, p: dict, number: str, hand: dict | None, bill: str) -> tuple[bool, str, str]:
+        text = _post(f"invoice {p['key']}", _import(self._xml(p, number, hand, bill), "Vouchers", self.company))
+        ok, said = _said(text)
+        return ok, said, text
+
+    def _by_rid(self, rid: str, fy: int) -> dict | None:
+        return next((v for v in _sales_vouchers(self.company, fy) if v["remote"] == rid and not v["off"]), None)
+
+    def _next(self, sales: list[dict], first: str) -> str:
+        """The invoice number after the highest of the person's own series this year, or `first`."""
+        live = sorted((v for v in sales if v["type"] == self.vtype and not v["off"] and v["number"]),
+                      key=lambda v: v["mid"])
+        sample = live[-1]["number"] if live else ""
+        at = numbering.default_counter(sample) if sample else -1
+        top = numbering.highest([v["number"] for v in live], sample, at) if sample else ""
+        number = numbering.bump(top, numbering.default_counter(top)) if top else (first or "").strip()
+        if not number:
+            raise Refused("Your Tally has no invoice yet this financial year. Type the first invoice number.")
+        if why := numbering.rule_46(number):
+            raise Refused(f"{number}: {why}")
+        return number
+
     # --- the import ------------------------------------------------------------------------------------------------
 
     def bring_in(self, adopt: list[str] | None = None) -> dict:
@@ -603,7 +783,7 @@ class Session:
             return before
         adopt_keys = set(adopt or [])
         plan = {p["key"]: p for p in self.rows}
-        done = {"imported": [], "adopted": [], "refused": [], "numbers": [], "stoppedAt": "", "top": "", "at": -1}
+        done = {"imported": [], "adopted": [], "refused": [], "numbers": [], "stoppedAt": ""}
         try:
             for c in self.creates:
                 ok, said = self._create(c)
@@ -623,10 +803,6 @@ class Session:
                     done["adopted" if hand else "imported"].append(p["key"])
                 else:
                     done["refused"].append({"key": p["key"], "amc": p["amc"], "said": said})
-                    if self.own and not self.sends:
-                        # the ones after it would take its number: nothing more goes in until this is looked at
-                        done["stoppedAt"] = f"Tally refused {p['amc']}'s invoice, so the rest were not sent."
-                        break
             went = set(done["imported"]) | set(done["adopted"])
             back = self._read_back()
             for p in sending:
@@ -641,15 +817,6 @@ class Session:
                 self.month.put(p["registrar"], p["key"], tally=got or "in", tallyAt=_now())
                 if got and p["action"] == "import":
                     done["numbers"].append(got)
-                if self.own and p["ours"] and got and got != p["ours"]:
-                    done["refused"].append({"key": p["key"], "amc": p["amc"], "differs": True,
-                                            "said": f"Tally gave {got}; the invoice says {p['ours']}"})
-            if self.own:
-                mine = {p["key"]: p["ours"] for p in sending if p["key"] in went and p["ours"]}
-                if mine:                                # these numbers are their invoices' for good from here
-                    done["top"], done["at"] = self.books_of_ours.lock(mine), self.books_of_ours.at
-                    for key, n in mine.items():
-                        self.month.put(plan[key]["registrar"], key, number=n)
             self.month.save()
             self._remember(sending, went)
         except Off:
@@ -679,8 +846,7 @@ class Session:
         eighteen = (f["taxable"] * D("0.18")).quantize(D("0.01"), rounding=ROUND_HALF_UP)
         exact = (f["cgst"] in (0, nine)) and (f["sgst"] in (0, nine)) and (f["igst"] in (0, eighteen))
         label = words.labels(self.period)[0]
-        narration = (f"Invoice {p['ours']} ({NAMES.get(p['registrar'], p['registrar'])} {p['key']}), {label}"
-                     if self.own and p["ours"] else f"{NAMES.get(p['registrar'], p['registrar'])} {p['key']}, {label}")
+        narration = f"{NAMES.get(p['registrar'], p['registrar'])} {p['key']}, {label}"
         return _voucher(vtype=hand["type"] if hand else self.vtype, date=p["date"].replace("-", ""),
                         party=p["party"], party_gstin=p["gstin"], state=_state(p["gstin"]), sales=p["sales"],
                         taxable=f["taxable"], taxes=taxes, number=number, rid=p["rid"], reference=p["key"],
@@ -729,23 +895,57 @@ class Session:
         _write(self.base / "tally.json", keep)
 
 
-def last_number(base: Path) -> dict:
-    """The last Sales invoice number in the company this ARN imports into, for the question before a run. Quick: it
-    reads only the company list, the Sales type and the year's invoice numbers."""
-    s = Session(base, "", {"arn": base.name})
+def books_next(base: Path, company: str = "") -> dict:
+    """Where the person's own invoice numbers continue from, for setup's line: {state, company, last, next, at,
+    method}. `last`: the highest of the series in the company's Sales type this financial year; `next`: the one after
+    it (the first of the year, in last year's style, when this year has none). `company`: before setup is finished,
+    when nothing is remembered yet. Reads only."""
+    s = Session(base, "", {"arn": base.name}, company=company)
     stopped = s.connect()
     if stopped:
-        return {"state": stopped["state"], "company": "", "last": ""}
+        return {"state": stopped["state"], "company": "", "last": "", "next": "", "at": -1, "method": ""}
     now = datetime.now()
     fy = now.year if now.month >= 4 else now.year - 1
-    text = _post("last number", _collection(
-        "Voucher", "VoucherNumber,VoucherTypeName,MasterID,IsCancelled,IsOptional", s.company,
-        filters={"MFDSales": "$$IsSales:$VoucherTypeName"}, SVFROMDATE=f"{fy}0401", SVTODATE=f"{fy + 1}0331"),
-        timeout=120)
-    live = sorted((v for v in _vouchers(text) if not v["off"] and v["number"]), key=lambda v: v["mid"])
-    want = s.remember.get("vtype") or "Sales"
-    of_type = [v for v in live if v["type"] == want]
-    return {"state": "ready", "company": s.company, "last": of_type[-1]["number"] if of_type else ""}
+    vtypes = read_vtypes(s.company)
+    sales = sales_types(vtypes)
+    want = s.remember.get("vtype")
+    vtype = want if want in sales else next((n for n in sales if vtypes[n]["reserved"] == "Sales"), "Sales")
+    method = vtypes.get(vtype, {}).get("method", "")
+
+    def of(year: int) -> list[dict]:
+        live = [v for v in _sales_vouchers(s.company, year) if v["type"] == vtype and not v["off"] and v["number"]]
+        return sorted(live, key=lambda v: v["mid"])
+
+    live = of(fy)
+    sample = live[-1]["number"] if live else ""
+    at = numbering.default_counter(sample) if sample else -1
+    last = numbering.highest([v["number"] for v in live], sample, at) if sample else ""
+    nxt = ""
+    if last:
+        nxt = numbering.bump(last, numbering.default_counter(last))
+    else:
+        prev = of(fy - 1)
+        if prev:
+            at = numbering.default_counter(prev[-1]["number"])
+            nxt = numbering.next_year(prev[-1]["number"], at) if at >= 0 else ""
+    return {"state": "ready", "company": s.company, "last": last, "next": nxt,
+            "at": numbering.default_counter(nxt or last) if (nxt or last) else -1, "method": method}
+
+
+def keep_answers(base: Path, answers: dict, books_gstin: str = "") -> None:
+    """The person's answers to Tally's questions in a run (which kind of sales voucher, which ledger for a fund house,
+    that the company is theirs), remembered at once, so they are never asked twice."""
+    kept = _load(base / "tally.json")
+    for id_, value in answers.items():
+        if id_ == "vtype":
+            kept["vtype"] = value
+        elif id_.startswith("party:"):
+            kept.setdefault("party", {})[id_[6:]] = value
+        elif id_.startswith("sales:"):
+            kept.setdefault("sales", {})[id_[6:]] = value
+        elif id_ == "gstin" and value == "yes" and books_gstin:
+            kept["gstin_ok"] = books_gstin
+    _write(base / "tally.json", kept)
 
 
 def sales_types(vtypes: dict) -> list[str]:

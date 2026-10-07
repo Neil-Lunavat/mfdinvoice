@@ -7,6 +7,7 @@
   import { stepsView } from '../../logic/steps';
   import { store, type RunLive } from '../../state/store.svelte';
   import { timing } from '../../state/timing';
+  import { waitingLine, WAITING_SUB } from '../../logic/books';
   import Captcha from '../../ui/Captcha.svelte';
   import { icons } from '../../ui/icons';
   import { app } from '../../bridge';
@@ -28,6 +29,8 @@
   }
   let stoppedAt = $state(0);
   let skipping = $state(false);
+  let refreshing = $state(false);
+  function refreshBooks() { refreshing = true; app.refreshBooks(run.id); setTimeout(() => (refreshing = false), 1500); }
   function stopNow() { stoppedAt = Date.now(); if (store.run) store.run.stopAsked = true; app.stopRun(run.id); }
   // Stop is at once, except while a Submit's answer is being read. If nothing has happened after 6 seconds, the
   // person can close this window.
@@ -35,7 +38,7 @@
 </script>
 
 <div class="rm-stage">
-  <div class="work-hd"><div><h3>{v.line || 'Starting'}</h3></div>{#if !captcha && !run.waitingEmail}<span class="spin big"></span>{/if}</div>
+  <div class="work-hd"><div><h3>{v.line || 'Starting'}</h3></div>{#if !captcha && !run.waitingEmail && !run.waitingBooks}<span class="spin big"></span>{/if}</div>
   {#if captcha}
     {#if paused}
       <div class="banner wait nospin"><div><b>Waiting for the characters.</b><p>KFintech's image may have changed. Continue for a fresh one.</p></div>
@@ -47,6 +50,10 @@
     <div class="banner wait"><span class="spin amber"></span>
       <div><b>CAMS was asked at {hhmm(run.waitingEmail.since)}{run.waitingEmail.ref ? ` · ref ${run.waitingEmail.ref}` : ''}</b><p>CAMS takes a few minutes to send it. The run carries on by itself when it comes.{run.waitingEmail.skip ? " Or skip CAMS: KFintech goes on, and CAMS's email is read when it comes." : ''}</p></div>
       {#if run.waitingEmail.skip}<div class="bact"><button class="btn secondary sm" disabled={skipping} onclick={() => { skipping = true; app.skipCams(run.id); }}>{skipping ? 'Skipping…' : 'Skip CAMS'}</button></div>{/if}</div>
+  {/if}
+  {#if run.waitingBooks}
+    <div class="banner bad" role="alert"><div><b>{waitingLine(run.waitingBooks.company)}</b><p>{run.waitingBooks.said || WAITING_SUB}</p></div>
+      <div class="bact"><button class="btn secondary sm" disabled={refreshing} onclick={refreshBooks}>{#if refreshing}<span class="spin"></span>{:else}{@html icons.sync}{/if}Refresh</button></div></div>
   {/if}
   {#if v.done.length}
     <div class="donelist">

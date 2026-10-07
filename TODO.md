@@ -6,7 +6,6 @@ parked for later are in `IDEAS.md`. Delete a line when it is done, a section whe
 
 ## 1. Delete (8 Oct)
 
-- [ ] Deploy both servers with `workers_dev: false`.
 - [ ] Once the portal work below is in: `LAB-PORTALS.md`, `LAB-ZOHO.md`.
 
 ## 2. Small things (the portal lab into the software, and bugs found reading)
@@ -37,7 +36,8 @@ scripts: `labs/portals/`.
       decide Automatic numbering with a back-dated month. Then: the import moves into the run before Sign for own
       invoices; the wait on TallyPrime with its refresh button; the guard without books; the end-of-run list
       without books; Your check's new-year line; the Tally tab stops importing own and submitted invoices.
-- [ ] The month view's Check now greys out like Overview's.
+- [x] Built 8 Oct (live-checked on MFD Test's LAB40 types only; screens not looked at). Before March: a run whose
+      invoices span two financial years (March invoices sent in April) assumes one year today.
 - [ ] **Setup's new order** (rules in `CLAUDE.md`): the name and GSTIN step from CAMS and KFintech; Books before Your
       invoices. Then the website's `/setup` page follows it (with forwarding, the DSC and Zoho).
 - [ ] **Zoho Books** (`labs/zoho-results.md`): connect from the browser's Accept page back to the PC (loopback, PKCE,

@@ -88,7 +88,8 @@ export class RealApp implements App {
   answerSurvey(id: number, answers: SurveyAnswers | null) { return this.call<{ sent: boolean }>('answerSurvey', id, answers); }
   tallyLook(q: TallyAsk) { return this.call<TallyLook>('tallyLook', q); }
   tallyImport(q: TallyAsk & { adopt: string[] }) { return this.call<TallyLook>('tallyImport', q); }
-  tallyLast() { return this.call<{ state: string; company: string; last: string }>('tallyLast'); }
+  booksNext(company = '', arn = '') { return this.call<{ state: string; company: string; last: string; next: string; at: number; method: string }>('booksNext', company, arn); }
+  refreshBooks(run: string) { return this.call<void>('refreshBooks', run); }
   tallySetup(gstin: string) { return this.call<TallySetup>('tallySetup', gstin); }
   tallyForget() { return this.call<{ ok: boolean }>('tallyForget'); }
   pickFile(kind: 'zip' | 'xls') { return this.call<{ kind: string; name: string }>('pickFile', kind); }

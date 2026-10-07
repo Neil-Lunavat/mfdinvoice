@@ -3,13 +3,14 @@
      and what the person can do. The run is over: Close, or Run again for the stops running again can help. A sign-in
      that belongs to another ARN, and a mailbox that can't be read, are put right here before running again. Which
      stop offers what: logic/stops.ts. */
-  import type { Stop } from '../../bridge';
+  import type { Entered as EnteredRow, Left, Stop } from '../../bridge';
   import { stopScreen } from '../../logic/stops';
   import { ui } from '../../state/ui.svelte';
   import { icons } from '../../ui/icons';
   import Editor from '../setup/Editor.svelte';
+  import Entered from './Entered.svelte';
 
-  let { stop, onclose, onagain }: { stop: Stop; onclose: () => void; onagain: () => void } = $props();
+  let { stop, enter = [], left = [], onclose, onagain }: { stop: Stop; enter?: EnteredRow[]; left?: Left[]; onclose: () => void; onagain: () => void } = $props();
 
   const sc = $derived(stopScreen(stop));
   let fixing = $state<'cams' | 'kf' | 'mb' | null>(null);
@@ -32,6 +33,7 @@
       </div>
       {#if stop.kind === 'arn_mismatch'}<p class="line">To run a different ARN, add it from the ARN menu at the top left.</p>{/if}
     {/if}
+    <Entered {enter} {left} />
     {#if stop.so_far}<div class="sofar"><div class="label">This run</div><div>{stop.so_far}</div></div>{/if}
   </div>
   <div class="rm-foot">

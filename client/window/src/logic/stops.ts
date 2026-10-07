@@ -18,7 +18,7 @@ export interface StopScreen {
 const CALM = new Set(['nothing_to_do', 'not_listed']);                 // nothing went wrong
 const ASKED = new Set(['ended', 'not_submitting']);                    // the person, or this PC's own setting, stopped it
 const AGAIN = new Set(['arn_mismatch', 'mailbox', 'mailback_late', 'wrong_files', 'mismatch', 'portal_validation',
-  'session_ended', 'unreachable', 'refused']);
+  'session_ended', 'unreachable', 'refused', 'books_refused']);
 
 export function stopScreen(stop: Stop): StopScreen {
   const kind = stop.kind;

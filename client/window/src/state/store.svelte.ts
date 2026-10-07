@@ -2,7 +2,7 @@
    The window renders from this straight away and never waits on the network: the app answers `load` from disk, and
    pushes whatever changes afterwards. */
 
-import { app, type Ask, type Push, type Registrar, type RunKind, type Snapshot, type StepView, type Stop, type UpdateFailure } from '../bridge';
+import { app, type Ask, type Entered, type Left, type Push, type Registrar, type RunKind, type Snapshot, type StepView, type Stop, type UpdateFailure } from '../bridge';
 import { SECTIONS, ui, type Page, type Section } from './ui.svelte';
 
 type CaptchaAsk = Extract<Ask, { type: 'captcha' }>;
@@ -17,11 +17,14 @@ export interface RunLive {
   startedAt: number;                            // when the run window began it, for the clock
   ask: Ask | null;                              // the question on screen, if any
   waitingEmail: { since: string; ref: string; skip: boolean } | null;
+  waitingBooks: { company: string; said: string } | null;    // the run waits for Tally to answer
   month?: { period: string; index: number };    // a download of several months: the one it is on
   submitted: Partial<Record<Registrar, number>>;
   ended: 'done' | 'stopped' | 'nothing' | null;
   stop: Stop | null;                            // why it stopped, when it did by itself
   used: string;                                 // own invoices: "Used 74/26-27 to 78/26-27", '' when none
+  enter: Entered[];                             // own invoices without books, submitted: to enter in their books
+  left: Left[];                                 // own invoices the books would not take this run
   summary: string;                              // the app's one line about how it ended
   total: number;                                // what was submitted, with GST
   stopAsked: boolean;                           // the person pressed Stop
@@ -53,8 +56,8 @@ class Store {
 
   /** The app has started a run: the run window shows it from here. */
   beginRun(id: string, registrars: Registrar[], what: RunKind, period: string) {
-    this.run = { id, what, period, registrars, steps: [], startedAt: Date.now(), ask: null, waitingEmail: null, submitted: {},
-      ended: null, stop: null, used: '', summary: '', total: 0, stopAsked: false };
+    this.run = { id, what, period, registrars, steps: [], startedAt: Date.now(), ask: null, waitingEmail: null, waitingBooks: null, submitted: {},
+      ended: null, stop: null, used: '', enter: [], left: [], summary: '', total: 0, stopAsked: false };
     const early = this.early;
     this.early = [];
     for (const p of early) if (!('run' in p) || p.run === id) this.onPush(p);
@@ -64,7 +67,7 @@ class Store {
 
   private onPush(p: Push) {
     const r = this.run;
-    const forRun = p.type === 'steps' || p.type === 'waiting_email' || p.type === 'submitted' || p.type === 'run_ended'
+    const forRun = p.type === 'steps' || p.type === 'waiting_email' || p.type === 'books_waiting' || p.type === 'submitted' || p.type === 'run_ended'
       || (p.type === 'ask' && !((p.ask.type === 'captcha' || p.ask.type === 'pin') && p.ask.during === 'setup'));
     if (forRun && !r) {
       this.early = [...this.early.slice(-20), p];           // startRun has not answered with the run's id yet
@@ -103,12 +106,15 @@ class Store {
       case 'waiting_email':
         if (r && r.id === p.run) r.waitingEmail = { since: p.since, ref: p.ref, skip: !!p.skip };
         break;
+      case 'books_waiting':
+        if (r && r.id === p.run) r.waitingBooks = p.on ? { company: p.company, said: p.said } : null;
+        break;
       case 'submitted':
         if (r && r.id === p.run) r.submitted = { ...r.submitted, [p.registrar]: p.count };
         break;
       case 'run_ended':
         if (r && r.id === p.run) {
-          r.ended = p.how; r.stop = p.stop; r.used = p.used; r.summary = p.summary; r.total = p.total; r.waitingEmail = null; r.ask = null;
+          r.ended = p.how; r.stop = p.stop; r.used = p.used; r.enter = p.enter ?? []; r.left = p.left ?? []; r.waitingBooks = null; r.summary = p.summary; r.total = p.total; r.waitingEmail = null; r.ask = null;
           r.submitted = { ...r.submitted, ...p.counts };
         }
         break;

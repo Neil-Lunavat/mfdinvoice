@@ -122,6 +122,32 @@ def tally_kept(base: Path) -> dict:
             "ledgers": len(kept.get("party") or {})}
 
 
+def issued_top(base: Path) -> str:
+    """The highest invoice number this software has used this financial year for this ARN (own invoices without
+    books), or ''."""
+    today = date.today()
+    y = today.year if today.month >= 4 else today.year - 1
+    try:
+        got = json.loads((base / "books.json").read_text(encoding="utf-8"))
+        return str((got.get("top") or {}).get(f"{y}-{(y + 1) % 100:02d}") or "")
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
+def below(typed: str, at: int, top: str) -> bool:
+    """Is this number lower than `top` in the same series (the same text round the counting digits that start at
+    `at`)? Another series is never below."""
+    def split(text: str):
+        if not 0 <= at < len(text) or not text[at].isdigit() or (at > 0 and text[at - 1].isdigit()):
+            return None
+        end = at
+        while end < len(text) and text[end].isdigit():
+            end += 1
+        return text[:at], text[end:], int(text[at:end])
+    a, b = split(typed), split(top)
+    return bool(a and b and a[:2] == b[:2] and a[2] < b[2])
+
+
 def file_of(base: Path, key: str) -> Path | None:
     """The PDF of one invoice (signed, once it has been), wherever its month is."""
     for period in periods(base):

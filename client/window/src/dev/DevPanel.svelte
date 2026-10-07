@@ -36,8 +36,8 @@
     if (ui.step >= 2) d.mailbox = { provider: 'gmail', address: a.camsEmail, connected: true };
     if (ui.step >= 1) d.camsArn = a.arn;
     if (ui.step >= 3) d.kfintech = { used: true, username: 'rkmehta_dss', loggedInAs: 'R K MEHTA', arn: a.arn };
-    if (ui.step >= 4) d.signature = { way: 'image', present: true, image: signature(0), size: 100, cert: null };
-    if (ui.step >= 5) d.tally = { company: 'Lunavat & Co', guid: 'g1', gstin: a.gstin, same: true, sure: false };
+    if (ui.step >= 5) d.signature = { way: 'image', present: true, image: signature(0), size: 100, cert: null };
+    if (ui.step >= 4) d.tally = { company: 'Lunavat & Co', guid: 'g1', gstin: a.gstin, same: true, sure: false };
   }
   $effect(() => {
     timing.captchaPauseMs = fast ? 8_000 : 3 * 60_000;
@@ -65,6 +65,11 @@
     <select value={sc.stop} onchange={e => set('stop', e.currentTarget.value)} title="The next run">
       <option value="">Next run: goes through</option>
       {#each ['arn_mismatch', 'account_locked', 'refused', 'not_listed', 'nothing_to_do', 'mailbox', 'mailback_late', 'wrong_files', 'mismatch', 'portal_validation', 'unknown_submit', 'not_submitting', 'ours', 'arn_unbound', 'unreachable'] as k (k)}<option value={k}>Stops: {k}</option>{/each}</select>
+    <label>No books <input type="checkbox" checked={sc.booksOff} onchange={e => set('booksOff', e.currentTarget.checked)} /></label>
+    <label>Tally shut <input type="checkbox" checked={sc.tallyDown} onchange={e => set('tallyDown', e.currentTarget.checked)} /></label>
+    <label>Renumber <input type="checkbox" checked={sc.renumber} onchange={e => set('renumber', e.currentTarget.checked)} /></label>
+    <label>New year <input type="checkbox" checked={sc.newYear} onchange={e => set('newYear', e.currentTarget.checked)} /></label>
+    <label>Tally asks <input type="checkbox" checked={sc.booksAsk} onchange={e => set('booksAsk', e.currentTarget.checked)} /></label>
     <label>Slow email <input type="checkbox" checked={sc.slowEmail} onchange={e => set('slowEmail', e.currentTarget.checked)} /></label>
     <label>Files by hand <input type="checkbox" checked={sc.byHand} onchange={e => set('byHand', e.currentTarget.checked)} /></label>
     <label>Short waits <input type="checkbox" bind:checked={fast} /></label>

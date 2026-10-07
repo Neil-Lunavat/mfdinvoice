@@ -5,7 +5,7 @@
 
 import type {
   Answer, App, Ask, Cert, Condition, Consent, DetailsPatch, Link, Month, NextNumber, Plan, Profile, ProfileDraft,
-  Push, Registrar, RunKind, Snapshot, StepView, Stop, TallyAsk, TallyLook, Invoice
+  Push, Registrar, RunKind, Snapshot, StepView, Stop, TallyAsk, TallyLook, Invoice, Entered, Left
 } from '../types';
 import { NAME } from '../../brand';
 import { clashAfter, type Clash } from '../../logic/clash';
@@ -25,6 +25,11 @@ export interface Scenario {
   byHand: boolean;              // no mailbox: CAMS's files are asked for
   plan: 'paid' | 'trial' | 'none' | 'used' | 'ended' | 'unknown';   // what the plan says ('used': none, trial already had)
   survey: boolean;              // a survey is live and not answered yet
+  booksOff: boolean;            // own invoices, but no books connected: the last number is asked, and the end lists what to enter
+  tallyDown: boolean;           // the next run finds TallyPrime shut, until Refresh
+  renumber: boolean;            // the next run has an invoice Tally would renumber the others for
+  newYear: boolean;             // the next run is a new financial year with nothing in Tally yet
+  booksAsk: boolean;            // the next run asks Tally's questions
 }
 
 interface ArnData {
@@ -46,7 +51,7 @@ type NoId<T> = T extends unknown ? Omit<T, 'id'> : never;
 export class FakeApp implements App {
   scenario: Scenario = {
     signedIn: false, hasArn: false, condition: 'normal', update: false, month: 'to_do', secondArn: true, stop: '', slowEmail: false, byHand: false,
-    plan: 'none', survey: false
+    plan: 'none', survey: false, booksOff: false, tallyDown: false, renumber: false, newYear: false, booksAsk: false
   };
   private listeners = new Set<(p: Push) => void>();
   protected arns: ArnData[] = [];
@@ -113,7 +118,7 @@ export class FakeApp implements App {
       }),
       arn: c?.profile.arn ?? '',
       today: D.TODAY,
-      profile: c ? structuredClone(c.profile) : null,
+      profile: c ? { ...structuredClone(c.profile), books: s.booksOff ? '' as const : c.profile.books } : null,
       month: c ? structuredClone(c.month) : null,
       year,
       notes: c ? structuredClone(c.notes) : [],
@@ -230,7 +235,8 @@ export class FakeApp implements App {
     await sleep(400);
     if (this.arns.some(a => a.profile.arn === p.arn)) return { ok: false as const, said: `${p.arn} is already on this account.` };
     const profile: Profile = { ...structuredClone(p), arnConfirmed: true, lastLogin: { CAMS: '', KFINTECH: '' },
-      tally: { company: '', ledgers: 0 }, consent: p.consent ? { ...p.consent, device: 'THIS-PC' } : null };
+      tally: { company: '', ledgers: 0 }, books: p.tally?.company ? 'tally' as const : '' as const, usedTop: '',
+      consent: p.consent ? { ...p.consent, device: 'THIS-PC' } : null };
     const fresh: ArnData = { profile, state: 'first_run', month: D.october('first_run'), notes: [], activity: [], second: adding };
     fresh.activity = [{ at: now(), text: `Set up ${p.arn}`, registrar: null, who: 'you, on this PC', tone: 'setting' }];
     this.arns.push(fresh);
@@ -279,9 +285,9 @@ export class FakeApp implements App {
     const rows = m.invoices.map(x => {
       const number = this.inTally.get(x.key) ?? '', later = !number && q.which === 'submitted' && !sent(x);
       const asked = !number && !later && !q.answers[`sales:${x.amc}`];
-      const action = number ? 'in_books' as const : later ? 'later' as const : asked ? 'ask' as const : 'import' as const;
+      const action = number ? 'in_books' as const : own ? (sent(x) ? 'past' as const : 'run' as const) : later ? 'later' as const : asked ? 'ask' as const : 'import' as const;
       return { key: x.key, registrar: x.registrar, amc: x.amc, date: x.date, total: x.taxable + x.cgst + x.sgst + x.igst,
-        submitted: sent(x), gstin: '27AAATB0102C1ZR', ours: own ? x.number : '', number, will: action === 'import' ? `${++next}/26-27` : '',
+        submitted: sent(x), gstin: '27AAATB0102C1ZR', number, will: action === 'import' ? `${++next}/26-27` : '',
         party: `${x.amc} Mutual Fund`, partyNew: false, sales: `${x.amc} MF Commission`, action,
         note: number ? `Already in your books as ${number}` : later ? 'Not submitted yet' : '' };
     });
@@ -307,7 +313,9 @@ export class FakeApp implements App {
     return { state: 'ready' as const, companies: [{ name: 'Lunavat & Co', guid: 'g1', gstin, same: true },
       { name: 'Mehta Family Trust', guid: 'g2', gstin: '27AAATM1234C1Z5', same: false }] };
   }
-  async tallyLast() { return { state: 'ready', company: 'Lunavat & Co', last: this.cur?.profile.invoices.last ?? '' }; }
+  async booksNext() { await sleep(300); return { state: 'ready', company: 'Lunavat & Co', last: '73/26-27', next: '74/26-27', at: 0, method: 'Manual' }; }
+  async refreshBooks() { this.refreshed = true; }
+  private refreshed = false;
   async tallyForget() { return { ok: true }; }
   async openPdf() {}
   async showInFolder() {}
@@ -360,7 +368,9 @@ export class FakeApp implements App {
 
   async startRun(a: { registrars: Registrar[]; period: string; what: RunKind; periods?: string[]; last?: NextNumber | null }) {
     const id = 'run-' + Date.now().toString(36);
-    const names = a.what === 'run' ? ['Check', 'Get', 'Read', 'Sign', 'Your check', ...a.registrars.map(r => (r === 'CAMS' ? 'CAMS' : 'KFintech'))]
+    const booked = this.cur?.profile.invoices.source === 'own' && !!this.cur.profile.books && !this.scenario.booksOff;
+    const regNames = a.registrars.map(r => (r === 'CAMS' ? 'CAMS' : 'KFintech'));
+    const names = a.what === 'run' ? ['Check', 'Get', 'Read', ...(booked ? ['Your check', 'Your books', 'Sign'] : ['Sign', 'Your check']), ...regNames]
       : a.what === 'download' ? ['Check', 'Get', 'Read'] : ['Check'];
     this.run = { id, registrars: a.registrars, what: a.what, period: a.period, started: Date.now(), closed: false,
       views: names.map((name, index) => ({ index, name, state: 'waiting', line: '', result: '' })) };
@@ -379,12 +389,12 @@ export class FakeApp implements App {
 
   closeRun() { this.stopRun(); }
 
-  private end(how: 'done' | 'stopped' | 'nothing', more: { summary?: string; used?: string; counts?: Partial<Record<Registrar, number>>; total?: number; stop?: Stop } = {}) {
+  private end(how: 'done' | 'stopped' | 'nothing', more: { summary?: string; used?: string; counts?: Partial<Record<Registrar, number>>; total?: number; stop?: Stop; enter?: Entered[]; left?: Left[] } = {}) {
     const r = this.run;
     if (!r) return;
     const c = this.cur;
     if (c && r.what === 'run') { c.month.everRun = true; c.month.lastRun = { how, at: now(), said: how === 'stopped' ? 'This run stopped' : '', portal: '', code: '' }; }
-    this.push({ type: 'run_ended', run: r.id, how, what: r.what, used: more.used ?? '', summary: more.summary ?? '', counts: more.counts ?? {}, total: more.total ?? 0, stop: more.stop ?? null });
+    this.push({ type: 'run_ended', run: r.id, how, what: r.what, used: more.used ?? '', summary: more.summary ?? '', enter: more.enter ?? [], left: more.left ?? [], counts: more.counts ?? {}, total: more.total ?? 0, stop: more.stop ?? null });
     this.run = null;
     this.publish();
   }
@@ -468,23 +478,62 @@ export class FakeApp implements App {
     this.say('Read', 'done', `${open.length} invoices to do · ${inr(taxable)} taxable · ${inr(gstSum)} GST`);
 
     const own = c.profile.invoices.source === 'own';
-    this.say('Sign', 'running', 'Signing the invoices');
-    await sleep(900); guard();
-    this.say('Sign', 'done', own ? 'Made after your check' : `${open.length} signed`);
+    const booked = own && !!c.profile.books && !this.scenario.booksOff;
+    if (booked) {
+      this.say('Read', 'running', 'Reading your Tally');
+      await sleep(700); guard();
+      if (this.scenario.tallyDown) {
+        this.scenario.tallyDown = false;
+        this.refreshed = false;
+        this.push({ type: 'books_waiting', run: r.id, on: true, company: 'Lunavat & Co', said: '' });
+        for (let i = 0; i < 40 && !this.refreshed; i++) { await sleep(500); guard(); }
+        this.push({ type: 'books_waiting', run: r.id, on: false, company: '', said: '' });
+      }
+      if (this.scenario.booksAsk) {
+        this.scenario.booksAsk = false;
+        await this.ask({ type: 'books_ask', asks: [
+          { id: 'vtype', question: 'Lunavat & Co has 2 kinds of sales voucher. Which one do these invoices go in as?', options: ['Sales', 'Commission Sales'] },
+          { id: 'gstin', question: "Lunavat & Co's GSTIN in Tally is 27AAAPL9999F1Z1. Yours here is 27ABCPM1234F1Z3. Is this the right company?", options: ['yes'] }] });
+        guard();
+      }
+    } else {
+      this.say('Sign', 'running', 'Signing the invoices');
+      await sleep(900); guard();
+      this.say('Sign', 'done', own ? 'Made after your check' : `${open.length} signed`);
+    }
 
     this.say('Your check', 'running', 'Your check');
     const first = Number((c.profile.invoices.last.match(/^\d+/) ?? ['73'])[0]) + 1;
     const ordered = [...cams, ...kf], can = ordered.filter(x => !(own && x.igst));
+    const aside = booked && this.scenario.renumber ? ordered[ordered.length - 1]?.key : '';
+    const newYear = booked && this.scenario.newYear;
+    this.scenario.renumber = this.scenario.newYear = false;
     const check = await this.ask({
       type: 'your_check', notes: [],
-      rows: ordered.map(x => ({
-        key: x.key, registrar: x.registrar, amc: x.amc, number: own && !x.igst ? `${first + can.indexOf(x)}/26-27` : '', ...(own && !x.igst ? { seq: can.indexOf(x), kept: false } : {}),
-        taxable: x.taxable, gst: sum([x.cgst, x.sgst, x.igst]), igst: x.igst > 0, included: true,
-        blocked: own && x.igst ? "Charged IGST, which your own invoice doesn't do yet" : '', rejection: x.status === 'Rejected' ? x.rejection : ''
+      books: booked ? { company: 'Lunavat & Co', after: newYear ? '' : 'September', first: newYear ? { fy: '2027-28', proposed: '1/27-28' } : null } : null,
+      rows: ordered.map((x, i) => ({
+        key: x.key, registrar: x.registrar, amc: x.amc,
+        number: own && !booked && !x.igst ? `${first + can.indexOf(x)}/26-27` : '', ...(own && !booked && !x.igst ? { seq: can.indexOf(x), kept: false } : {}),
+        taxable: x.taxable, gst: sum([x.cgst, x.sgst, x.igst]), igst: x.igst > 0, included: x.key !== aside,
+        blocked: own && x.igst ? "Charged IGST, which your own invoice doesn't do yet" : '', rejection: x.status === 'Rejected' ? x.rejection : '',
+        ...(booked && i === 0 && !newYear ? { note: 'In Tally as 71/26-27, not sent yet' } : {}),
+        ...(x.key === aside ? { renumber: { date: '2026-09-04', type: 'Sales' } } : {})
       }))
     });
     if (check.type !== 'your_check' || !check.confirmed) { this.run = null; this.publish(); return; }
     this.say('Your check', 'done', `${check.included.length} ticked`);
+    if (booked) {
+      this.say('Your books', 'running', 'Fetching your last invoice number');
+      await sleep(600); guard();
+      for (const x of ordered.filter(o => check.included.includes(o.key))) {
+        this.say('Your books', 'running', `Putting ${x.amc}'s invoice into Tally`);
+        await sleep(500); guard();
+      }
+      this.say('Your books', 'done', `${check.included.length} invoices in Tally`);
+      this.say('Sign', 'running', 'Making your invoices');
+      await sleep(900); guard();
+      this.say('Sign', 'done', `${check.included.length} made`);
+    }
 
     const chosen = new Set(check.included), counts: Partial<Record<Registrar, number>> = {};
     for (const reg of ['CAMS', 'KFINTECH'] as Registrar[]) {
@@ -511,7 +560,8 @@ export class FakeApp implements App {
     const summary = `${sent.length} invoices submitted for October.${left ? ` ${left} left for later.` : ''}`;
     c.notes.unshift({ id: 'n' + Date.now(), kind: 'run_done', text: summary, detail: '', opens: 'overview', when: now(), read: false });
     this.end('done', { summary, counts, total: sum(sent.map(x => x.taxable + x.cgst + x.sgst + x.igst)),
-      used: own && sent.length ? `Used ${first}/26-27 to ${first + sent.length - 1}/26-27` : '' });
+      used: own && sent.length ? `${booked ? 'Invoice numbers from Tally:' : 'Used'} ${first}/26-27 to ${first + sent.length - 1}/26-27` : '',
+      enter: own && !booked ? sent.map((x, i) => ({ registrar: x.registrar, amc: x.amc, key: x.key, number: `${first + i}/26-27` })) : [] });
   }
 
   // --- the rest --------------------------------------------------------------------------------------------------

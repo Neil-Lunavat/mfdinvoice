@@ -10,6 +10,8 @@
   import { ui } from '../../state/ui.svelte';
   import { icons } from '../../ui/icons';
   import BeforeRun from './BeforeRun.svelte';
+  import BooksAsk from './BooksAsk.svelte';
+  import Entered from './Entered.svelte';
   import PickFiles from './PickFiles.svelte';
   import PinAsk from './PinAsk.svelte';
   import SignatureCheck from './SignatureCheck.svelte';
@@ -28,7 +30,7 @@
     ? (run?.month ? `${nameOf(run.month.period)} (${run.month.index + 1} of ${periods.length})` : `${periods.length} months`) : nameOf(period));
   const all = $derived((store.snap?.profile ? [store.snap.profile.camsUsed && 'CAMS', store.snap.profile.kfintech.used && 'KFINTECH'].filter(Boolean).length : 2));
   const title = $derived(what === 'check' ? 'Check status' : what === 'download' ? 'Download invoices' : 'Run');
-  const asked = $derived(run?.ask?.type === 'captcha' || run?.ask?.type === 'pick_files' || run?.ask?.type === 'your_check' || run?.ask?.type === 'signature');
+  const asked = $derived(run?.ask?.type === 'captcha' || run?.ask?.type === 'pick_files' || run?.ask?.type === 'your_check' || run?.ask?.type === 'signature' || run?.ask?.type === 'books_ask');
   const v = $derived(stepsView(run?.steps ?? [], asked));
 
   // a stop is the run's last word: it stays on screen until the person closes it
@@ -93,7 +95,7 @@
     {#if !run}
       <BeforeRun {registrars} {period} {what} {periods} onclose={close} />
     {:else if stop}
-      <StopScreen {stop} onclose={close} onagain={again} />
+      <StopScreen {stop} enter={run?.enter ?? []} left={run?.left ?? []} onclose={close} onagain={again} />
     {:else if run.ended === 'done'}
       <div class="rm-stage">
         {#if run.what === 'run'}
@@ -102,6 +104,7 @@
             <div class="sub">{[run.submitted.CAMS && `CAMS ${run.submitted.CAMS}`, run.submitted.KFINTECH && `KFintech ${run.submitted.KFINTECH}`].filter(Boolean).join(' · ')}{run.total ? ` · ${inr(run.total)}` : ''}</div>
             {#if run.used}<p class="sub mono">{run.used}</p>{/if}
             <p class="sub">{run.summary}</p></div>
+          <Entered enter={run.enter} left={run.left} />
         {:else}
           <div class="done-hd"><span class="tick big ok">{@html icons.tickSm}</span>
             <div class="big">{run.summary}</div>
@@ -115,6 +118,8 @@
       </div>
     {:else if run.ask?.type === 'your_check'}
       {#key run.ask.id}<YourCheck ask={run.ask} {registrars} {month} onnotnow={notNow} />{/key}
+    {:else if run.ask?.type === 'books_ask'}
+      {#key run.ask.id}<BooksAsk ask={run.ask} />{/key}
     {:else if run.ask?.type === 'signature'}
       {#key run.ask.id}<SignatureCheck ask={run.ask} />{/key}
     {:else if run.ask?.type === 'pick_files'}

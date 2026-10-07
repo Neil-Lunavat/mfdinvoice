@@ -22,7 +22,8 @@
   const draftOf = (): ProfileDraft => {
     const q = store.snap!.profile!;
     return { arn: q.arn, name: q.name, gstin: q.gstin, camsUsed: q.camsUsed, camsEmail: q.camsEmail, camsArn: q.camsArn, mailbox: { ...q.mailbox },
-      kfintech: { ...q.kfintech }, signature: { ...q.signature }, invoices: structuredClone($state.snapshot(q.invoices)), consent: q.consent };
+      kfintech: { ...q.kfintech }, signature: { ...q.signature }, invoices: structuredClone($state.snapshot(q.invoices)), consent: q.consent,
+      tally: q.books ? { company: q.tally.company, guid: '', gstin: q.tally.gstin ?? '', same: true, sure: true } : undefined };
   };
   let inv = $state<ProfileDraft>(draftOf());
   const sigDirty = $derived(inv.signature.image !== p.signature.image || inv.signature.size !== p.signature.size);
@@ -149,7 +150,7 @@
         </div>
       {:else if ui.section === 'Your invoices'}
         <div class="sgroup">
-          <div class="srow">{@render row('Uploaded', invoicesLine(p.invoices))}<button class="btn ghost sm" onclick={() => edit('inv')}>Change</button></div>
+          <div class="srow">{@render row('Uploaded', invoicesLine(p.invoices, !!p.books))}<button class="btn ghost sm" onclick={() => edit('inv')}>Change</button></div>
         </div>
         <div class="sgroup"><YourInvoices bind:d={inv} settingsOnly />
           <div class="savebar" class:is-dirty={invDirty}><span class="dirty">Unsaved changes</span>

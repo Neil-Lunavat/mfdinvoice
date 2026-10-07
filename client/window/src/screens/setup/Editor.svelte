@@ -23,7 +23,8 @@
   let d = $state<ProfileDraft>({
     arn: p.arn, name: p.name, gstin: p.gstin, camsUsed: p.camsUsed, camsEmail: '', camsArn: '',
     mailbox: { ...p.mailbox }, kfintech: { ...p.kfintech, username: '' }, signature: { ...p.signature },
-    invoices: structuredClone($state.snapshot(p.invoices)), consent: p.consent
+    invoices: structuredClone($state.snapshot(p.invoices)), consent: p.consent,
+    tally: p.books ? { company: p.tally.company, guid: '', gstin: p.tally.gstin ?? '', same: true, sure: true } : undefined
   });
   let saving = $state(false);
 
@@ -60,7 +61,7 @@
     {:else}
       <Signature bind:d />
       {#if d.signature.way === 'image' && d.signature.image}
-        {#if d.invoices.source === 'own'}<InvoicePreview settings={d.invoices.settings} number={nextInvoice(d.invoices) || d.invoices.last} name={d.name} gstin={d.gstin} signature={d.signature} />
+        {#if d.invoices.source === 'own'}<InvoicePreview settings={d.invoices.settings} number={nextInvoice(d.invoices) || d.invoices.last || '1'} name={d.name} gstin={d.gstin} signature={d.signature} />
         {:else}<RegistrarPreview kind="cams" name={d.name} gstin={d.gstin} arn={d.arn} signature={d.signature} />{/if}
       {/if}
     {/if}

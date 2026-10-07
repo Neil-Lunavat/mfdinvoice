@@ -112,6 +112,8 @@ export interface Profile {
   signature: Signature;           // the person's way of signing
   invoices: Invoices;              // which invoice is uploaded, and the person's own
   lastLogin: { CAMS: string; KFINTECH: string };                  // ISO dates, '' if never
+  books: '' | 'tally';             // the books connected to this ARN: its own invoices go into them during a run
+  usedTop: string;                 // own invoices without books: the highest invoice number used this financial year; ''
   tally: { company: string; gstin?: string; ledgers: number };   // the Tally company this ARN imports into, its GSTIN in Tally, and how many fund houses are matched; '' before the first import
   consent: Consent | null;         // what was agreed at setup step 1; null for an ARN set up before it was asked
 }
@@ -179,14 +181,14 @@ export interface Invoice {
   tally: string;                   // its number in the person's Tally once imported ('in': there, number not known), else ''
 }
 
-/** One invoice against the person's Tally: what an import would do with it. `ours`: the number on their own
-    invoice; `number`: the one it has in Tally; `will`: the one it will get. `clash`: Tally will give a different
-    number from the one printed. `refused`: Tally's own words, after an import that did not take it. */
+/** One invoice against the person's Tally: what an import would do with it. `number`: the one it has in Tally;
+    `will`: the one it will get. `refused`: Tally's own words, after an import that did not take it. The person's own
+    invoices are never imported here: `run` (they go in during their run) and `past` (already sent). */
 export interface TallyRow {
   key: string; registrar: Registrar; amc: string; date: string; total: number; submitted: boolean; gstin: string;
-  ours: string; number: string; will: string; party: string; partyNew: boolean; sales: string;
-  action: 'import' | 'in_books' | 'by_hand' | 'ask' | 'stop' | 'later';
-  note: string; clash?: boolean; refused?: string;
+  number: string; will: string; party: string; partyNew: boolean; sales: string;
+  action: 'import' | 'in_books' | 'by_hand' | 'ask' | 'stop' | 'later' | 'run' | 'past';
+  note: string; refused?: string;
 }
 
 /** A look at a month against Tally. `state`: off (Tally gives no answer), closed (no company open), pick (several
@@ -297,6 +299,8 @@ export interface CheckRow {
   igst: boolean;
   included: boolean;               // false: it starts unticked (it was left out last time)
   blocked: string;                 // why this run cannot send it, '' when it can; a blocked row cannot be ticked
+  note?: string;                   // own invoices with books: "In Tally as 74/26-27, not sent yet", or typed there by hand
+  renumber?: { date: string; type: string };   // own invoices with books: Tally would renumber the invoices after it
   rejection: string;               // the registrar's words when it rejected it before, else ''
 }
 
@@ -326,14 +330,28 @@ export type Ask =
       said: string;                                      // the token's words after a wrong PIN, '' the first time
       during: 'run' | 'setup';
     }
-  | { id: string; type: 'your_check'; rows: CheckRow[]; notes: string[] };
+  | { id: string; type: 'your_check'; rows: CheckRow[]; notes: string[]; books?: BooksNote | null }
+  | { id: string; type: 'books_ask'; asks: BooksQuestion[] };   // Tally's questions: which kind of sales voucher, which ledger
+
+/** Own invoices with books connected: what Your check says about them. `after`: the month of a newer invoice already
+    in the books ("September"). `first`: a new financial year with Manual numbering and no invoice yet, so the
+    person types its first invoice number (proposed from last year's style). */
+export interface BooksNote { company: string; after: string; first: { fy: string; proposed: string } | null }
+export interface BooksQuestion { id: string; question: string; options: string[] }
+/** Own invoices without books, submitted: what the person enters in their books. */
+export interface Entered { registrar: Registrar; amc: string; key: string; number: string }
+/** Own invoices the books would not take this run: the fund house and the books' words. */
+export interface Left { amc: string; why: string }
 
 export type Answer =
   | { type: 'captcha'; text: string; refresh: boolean }
   | { type: 'signature'; looksRight: boolean; fixed: boolean }   // fixed: changed in place, so sign it again
   | { type: 'pick_files'; skip?: boolean }                 // both files are in (`pickFile`, `dropFile`), or CAMS is skipped
   | { type: 'pin'; value: string | null }                 // goes to the token, kept nowhere; null: closed
-  | { type: 'your_check'; confirmed: boolean; included: string[] };
+  | { type: 'your_check'; confirmed: boolean; included: string[]; first?: string; dated?: string[] }
+  // first: the new year's first invoice number. dated: the invoices
+  // to date the day they are sent, because Tally would renumber the ones after them
+  | { type: 'books_ask'; answers: Record<string, string> };
 
 /** Everything the app tells the window. */
 export type Push =
@@ -345,8 +363,11 @@ export type Push =
   | { type: 'run_month'; run: string; period: string; index: number }       // a download of several months: on this one now
   | { type: 'waiting_email'; run: string; since: string; ref: string; skip?: boolean }   // CAMS has been asked; its email is awaited (skip: Skip CAMS is offered)
   | { type: 'submitted'; run: string; registrar: Registrar; count: number } // the registrar's status shows them
+  | { type: 'books_waiting'; run: string; on: boolean; company: string; said: string }   // the run waits for Tally (on), or no longer
   | { type: 'run_ended'; run: string; how: 'done' | 'stopped' | 'nothing'; what: RunKind;
       used: string;                                      // own invoices: "Used 74/26-27 to 78/26-27"
+      enter: Entered[];                                  // own invoices without books, submitted: to enter in their books
+      left: Left[];                                      // own invoices the books would not take this run
       summary: string;                                   // "17 invoices submitted for October. 2 left for later."
       counts: Partial<Record<Registrar, number>>; total: number;
       stop: Stop | null }                                // why it stopped; null when it finished or the person stopped it
@@ -452,8 +473,10 @@ export interface App {
   tallyLook(q: TallyAsk): Promise<TallyLook>;
   /** Put the month in. `adopt`: the invoices typed by hand to change to the registrar's figures. */
   tallyImport(q: TallyAsk & { adopt: string[] }): Promise<TallyLook>;
-  /** The last Sales invoice number in the person's Tally, when it is open; `state` says when it cannot tell. */
-  tallyLast(): Promise<{ state: string; company: string; last: string }>;
+  /** Where the person's own invoice numbers continue from, in their Tally; `company` while setup is still open. */
+  booksNext(company?: string, arn?: string): Promise<{ state: string; company: string; last: string; next: string; at: number; method: string }>;
+  /** Refresh, while a run waits for Tally. */
+  refreshBooks(run: string): Promise<void>;
   /** Setup's Tally step: the companies open in Tally, each with its GSTIN beside this ARN's. */
   tallySetup(gstin: string): Promise<TallySetup>;
   /** Forget the company and the ledgers chosen for this ARN. */

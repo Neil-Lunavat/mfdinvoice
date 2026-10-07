@@ -10,8 +10,9 @@
 
      `choiceOnly`: just the two options (Settings' Change). `settingsOnly`: everything but the two options (Settings'
      own page, where Change is beside it). Setup shows both. */
-  import type { ProfileDraft } from '../../bridge';
-  import { nextInvoice } from '../../logic/details';
+  import { app, type ProfileDraft } from '../../bridge';
+  import { continuesLine, continuesLineNoNext } from '../../logic/books';
+  import { booked, nextInvoice } from '../../logic/details';
   import { counterOf, parts, rule46 } from '../../logic/numbering';
   import InvoicePreview from '../../ui/InvoicePreview.svelte';
   import RegistrarPreview from '../../ui/RegistrarPreview.svelte';
@@ -25,6 +26,14 @@
   const refused = $derived(rule46(d.invoices.last));
   const next = $derived(nextInvoice(d.invoices));
   let addressText = $state(d.invoices.settings.address.join('\n'));
+  // with Tally connected: where the invoice numbers continue from, read from Tally (nothing is written to it)
+  let continues = $state('');
+  $effect(() => {
+    const company = d.tally?.company;
+    continues = '';
+    if (!company || d.invoices.source !== 'own') return;
+    void app.booksNext(company, d.arn).then(r => { if (d.tally?.company === company && r.state === 'ready') continues = r.next; });
+  });
 
   function choose(source: 'registrar' | 'own') { d.invoices.source = source; }
   function typed(v: string) { d.invoices.last = v; d.invoices.at = counterOf(v, -1); }
@@ -64,6 +73,9 @@
       <div class="field"><label for="tpl">Template</label>
         <select id="tpl" class="input" style="max-width:300px" bind:value={d.invoices.settings.template}>
           <option value="tally">Tally standard print</option></select></div>
+      {#if booked(d)}
+        <p class="line">{continues ? continuesLine(continues) : continuesLineNoNext(d.tally!.company)}</p>
+      {:else}
       <div class="field">
         <label for="last">Your last invoice number, exactly as printed</label>
         <input id="last" class="input mono" style="max-width:300px" placeholder="RKM/26-27/073" value={d.invoices.last}
@@ -80,6 +92,7 @@
         {#if refused}<span class="err" role="alert">{refused}</span>{/if}
         {#if next}<div class="derived"><span>Your next invoice <b>{next}</b></span></div>{/if}
       </div>
+      {/if}
       <div class="field"><span class="label">Your signature</span></div>
       <Signature bind:d />
       <div class="field">
@@ -99,6 +112,6 @@
       {/if}
       <p class="line">Each fund house's name, GSTIN and address come from the registrar's invoice for it, every month. The figures and dates are always the registrar's.</p>
     </div>
-    <InvoicePreview settings={s} number={next || d.invoices.last} name={d.name} gstin={d.gstin} signature={d.signature} />
+    <InvoicePreview settings={s} number={continues || next || d.invoices.last || '1'} name={d.name} gstin={d.gstin} signature={d.signature} />
   </div>
 {/if}

@@ -43,3 +43,14 @@ export function bump(text: string, at: number, by = 1): string {
 export function counterOf(text: string, at: number): number {
   return parts(text).some(p => p.digits && p.start === at) ? at : defaultCounter(text);
 }
+
+/** Is `typed` lower than `top`, the highest invoice number used, in the same series (the same text round the counting
+    digits that start at `at`)? Another series is never below. */
+export function below(typed: string, at: number, top: string): boolean {
+  const split = (t: string) => {
+    const p = parts(t).find(x => x.digits && x.start === at);
+    return p ? { before: t.slice(0, p.start), after: t.slice(p.start + p.text.length), n: Number(p.text) } : null;
+  };
+  const a = split(typed.trim()), b = split(top.trim());
+  return !!a && !!b && a.before === b.before && a.after === b.after && a.n < b.n;
+}

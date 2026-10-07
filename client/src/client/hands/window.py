@@ -107,6 +107,7 @@ class Window:
         self.update_failed_to = ""                           # ... or an update to that version that did not start
         self._updating = False
         self._tally_busy = False
+        self._books_wake = asyncio.Event()                   # Refresh pressed while a run waits for the books
         hands.arn = lambda: self.selected()
         hands.signature_path = lambda: self.signature_file(self.selected())
         hands.asker = self
@@ -374,6 +375,8 @@ class Window:
                              "username": shown(self.credential(p["arn"], "kfintech_username"))},
                 "signature": self._signature_view(p["arn"]),
                 "invoices": invoices_of(p),
+                "books": "tally" if local.tally_kept(self.base(p["arn"]))["company"] else "",
+                "usedTop": local.issued_top(self.base(p["arn"])),
                 "lastLogin": p.get("lastLogin", {"CAMS": "", "KFINTECH": ""}),
                 "tally": local.tally_kept(self.base(p["arn"])),
                 "consent": p.get("consent") or None}
@@ -974,8 +977,8 @@ class Window:
 
     async def tally_import(self, period: str, company: str, which: str = "submitted", last: str = "",
                            answers: dict | None = None, adopt: list[str] | None = None) -> dict:
-        """Put the month into Tally. Answers with the look afterwards and `done`: what went in. On the person's
-        own invoices the numbers that went in are theirs for good from here, as they are once Submit is pressed."""
+        """Put the month into Tally. Answers with the look afterwards and `done`: what went in. Only the registrar's
+        invoices: the person's own go into Tally during their run, where they are numbered."""
         p = self.profile()
         if not p or self._tally_busy:
             return {"state": "off", "said": "An import is already going." if p else "No ARN is set up.", "rows": []}
@@ -997,8 +1000,6 @@ class Window:
         finally:
             self._tally_busy = False
         done = got.get("done") or {}
-        if done.get("top"):
-            self.set_last_number(p["arn"], done["top"], int(done.get("at", -1)))
         went = len(done.get("imported") or []) + len(done.get("adopted") or [])
         if went:
             numbers = done.get("numbers") or []
@@ -1008,17 +1009,19 @@ class Window:
         await self.changed()
         return {**got, "remembered": tally.remembered(self.base())}
 
-    async def tally_last(self) -> dict:
-        """The last Sales invoice number in the person's Tally, for the question before a run on their own
-        invoices. `state` is off, closed or pick when Tally cannot say; the run then asks as it always has."""
-        if not self.profile():
-            return {"state": "off", "company": "", "last": ""}
+    async def books_next(self, company: str = "", arn: str = "") -> dict:
+        """Where the person's own invoice numbers continue from, in their Tally: {state, company, last, next, at,
+        method}. `company` and `arn`: at setup, before the ARN's choice is kept. `state` is off, closed or pick when
+        Tally cannot say. Reads only."""
+        empty = {"state": "off", "company": "", "last": "", "next": "", "at": -1, "method": ""}
+        if not (company or self.profile()):
+            return empty
         try:
             tally = await self._tally()
-            return await asyncio.to_thread(tally.last_number, self.base())
+            return await asyncio.to_thread(tally.books_next, self.base(arn), company)
         except Exception:
-            log.exception("Tally's last number could not be read")
-            return {"state": "off", "company": "", "last": ""}
+            log.exception("Tally's next invoice number could not be read")
+            return empty
 
     async def tally_setup(self, gstin: str) -> dict:
         """Setup's Tally step: the companies open in Tally, each with its GSTIN and whether it is this ARN's."""
@@ -1082,9 +1085,17 @@ class Window:
         p = self.profile()
         if not p:
             return {"run": "", "said": "No ARN is set up."}
-        if last and last.get("text") and invoices_of(p)["source"] == "own":
+        if self._tally_busy:
+            return {"run": "", "said": "An import into Tally is going. Try again when it has ended."}
+        books = bool(local.tally_kept(self.base(p["arn"]))["company"])
+        if last and last.get("text") and invoices_of(p)["source"] == "own" and not books:
+            # the number may skip ahead, never go below the highest this software has used this financial year
             if refused := await self._rule_46(str(last["text"])):
                 return {"run": "", "said": refused}
+            top = local.issued_top(self.base(p["arn"]))
+            if top and local.below(str(last["text"]).strip(), int(last.get("at", -1)), top):
+                return {"run": "", "said": f"{top} has already been used this financial year, so your last invoice "
+                                           "number can't be lower than that."}
             self.set_last_number(p["arn"], str(last["text"]).strip(), int(last.get("at", -1)))
         registrars = [r for r in self.registrars(p) if r in registrars] or self.registrars(p)
         period = period or local.current_period()
@@ -1193,6 +1204,7 @@ class Window:
             # a stop is how the run ended: the window shows it until the person closes it
             self._push({"type": "run_ended", "run": run, "how": out.get("how") or "stopped", "what": what,
                         "used": out.get("used") or "", "summary": out.get("summary") or out.get("news") or "",
+                        "enter": out.get("enter") or [], "left": out.get("left") or [],
                         "counts": out.get("counts") or {}, "total": out.get("total") or 0,
                         "stop": {"kind": stop["kind"], "title": stop["title"], "said": stop.get("said") or "",
                                  "lines": list(stop.get("lines") or []), "so_far": stop.get("so_far") or "",
@@ -1448,9 +1460,29 @@ class Window:
         self._picked[kind] = str(out)
         return {"kind": kind, "name": Path(name).name}
 
-    async def your_check(self, run: str, rows: list[dict], notes: list[str]) -> dict:
-        a = await self._ask(run, {"type": "your_check", "rows": rows, "notes": notes})
-        return {"confirmed": bool(a.get("confirmed")), "included": list(a.get("included") or [])}
+    async def your_check(self, run: str, rows: list[dict], notes: list[str], books: dict | None = None) -> dict:
+        a = await self._ask(run, {"type": "your_check", "rows": rows, "notes": notes, "books": books})
+        return {"confirmed": bool(a.get("confirmed")), "included": list(a.get("included") or []),
+                "first": str(a.get("first") or ""),
+                "dated": list(a.get("dated") or [])}
+
+    def books_waiting(self, run: str, on: bool, company: str, said: str) -> None:
+        """The run is waiting for the person's books (Tally): the window shows a red line with a Refresh button."""
+        self._push({"type": "books_waiting", "run": run, "on": on, "company": company, "said": said})
+
+    async def books_nap(self, seconds: float) -> None:
+        """Wait for Refresh, or this long, before the books are asked again."""
+        self._books_wake.clear()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(self._books_wake.wait(), seconds)
+
+    async def refresh_books(self, run: str) -> None:
+        self._books_wake.set()
+
+    async def books_ask(self, run: str, asks: list[dict]) -> dict:
+        """The books' questions (`asks`: id, question, options): {id: the option chosen}."""
+        a = await self._ask(run, {"type": "books_ask", "asks": asks})
+        return {str(k): str(v) for k, v in (a.get("answers") or {}).items()}
 
     def waiting_email(self, run: str, since: str, ref: str, skip: bool = False) -> None:
         self._push({"type": "waiting_email", "run": run, "since": since, "ref": ref, "skip": skip})
