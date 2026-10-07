@@ -3,11 +3,11 @@
    The topics the owner can fix from his phone also go to his own inbox. "A copy of my data" emails nobody: the
    hourly job sends the account its data 2 to 8 hours later and marks the request solved. */
 import { env } from 'cloudflare:workers';
-import { EMAIL, OWNER_EMAIL, SALES } from '../../consts';
+import { EMAIL, NAME, OWNER_EMAIL, SALES } from '../../consts';
 import { TOPICS, SHOT_TYPES } from '../support';
 import { QUESTIONS, answerLabel } from '../survey';
 import { answersFor } from './survey';
-import { supportMail, dataCopyMail, supportReceivedMail } from '../emails';
+import { supportMail, dataCopyMail, supportReceivedMail, supportReplyMail } from '../emails';
 import { rupees, forWhat } from '../price';
 import { longDate } from '../invoice';
 import { send, ATTACH_MAX, type Attachment } from './mail';
@@ -20,6 +20,7 @@ import { now, later, HOUR, token, sixDigits, istWhen, istDay, controlOrigin } fr
 export type Request = {
   id: number; account_id: number | null; email: string; topic: string; arn: string | null; new_email: string | null; message: string | null;
   files: string; status: 'open' | 'solved'; created_at: string; due_at: string | null; solved_at: string | null; solved_by: string | null;
+  replied_at: string | null; replied_by: string | null;
 };
 
 const PER_HOUR = 5;
@@ -82,6 +83,31 @@ export async function setRequestStatus(id: number, status: 'open' | 'solved', ac
   return { ok: true };
 }
 
+/* The panel's one reply (Support › Reply): from support@, to the request's email, with up to three photos attached.
+   A copy goes to support@ itself, with reply-to set to the person, so the mailbox holds the reply and pressing Reply
+   there answers them. The request remembers when it was answered; its status stays as it was. */
+export async function replyToRequest(id: number, v: { subject: string; message: string; photos: File[] }, actor: string) {
+  const req = await env.DB.prepare('SELECT id, account_id, email FROM requests WHERE id = ?').bind(id).first<{ id: number; account_id: number | null; email: string }>();
+  if (!req) return { error: 'no_request' };
+  const attachments: Attachment[] = await Promise.all(v.photos.map(async (f, i) =>
+    ({ content: await f.arrayBuffer(), filename: `${id}-${i + 1}.${SHOT_TYPES[f.type]}`, type: f.type, disposition: 'attachment' as const })));
+  const mail = supportReplyMail({ subject: v.subject, message: v.message, number: String(id) });
+  try {
+    await send(req.email, mail, { from: { name: `${NAME} Support`, email: EMAIL.support }, replyTo: EMAIL.support, attachments });
+  } catch (e) {
+    await record('email', `support reply #${id}`, e);
+    return { error: 'not_sent' };
+  }
+  await send(EMAIL.support, mail, { from: { name: `${NAME} Support`, email: EMAIL.support }, replyTo: req.email, attachments })
+    .catch(e => record('email', `support reply copy #${id}`, e));
+  const at = now();
+  await env.DB.batch([
+    env.DB.prepare('UPDATE requests SET replied_at = ?, replied_by = ? WHERE id = ?').bind(at, actor, id),
+    env.DB.prepare(`INSERT INTO events (at, actor, action, account_id, ref) VALUES (?, ?, 'request.replied', ?, ?)`).bind(at, actor, req.account_id, `#${id}`),
+  ]);
+  return { ok: true, at };
+}
+
 /* ---- the data copy ---- */
 
 /* Everything the website stores about an account. */
@@ -133,7 +159,7 @@ export async function sendDueDataCopies() {
           { title: 'Support requests', rows: data.support_requests.map((x: any) => [`#${x.id}`, `${TOPICS[x.topic]?.label ?? x.topic} · ${x.status} · ${d(x.created_at)}`] as [string, string]), empty: 'None.' },
           { title: 'Sign-in codes requested (the last day)', rows: data.sign_in.codes_requested.map((c: any) => [d(c.created_at), `from IP ${c.ip ?? '—'}`] as [string, string]), empty: 'None in the last day.' },
           { title: 'Your answers to our questions', rows: data.survey_answers.map(x => [QUESTIONS.find(q => q.key === x.question)?.q ?? 'Other (your words)', answerLabel(x.question, x.answer)] as [string, string]), empty: 'None.' },
-          { title: 'Signed-in sessions', rows: data.sign_in.sessions.map((x: any) => [x.kind === 'app' ? 'The app' : 'The website', `started ${d(x.created_at)}, last seen ${d(x.last_seen)}`] as [string, string]), empty: 'None.' },
+          { title: 'Signed-in sessions', rows: data.sign_in.sessions.map((x: any) => [x.kind === 'app' ? 'The software' : 'The website', `started ${d(x.created_at)}, last seen ${d(x.last_seen)}`] as [string, string]), empty: 'None.' },
         ],
       });
       await send(r.email, mail, { attachments: [{ content: JSON.stringify(data, null, 2), filename: `${data.account.email.split('@')[0]}-data.json`, type: 'application/json', disposition: 'attachment' }] });

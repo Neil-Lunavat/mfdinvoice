@@ -25,7 +25,8 @@ const IST = `'+330 minutes'`;
 export async function overview() {
   const today = todayIST(), month = today.slice(0, 7);
   const fyStart = `20${fy(today).slice(0, 2)}-04-01`;
-  const [pay, open, m, y, accounts, plans, gifts, del] = await Promise.all([
+  const plus = (n: number) => new Date(Date.parse(today) + n * 864e5).toISOString().slice(0, 10);
+  const [pay, open, m, y, accounts, plans, gifts, del, signups, trialsEnding, plansEnding] = await Promise.all([
     one<{ n: number }>(`SELECT COUNT(*) AS n FROM orders WHERE provider = 'upi' AND status = 'review'`),
     one<{ n: number }>(`SELECT COUNT(*) AS n FROM requests WHERE status = 'open' AND topic != 'data'`),
     one<{ n: number; t: number }>(`SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS t FROM orders WHERE status = 'paid' AND strftime('%Y-%m', paid_at, ${IST}) = ?`, month),
@@ -35,8 +36,12 @@ export async function overview() {
       COALESCE(SUM(source = 'trial'), 0) AS trial FROM plans WHERE ends_on >= ?`, today),
     one<{ n: number }>('SELECT COUNT(*) AS n FROM gifts WHERE used_at IS NULL AND revoked_at IS NULL'),
     one<{ n: number }>('SELECT COUNT(*) AS n FROM accounts WHERE delete_after IS NOT NULL'),
+    one<{ n: number }>(`SELECT COUNT(*) AS n FROM accounts WHERE date(created_at, ${IST}) >= ?`, plus(-6)),
+    one<{ n: number }>(`SELECT COUNT(*) AS n FROM plans WHERE source = 'trial' AND ends_on BETWEEN ? AND ?`, today, plus(7)),
+    one<{ n: number }>(`SELECT COUNT(*) AS n FROM plans WHERE source != 'trial' AND ends_on BETWEEN ? AND ?`, today, plus(30)),
   ]);
-  return { payments: pay!.n, requests: open!.n, month: m!, year: y!, accounts: accounts!.n, plans: plans!, gifts: gifts!.n, deletions: del!.n };
+  return { payments: pay!.n, requests: open!.n, month: m!, year: y!, accounts: accounts!.n, plans: plans!, gifts: gifts!.n, deletions: del!.n,
+    signups: signups!.n, trialsEnding: trialsEnding!.n, plansEnding: plansEnding!.n };
 }
 
 /* The numbers on the tabs. */

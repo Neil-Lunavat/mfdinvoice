@@ -36,6 +36,7 @@ export interface Snapshot {
   run: RunInProgress | null;       // a run the app believes is still going for this ARN
   clash: Clash | null;             // the CAMS email moved away from the mailbox; kept by the app until settled
   plan: Plan | null;               // what the account's plan says, as the website last said it; null before it has
+  survey?: SurveyAsk | null;       // a survey written in the panel, asked on Overview until answered or closed
   deleting: string;                // signed out because the account's deletion was asked for: the ISO time it goes; else ''
 }
 
@@ -47,8 +48,14 @@ export interface Plan {
   until: string;                   // the plan's last day, YYYY-MM-DD; '' when none
   slots: number;
   arns: string[];                  // ARN-… bound to the account, at most `slots` of them
+  trialUsed?: boolean;             // this email has had its free trial (one per email, even after deleting the account)
   checkedAt: string;
 }
+
+/** A survey from the website's panel (website/site/src/lib/surveys.ts). No question is required. */
+export interface SurveyAsk { id: number; title: string; questions: SurveyQuestion[] }
+export interface SurveyQuestion { key: string; q: string; type: 'one' | 'many' | 'text'; options: string[]; other: boolean }
+export type SurveyAnswers = Record<string, { picked: string[]; text: string }>;
 
 /** The person's authority to act for an ARN: the sentence ticked at setup step 1. */
 export interface Consent {
@@ -88,7 +95,7 @@ export interface ArnSummary {
   rejected: number;
 }
 
-export type MailProvider = 'gmail' | 'folder';
+export type MailProvider = 'forward' | 'gmail' | 'folder';   // forwarded to us, Gmail with an app password, or by hand
 
 export interface Profile {
   arn: string;
@@ -105,7 +112,7 @@ export interface Profile {
   signature: Signature;           // the person's way of signing
   invoices: Invoices;              // which invoice is uploaded, and the person's own
   lastLogin: { CAMS: string; KFINTECH: string };                  // ISO dates, '' if never
-  tally: { company: string; ledgers: number };   // the Tally company this ARN imports into, and how many fund houses are matched; '' before the first import
+  tally: { company: string; gstin?: string; ledgers: number };   // the Tally company this ARN imports into, its GSTIN in Tally, and how many fund houses are matched; '' before the first import
   consent: Consent | null;         // what was agreed at setup step 1; null for an ARN set up before it was asked
 }
 
@@ -211,6 +218,7 @@ export interface Month {
   everRun: boolean;                // any run has ever been done for this ARN
   submittedOn: string;             // ISO date of the first submit this month, '' if none
   lastRun: LastRun | null;         // how this month's latest run ended; null when it has never been run
+  camsWaiting?: boolean;           // CAMS was asked for its email and its files aren't in yet
   invoices: Invoice[];             // nothing is here until it has been fetched
 }
 
@@ -334,7 +342,8 @@ export type Push =
   | { type: 'ask'; ask: Ask }
   | { type: 'ask_withdrawn'; id: string }                // the question no longer needs an answer
   | { type: 'notify'; kind: string; text: string; opens: Note['opens']; toast: boolean }
-  | { type: 'waiting_email'; run: string; since: string; ref: string }       // CAMS has been asked; its email is awaited
+  | { type: 'run_month'; run: string; period: string; index: number }       // a download of several months: on this one now
+  | { type: 'waiting_email'; run: string; since: string; ref: string; skip?: boolean }   // CAMS has been asked; its email is awaited (skip: Skip CAMS is offered)
   | { type: 'submitted'; run: string; registrar: Registrar; count: number } // the registrar's status shows them
   | { type: 'run_ended'; run: string; how: 'done' | 'stopped' | 'nothing'; what: RunKind;
       used: string;                                      // own invoices: "Used 74/26-27 to 78/26-27"
@@ -432,6 +441,13 @@ export interface App {
   openPdf(key: string): Promise<void>;
   showInFolder(key: string): Promise<void>;
   openFolder(what: Registrar | 'files', period?: string): Promise<void>;
+  uninstall(): Promise<string>;
+  skipCams(run: string): Promise<void>;                    // while CAMS's email is awaited: go on with KFintech
+  /** Forwarding CAMS's mailbacks to us: a code to the CAMS email, then that code typed here proves it is theirs. */
+  forwardStart(email: string): Promise<{ ok: boolean; said?: string }>;
+  forwardVerify(email: string, code: string): Promise<{ ok: boolean; said?: string }>;
+  /** Gmail's forwarding confirmation code, once Gmail has sent it to our address; '' until then. */
+  forwardGmailCode(): Promise<string>;                            // starts Windows' uninstaller and closes; '' or why not ('not_installed')
   /** What importing a month into the company open in Tally would do. Nothing in Tally changes. */
   tallyLook(q: TallyAsk): Promise<TallyLook>;
   /** Put the month in. `adopt`: the invoices typed by hand to change to the registrar's figures. */
@@ -450,7 +466,8 @@ export interface App {
   // the run
   /** Start a run of the month, a look at what the registrars have, or a download of the month's invoices. `last`: the
       last invoice number in the person's books, as they just confirmed it. `said`: why it did not start. */
-  startRun(r: { registrars: Registrar[]; period: string; what: RunKind; last?: NextNumber | null }): Promise<{ run: string; said?: string }>;
+  /** `periods`: a download of several months, one after the other, in one go (`period` is the first). */
+  startRun(r: { registrars: Registrar[]; period: string; what: RunKind; periods?: string[]; last?: NextNumber | null }): Promise<{ run: string; said?: string }>;
   answer(id: string, a: Answer): void;
   stopRun(run: string): void;                             // Stop: ends now, or right after a Submit's answer
   closeRun(run: string): void;                            // the window closed mid-run and the person confirmed
@@ -460,6 +477,11 @@ export interface App {
   /** Send to support: what the person wrote and where, with the app's version, this PC and the app's last log
       lines. Nobody is answered from it; `sent` is all that comes back. */
   sendSupport(s: { text: string; where: string }): Promise<{ sent: boolean }>;
+  /** Settings › Send an idea: the words, and a picture the person chose (base64, at most 5 MB), to the software's
+      server as an idea. Nothing is answered: the idea is read. */
+  sendIdea(s: { text: string; picture?: { name: string; data: string } }): Promise<{ sent: boolean }>;
+  /** The survey's answers, or its X (null): either way it isn't asked again. */
+  answerSurvey(id: number, answers: SurveyAnswers | null): Promise<{ sent: boolean }>;
   open(link: Link): Promise<void>;
   checkForUpdates(): Promise<{ upToDate: boolean }>;
   updateNow(): Promise<void>;                             // progress arrives as `update_progress`, then the app restarts

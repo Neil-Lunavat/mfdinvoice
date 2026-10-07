@@ -53,8 +53,9 @@ from client.store.db import Store
 
 log = logging.getLogger(__name__)
 
-LINKS = {"site": SITE, "signup": f"{SITE}/signin", "status": f"{SITE}/support", "billing": f"{SITE}/account", "help": f"{SITE}/setup"}
+LINKS = {"site": SITE, "signup": f"{SITE}/signin?from=app", "status": f"{SITE}/support", "billing": f"{SITE}/account", "help": f"{SITE}/setup"}
 PLAN_EVERY_S = 5 * 60          # the plan is read again this often while the app is open
+PICKUP_EVERY_S = 90            # a month waiting for CAMS's email looks for it this often
 RETRY_EVERY_S = 15             # ... and this often while the website could not be reached
 UNREACHABLE = f"{NAME} can't reach its website right now. Try again in a minute."
 NO_STEPS = f"{NAME} can't reach its server right now, so it can't be sure it is up to date with the portals."
@@ -64,12 +65,14 @@ BIND_SAID = {
     "arn_taken": "Another account has this ARN. Send it to support and we'll sort it out.",
     "no_free_slot": "Every ARN slot on your plan is in use. More ARNs are added on the website.",
     "no_active_plan": "Your plan has ended. It is renewed on the website.",
+    "trial_used": "This email has had its free trial. Buy a plan on the website, and the ARN goes on it.",
     "bad_token": "You've been signed out. Sign in again.",
 }
 LOG_TAIL = 60_000              # how much of the app's log goes with Send to support
 TOKEN = "app_token"            # the vault key of the app's sign-in token: not a portal secret, never masked
 # What signing out may also take off this PC: every credential and the signature, for every ARN set up here.
-ON_THIS_PC = ("kfintech_password", "gmail_app_password", "cams_email", "kfintech_username")
+ON_THIS_PC = ("kfintech_password", "gmail_app_password", "cams_email", "kfintech_username", "forward_key",
+              "forward_secret")
 
 
 class Window:
@@ -88,6 +91,7 @@ class Window:
         self._task: asyncio.Task | None = None               # the run, check or download going now
         self._hold = False                                   # a Submit was pressed: Stop waits for its answer
         self._stop_wanted = False
+        self._skip_cams = False                              # Skip CAMS was pressed while its email was awaited
         self.submit = True                                   # the shell turns it off in a checkout (config.toml)
         self._photo: bytes | None = None                     # the signature photo, in memory only, during intake
         self._turns = 0
@@ -114,6 +118,7 @@ class Window:
         """Background upkeep: what the plan says, read when the app opens and again every few minutes."""
         local.put(self.store, "run_in_progress", None)       # closing the app ends a run: none carries over
         self._ticks = asyncio.create_task(self._tick())
+        self._pickups = asyncio.create_task(self._pickup_loop())
         asyncio.get_running_loop().run_in_executor(None, self._tidy_runs)
 
     def _tidy_runs(self) -> None:
@@ -122,6 +127,41 @@ class Window:
             with contextlib.suppress(OSError):
                 if d.is_dir() and d.stat().st_mtime < old:
                     shutil.rmtree(d)
+
+    async def _pickup_loop(self) -> None:
+        """While the software is open: CAMS's email for a month whose run went on without it is read in when it comes
+        (Neil, 7 Oct). Only while some month waits for one; never while something else is running."""
+        while True:
+            await asyncio.sleep(PICKUP_EVERY_S)
+            try:
+                await self._pickup()
+            except Exception:
+                log.exception("picking up CAMS's email")
+
+    async def _pickup(self) -> None:
+        waiting = [(arn, period) for arn in self.profiles() for period in local.cams_waiting(self.base(arn))]
+        if not waiting or self._task is not None:
+            return
+        auto = await loader.latest()
+        if not hasattr(auto, "pickup"):
+            return
+        async with self._portal:
+            for arn, period in waiting:
+                host = Host(self, arn, "")
+                try:
+                    got = await auto.pickup(host, period)
+                except Exception as e:
+                    log.info("CAMS's email for %s %s couldn't be read in: %r", arn, period, e)
+                    continue
+                finally:
+                    await host.close()
+                if got.get("got"):
+                    label = local.labels(period)[0]
+                    self._log(f"CAMS's email for {label} came: its invoices are on this PC", registrar="CAMS",
+                              tone="plain", who="")
+                    self._note("cams_came", f"CAMS's invoices for {label} are in", "overview",
+                               f"{got['got']} invoices, read from CAMS's email")
+        await self.changed()
 
     async def _tick(self) -> None:
         while True:
@@ -146,8 +186,9 @@ class Window:
                 "state": "active" if got["active"] else "ended" if got.get("paid_until") else "none",
                 "source": got.get("source") or "", "until": got.get("paid_until") or "",
                 "slots": int(got.get("slots") or 0), "arns": [f"ARN-{a['arn']}" for a in got.get("arns") or []],
-                "checkedAt": local.note_now()})
+                "trialUsed": bool(got.get("trial_used")), "checkedAt": local.note_now()})
             local.put(self.store, "release", got.get("app") or None)
+            local.put(self.store, "survey", got.get("survey") or None)      # the live survey, asked on Overview
         elif got["reason"] == "bad_token":
             self.condition = "normal"
             self._signed_out()
@@ -252,21 +293,21 @@ class Window:
     def _activate(self, arn: str) -> None:
         """The vault holds one set of credentials and one mailbox for the ARN being worked on; each ARN's own are
         kept beside them and copied in when it is picked."""
-        for key in ("kfintech_password", "gmail_app_password", *CREDENTIALS):
+        for key in ("kfintech_password", "gmail_app_password", "forward_key", "forward_secret", *CREDENTIALS):
             mine = self.store.get_secret(f"{key}:{arn}")
             if mine:
                 self.store.put_secret(key, mine)
-        for key in ("mail_provider", "gmail_user"):
+        for key in ("mail_provider", "gmail_user", "forward_email"):
             mine = self.store.get(f"{key}:{arn}")
             if mine is not None:
                 self.store.put(key, mine)
 
     def _keep_for(self, arn: str) -> None:
-        for key in ("kfintech_password", "gmail_app_password", *CREDENTIALS):
+        for key in ("kfintech_password", "gmail_app_password", "forward_key", "forward_secret", *CREDENTIALS):
             v = self.store.get_secret(key)
             if v:
                 self.store.put_secret(f"{key}:{arn}", v)
-        for key in ("mail_provider", "gmail_user"):
+        for key in ("mail_provider", "gmail_user", "forward_email"):
             v = self.store.get(key)
             if v is not None:
                 self.store.put(f"{key}:{arn}", v)
@@ -290,6 +331,7 @@ class Window:
             "update": self._update_view(),
             "account": {"email": acct["email"], "maxArns": 6} if acct else None,
             "plan": self._plan_view() if acct else None,
+            "survey": (local.get(self.store, "survey") or None) if acct else None,
             "deleting": "" if acct else (local.get(self.store, "deleting") or ""),
             "arns": [{"arn": a, "name": q.get("name", ""), "status": status if a == self.selected() else
                       "Not submitted", "rejected": rejected if a == self.selected() else 0}
@@ -380,6 +422,15 @@ class Window:
         await self.read_plan()
         return {"ok": True}
 
+    async def answer_survey(self, survey_id: int, answers: dict | None = None) -> dict:
+        """The survey on Overview: its answers, or its X (`answers` None). Either way it is not asked again."""
+        token = self.token()
+        sent = bool(token) and await asyncio.to_thread(site.survey_reply, token, int(survey_id), answers)
+        if sent:
+            local.put(self.store, "survey", None)
+            await self.changed()
+        return {"sent": sent}
+
     async def sign_out(self, remove: bool = False) -> None:
         """Settings › Account & plan › Sign out. The token ends on the website and is forgotten here; the invoice files
         stay, and the logins and signature stay too unless the person asked for them to go."""
@@ -458,6 +509,19 @@ class Window:
         return {"ok": True}
 
     # --- setup, and every Change -----------------------------------------------------------------------------
+
+    async def forward_start(self, email: str) -> dict:
+        """Forwarding CAMS's mailbacks to us: a code is emailed to the CAMS email (hands/forward.py)."""
+        from client.hands import forward
+        return await asyncio.to_thread(forward.start, self.store, email)
+
+    async def forward_verify(self, email: str, code: str) -> dict:
+        from client.hands import forward
+        return await asyncio.to_thread(forward.verify, self.store, email, code)
+
+    async def forward_gmail_code(self) -> str:
+        from client.hands import forward
+        return await asyncio.to_thread(forward.gmail_code, self.store)
 
     async def test_mailbox(self, provider: str, address: str, appPassword: str) -> dict:  # noqa: N803
         from client.hands import inbox, mail
@@ -703,7 +767,8 @@ class Window:
         pick = draft.get("tally") or {}
         if pick.get("company") and pick.get("guid"):
             try:
-                (await self._tally()).keep_company(self.base(arn), pick["company"], pick["guid"])
+                (await self._tally()).keep_company(self.base(arn), pick["company"], pick["guid"],
+                                                   str(pick.get("gstin") or ""), bool(pick.get("sure")))
             except Exception:
                 log.exception("the Tally company chosen at setup could not be kept")  # the Tally tab asks again
         self.store.put("selected_arn", arn)
@@ -970,6 +1035,20 @@ class Window:
         if path:
             subprocess.Popen(["explorer", "/select,", str(path)])  # noqa: S603,S607
 
+    async def uninstall(self) -> str:
+        """Settings › Uninstall: start the uninstaller the installer left beside the program, then close so it can
+        remove it. It asks to confirm itself, and removes the program only: the person's data stays. '' when it
+        started; 'not_installed' from a checkout."""
+        app = update.installed()
+        exe = app / "unins000.exe" if app else None
+        if exe is None or not exe.exists():
+            return "not_installed"
+        self._log(f"Uninstalling {NAME}")
+        subprocess.Popen([str(exe)], close_fds=True)  # noqa: S603
+        if self.exit is not None:
+            self.exit()
+        return ""
+
     async def open_folder(self, what: str, period: str = "") -> None:
         """A registrar's folder for the month on screen, or everything this ARN has."""
         where = self.base()
@@ -981,9 +1060,11 @@ class Window:
 
     # --- the run --------------------------------------------------------------------------------------------------
 
-    async def start_run(self, registrars: list[str], period: str = "", what: str = "run", last: dict | None = None) -> dict:
+    async def start_run(self, registrars: list[str], period: str = "", what: str = "run", last: dict | None = None,
+                        periods: list[str] | None = None) -> dict:
         """Start a run of the month (`what`: run), a look at what the registrars have (check), or a download of the
-        month's invoices (download). `last`: the last invoice number in the person's books, confirmed just now."""
+        month's invoices (download; `periods`: several months, one after another, from the Downloads tab). `last`: the
+        last invoice number in the person's books, confirmed just now."""
         if self._task is not None:
             return {"run": "", "said": "Something is already running."}
         p = self.profile()
@@ -997,12 +1078,14 @@ class Window:
         local.put(self.store, "run_in_progress", {"run": run, "registrars": registrars, "arn": p["arn"], "what": what,
                                                   "period": period,
                                                   "startedAt": datetime.now().astimezone().isoformat()})
-        self._stop_wanted = self._hold = False
-        self._task = asyncio.create_task(self._drive(run, what, period, registrars, p["arn"]))
+        self._stop_wanted = self._hold = self._skip_cams = False
+        periods = [x for x in (periods or []) if isinstance(x, str) and x] if what == "download" else []
+        self._task = asyncio.create_task(self._drive(run, what, period, registrars, p["arn"], periods))
         await self.changed()
         return {"run": run}
 
-    async def _drive(self, run: str, what: str, period: str, registrars: list[str], arn: str) -> None:
+    async def _drive(self, run: str, what: str, period: str, registrars: list[str], arn: str,
+                     periods: list[str] | None = None) -> None:
         """One run, check or download, start to finish, and however it ends told to the window."""
         host = Host(self, arn, run, submit=self.submit)
         started = time.monotonic()
@@ -1014,10 +1097,15 @@ class Window:
         try:
             auto = await loader.latest()
             async with self._portal:
+                many = len(periods or []) > 1
                 self._log({"run": "Started a run", "check": "Checked with the registrars",
-                           "download": "Started a download"}[what] + f" for {local.labels(period)[0]}", tone="plain")
-                out = await {"run": auto.run, "check": auto.check, "download": auto.download}[what](
-                    host, period, registrars)
+                           "download": "Started a download"}[what]
+                          + (f" of {len(periods)} months" if many else f" for {local.labels(period)[0]}"), tone="plain")
+                if many:
+                    out = await self._downloads(auto, host, run, periods, registrars)
+                else:
+                    out = await {"run": auto.run, "check": auto.check, "download": auto.download}[what](
+                        host, period, registrars)
         except asyncio.CancelledError:
             out = {"how": "stopped"}                       # the person pressed Stop, or closed the app
         except errors.Failure as e:                        # this PC's own trouble: no browser, no signature
@@ -1044,19 +1132,42 @@ class Window:
             self._task = None
             logging.getLogger("client").removeHandler(own_log)
             own_log.close()
-        log.info("the %s for %s ended after %ss: %s", what, period, int(time.monotonic() - started),
+        seconds = int(time.monotonic() - started)
+        log.info("the %s for %s ended after %ss: %s", what, period, seconds,
                  {k: v for k, v in out.items() if k != "stop"} | {"stop": (out.get("stop") or {}).get("kind")})
-        await self._ended(run, what, period, out, host)
+        await self._ended(run, what, period, out, host, seconds)
 
-    async def _ended(self, run: str, what: str, period: str, out: dict, host: Host) -> None:
+    async def _downloads(self, auto, host: Host, run: str, periods: list[str], registrars: list[str]) -> dict:
+        """Several months' downloads in one go, one after another: the portals stay signed in between them. A month
+        not listed yet is noted and the next goes on; any other stop ends it there, saying which months came."""
+        came, unlisted = [], []
+        for i, period in enumerate(periods):
+            self._push({"type": "run_month", "run": run, "period": period, "index": i})
+            out = await auto.download(host, period, registrars)
+            name = local.labels(period)[0].split(" ")[0]
+            stop = out.get("stop")
+            if stop and stop.get("kind") in ("not_listed", "nothing_to_do"):
+                unlisted.append(name)
+                continue
+            if stop:
+                so_far = f"Downloaded before it stopped: {', '.join(came)}." if came else ""
+                return {**out, "stop": {**stop, "title": f"{name}: {stop['title']}", "so_far": so_far}}
+            came.append(name)
+        summary = (f"Downloaded {', '.join(came)}." if came else "Nothing was downloaded.") +             (f" Not listed yet: {', '.join(unlisted)}." if unlisted else "")
+        return {"how": "done", "summary": summary, "used": "", "counts": {}, "total": 0, "downloaded": True}
+
+    async def _ended(self, run: str, what: str, period: str, out: dict, host: Host, seconds: int) -> None:
         stop = out.get("stop")
         # We hear how every run went without being told, with its own log. One that stopped on something of ours
         # also brings the portals' pages as they were; while the app is new (PICTURES_WITH_EVERY_RUN) every run does,
         # because the pages nobody has seen yet show on the runs that go well too.
         ours = bool(stop) and stop["kind"] == "ours"
         said = stop["title"] if stop else out.get("summary") or out.get("news") or out.get("how") or ""
+        # how it ended, for the admin panel's colour: the stop's kind, or 'stopped' (the person's Stop), or 'well'
+        ended = stop["kind"] if stop else "stopped" if out.get("how") == "stopped" else "well"
         asyncio.ensure_future(self._report("ours" if ours else "run", said, f"{what} · {period}", host.record,
-                                           pictures=ours or PICTURES_WITH_EVERY_RUN))
+                                           pictures=ours or PICTURES_WITH_EVERY_RUN,
+                                           about={"run": run, "ended": ended, "seconds": seconds}))
         if stop:
             self._log(f"The {'run' if what == 'run' else what} stopped: {stop['title']}",
                       tone="plain" if stop["kind"] in ("nothing_to_do", "not_listed") else "bad",
@@ -1117,10 +1228,32 @@ class Window:
         runs = sorted((d for d in (self.workspace / "runs").glob("*") if d.is_dir() and not d.name.startswith("_")),
                       key=lambda d: d.stat().st_mtime)
         recent = runs[-1] if runs and time.time() - runs[-1].stat().st_mtime < 3600 else None
-        return {"sent": await self._report("problem", text, where, recent)}
+        return {"sent": await self._report("problem", text, where, recent,
+                                         about={"run": recent.name} if recent else None)}
+
+    async def send_idea(self, text: str, picture: dict | None = None) -> dict:
+        """Settings › Send an idea: the words, and the picture the person chose, kept by the software's server as an
+        idea. The picture goes as the report's record (one file in a zip)."""
+        if not text.strip():
+            return {"sent": False}
+        folder = None
+        if picture and picture.get("data"):
+            raw = base64.b64decode(str(picture["data"]).split(",")[-1], validate=False)
+            ext = Path(str(picture.get("name") or "")).suffix.lower()
+            if len(raw) <= 5 * 1024 * 1024 and ext in (".png", ".jpg", ".jpeg", ".webp"):
+                folder = self.workspace / "runs" / f"_idea-{uuid.uuid4().hex[:8]}"
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / f"picture{ext}").write_bytes(raw)
+        try:
+            return {"sent": await self._report("idea", text, "Settings › Send an idea", folder)}
+        finally:
+            if folder:
+                shutil.rmtree(folder, ignore_errors=True)
 
     async def _report(self, kind: str, text: str, where: str, record: Path | None = None,
-                      pictures: bool = True) -> bool:
+                      pictures: bool = True, about: dict | None = None) -> bool:
+        """`about`: the run it is about (its id, how it ended, how many seconds it took), so the admin panel reads a
+        run and what a person said of it together."""
         if record:
             self._blank(record / "log.txt")
         spec = await asyncio.to_thread(min_spec)
@@ -1129,9 +1262,9 @@ class Window:
         sent = await asyncio.to_thread(server.report, {
             "kind": kind, "message": text.strip()[:4000], "where": where[:200], "arn": self.selected(),
             "email": acct.get("email", ""), "version": APP_VERSION, "steps": loader.version(), "pc": pc,
-            "log": self._log_tail()}, _zipped(record, pictures) if record else None)
+            "log": self._log_tail()} | (about or {}), _zipped(record, pictures) if record else None)
         if sent and kind not in ("ours", "run"):
-            self._log("Sent to support", tone="plain")
+            self._log("Sent an idea" if kind == "idea" else "Sent to support", tone="plain")
         return sent
 
     def _log_tail(self) -> str:
@@ -1155,7 +1288,7 @@ class Window:
 
     def _never_sent(self) -> list[str]:
         """Every password this PC holds, for every ARN: blanked out of whatever is sent to support."""
-        keys = [k for k in ("kfintech_password", "gmail_app_password")]
+        keys = [k for k in ("kfintech_password", "gmail_app_password", "forward_secret")]
         keys += [f"{k}:{arn}" for k in list(keys) for arn in self.profiles()]
         return [v for v in (self.store.get_secret(k) for k in keys) if v]
 
@@ -1305,8 +1438,12 @@ class Window:
         a = await self._ask(run, {"type": "your_check", "rows": rows, "notes": notes})
         return {"confirmed": bool(a.get("confirmed")), "included": list(a.get("included") or [])}
 
-    def waiting_email(self, run: str, since: str, ref: str) -> None:
-        self._push({"type": "waiting_email", "run": run, "since": since, "ref": ref})
+    def waiting_email(self, run: str, since: str, ref: str, skip: bool = False) -> None:
+        self._push({"type": "waiting_email", "run": run, "since": since, "ref": ref, "skip": skip})
+
+    async def skip_cams(self, run: str) -> None:
+        """Skip CAMS while its email is awaited: the run carries on with KFintech; the email is read when it comes."""
+        self._skip_cams = True
 
     def submitted(self, run: str, registrar: str, count: int) -> None:
         self._push({"type": "submitted", "run": run, "registrar": registrar, "count": count})

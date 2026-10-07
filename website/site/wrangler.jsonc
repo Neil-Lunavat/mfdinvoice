@@ -29,10 +29,14 @@
   "send_email": [
     { "name": "EMAIL" }
   ],
-  // The public site stays on workers.dev until launch day (routes below would switch it off otherwise).
+  // site.develop-tbc.workers.dev keeps answering until every installed app has updated to one that asks
+  // mfdinvoice.co.in (client/src/client/brand.json): an app asks it whether it must update, so switching it off first
+  // would strand that app.
   "workers_dev": true,
-  // The admin panel and the blog editor: their own hosts on this Worker, each behind Cloudflare Access.
+  // The public site on mfdinvoice.co.in; the admin panel and the blog editor on their own hosts on this Worker, each
+  // behind Cloudflare Access.
   "routes": [
+    { "pattern": "mfdinvoice.co.in", "custom_domain": true },
     { "pattern": "control.mfdinvoice.co.in", "custom_domain": true },
     { "pattern": "write.mfdinvoice.co.in", "custom_domain": true }
   ],
@@ -41,20 +45,20 @@
   // PAYMENTS: which provider takes new orders: "upi" (paid to the owner, checked by hand, until the company is
   // registered), "cashfree" or "razorpay" (both parked, ready; an order always
   // completes with the provider that made it). CASHFREE_MODE: "sandbox" (test keys) or "production" (live keys).
-  // SITE_ORIGIN: the public site's address in emails (workers.dev until launch day, then https://mfdinvoice.co.in).
+  // SITE_ORIGIN: the public site's address in emails.
   // CONTROL_HOST / WRITE_HOST: the admin panel's and the blog editor's hosts. ACCESS_TEAM: the Cloudflare Access team
   // domain (<team>.cloudflareaccess.com); ACCESS_AUD_CONTROL / ACCESS_AUD_WRITE: each application's AUD tag.
   // ADMINS (the panel), WRITERS (the editor): emails, comma-separated.
   // SOFTWARE_SERVER: the software's own server (server/ at the repo's root), read by the panel's Software tab.
   "vars": {
     "PAYMENTS": "upi", "CASHFREE_MODE": "sandbox",
-    "SITE_ORIGIN": "https://site.develop-tbc.workers.dev",
+    "SITE_ORIGIN": "https://mfdinvoice.co.in",
     "CONTROL_HOST": "control.mfdinvoice.co.in", "WRITE_HOST": "write.mfdinvoice.co.in",
     "ACCESS_TEAM": "winter-mouse-cce4.cloudflareaccess.com",
     "ACCESS_AUD_CONTROL": "408b899fc25d3ebc566a9ae0353203b3cbce1a48d235be26f88cab4be9844f4a",
     "ACCESS_AUD_WRITE": "b9508d63cffafdc5b17e952b0416c2ac8f62ab098117c533e08fe81d5e92f5e2",
     "ADMINS": "develop.tbc@gmail.com", "WRITERS": "develop.tbc@gmail.com",
-    "SOFTWARE_SERVER": "https://software.develop-tbc.workers.dev"
+    "SOFTWARE_SERVER": "https://software.mfdinvoice.co.in"
   },
   // Secrets (wrangler secret put; locally in .dev.vars): RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
   // RAZORPAY_WEBHOOK_SECRET, CASHFREE_APP_ID, CASHFREE_SECRET_KEY, SOFTWARE_ADMIN_KEY (the software's server's admin

@@ -14,7 +14,7 @@
   let { children }: { children: Snippet } = $props();
 
   const s = $derived(store.snap!);
-  const NAV: [Page, string, string][] = [['overview', 'Overview', icons.cal], ['invoices', 'Invoices', icons.doc], ['tally', 'Tally', icons.book], ['settings', 'Settings', icons.gear]];
+  const NAV: [Page, string, string][] = [['overview', 'Overview', icons.cal], ['invoices', 'Invoices', icons.doc], ['downloads', 'Downloads', icons.downloads], ['tally', 'Tally', icons.book], ['settings', 'Settings', icons.gear]];
   const unread = $derived(s.notes.filter(n => !n.read).length);
   const current = $derived(s.arns.find(a => a.arn === s.arn));
   const full = $derived(s.arns.length >= (s.account?.maxArns ?? 6));

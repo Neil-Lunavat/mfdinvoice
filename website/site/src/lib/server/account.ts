@@ -36,15 +36,26 @@ export const yearFrom = (p: Plan | null) => (onTrial(p) ? p!.ends_on : todayIST(
 export const planLine = (p: Pick<Plan, 'source' | 'ends_on' | 'slots'> | null) => !p ? 'No plan'
   : `${PLAN_NAME[p.source]}, ${isActive(p) ? 'until' : 'ended'} ${longDate(p.ends_on)}, ${p.slots} ARN slot${p.slots === 1 ? '' : 's'}`;
 
-/* The licence: what the app and the app's server need. */
+/* This account's email has had its free trial, here or on an account deleted before (`trials` is kept for good):
+   one free trial per email. */
+export const trialUsed = (id: number) =>
+  env.DB.prepare('SELECT EXISTS (SELECT 1 FROM trials t JOIN accounts a ON a.email = t.email WHERE a.id = ?) AS u')
+    .bind(id).first<{ u: number }>().then(r => !!r?.u);
+/* Has had a plan, a free trial included (the site's main button then says Buy now): a plan on this account, or a
+   trial this email had before. */
+export const hadPlan = async (id: number, plan: Plan | null) => !!plan || (await trialUsed(id));
+
+/* The licence: what the app and the app's server need. trial_used: this email has had its free trial, so binding a
+   first ARN won't start one (the app says to buy a plan). */
 export async function licence(id: number) {
-  const [plan, arns] = await Promise.all([getPlan(id), getArns(id)]);
+  const [plan, arns, used] = await Promise.all([getPlan(id), getArns(id), trialUsed(id)]);
   return {
     active: isActive(plan),
     paid_until: plan?.ends_on ?? null,
     source: plan?.source ?? null,
     slots: plan?.slots ?? 0,
     arns: arns.map(a => ({ arn: a.arn, holder: a.holder })),
+    trial_used: used,
   };
 }
 
@@ -93,6 +104,7 @@ export async function deleteAccount(id: number, email: string, at: string, by = 
     env.DB.prepare('DELETE FROM codes WHERE email = ?').bind(email),
     env.DB.prepare('DELETE FROM events WHERE account_id = ?').bind(id),
     env.DB.prepare('DELETE FROM answers WHERE account_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM survey_replies WHERE account_id = ?').bind(id),
     env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(id),
     event(by === 'buyer' ? 'system' : by, 'deletion.done', id),
   ]);

@@ -448,7 +448,7 @@ class Browser:
             if not self._claim:
                 raise errors.Failure(
                     errors.ANOTHER_COPY.code,
-                    "Another copy of the app is already running on this PC. Close it and try again.")
+                    "Another copy of the software is already running on this PC. Close it and try again.")
             self.fingerprint = fingerprint
             self.attempts = []
             # nobody alive owns this profile, so anything still running on it is a leftover from a killed app
@@ -635,11 +635,11 @@ def min_spec() -> dict:
     free = round(shutil.disk_usage(Path.home().drive + "\\").free / 1e9, 1)
     short = []
     if ram and ram < 4:
-        short.append(f"This PC has {ram} GB of memory. The app needs about 4 GB to run a month comfortably.")
+        short.append(f"This PC has {ram} GB of memory. The software needs about 4 GB to run a month comfortably.")
     if free < 2:
-        short.append(f"There is {free} GB free on this drive. The app keeps every month's invoices, so it needs room.")
+        short.append(f"There is {free} GB free on this drive. The software keeps every month's invoices, so it needs room.")
     win = platform.version()
     if platform.system() == "Windows" and int(win.split(".")[-1] or 0) < 19041:
-        short.append("This version of Windows is older than the app supports.")
+        short.append("This version of Windows is older than the software supports.")
     return {"ok": not short, "ram_gb": ram, "free_disk_gb": free,
             "windows": f"{platform.release()} {win}".strip(), "shortfall": short}

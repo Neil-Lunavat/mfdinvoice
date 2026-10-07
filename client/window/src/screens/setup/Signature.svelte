@@ -10,9 +10,9 @@
   import { icons } from '../../ui/icons';
   import SampleInvoice from '../../ui/SampleInvoice.svelte';
 
-  /* Parked: the USB token way is built but has not been tried on a real token, so it is not offered. An ARN already
-     set up with one keeps it. */
-  const DSC_OFFERED = false;
+  /* The USB token way is offered (Neil, 7 Oct: the proof of concept signed with a real token). Its first real use is a
+     distributor's; what goes wrong comes back as an "ours" report. */
+  const DSC_OFFERED = true;
 
   let { d = $bindable() }: { d: ProfileDraft } = $props();
   let tab = $state<'CAMS' | 'KFINTECH'>('CAMS');

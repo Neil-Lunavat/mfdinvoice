@@ -28,6 +28,7 @@ import json
 import logging
 import logging.handlers
 import queue
+import shutil
 import sys
 import threading
 from pathlib import Path
@@ -56,7 +57,7 @@ METHODS = {
     "finishSetup": ("finish_setup", "pos"), "saveDetails": ("save_details", "pos"), "switchArn": ("switch_arn", "pos"),
     "month": ("month", "pos"), "preview": ("preview", "pos"),
     "exportMonth": ("export_month", "pos"), "openPdf": ("open_pdf", "pos"), "showInFolder": ("show_in_folder", "pos"),
-    "openFolder": ("open_folder", "pos"), "startRun": ("start_run", "kw"), "stopRun": ("stop_run", "pos"),
+    "openFolder": ("open_folder", "pos"), "uninstall": ("uninstall", "pos"), "sendIdea": ("send_idea", "kw"), "answerSurvey": ("answer_survey", "pos"), "skipCams": ("skip_cams", "pos"), "forwardStart": ("forward_start", "pos"), "forwardVerify": ("forward_verify", "pos"), "forwardGmailCode": ("forward_gmail_code", "pos"), "startRun": ("start_run", "kw"), "stopRun": ("stop_run", "pos"),
     "closeRun": ("close_run", "pos"),
     "markNotesRead": ("mark_notes_read", "pos"),
     "sendSupport": ("send_support", "kw"), "open": ("open", "pos"),
@@ -224,6 +225,11 @@ def main() -> None:
 
     threading.Thread(target=run_loop, daemon=True, name="app").start()
     ready.wait()
+
+    # The window reaches WebView2 over http://127.0.0.1, and WebView2 keeps what it was served: a new build, or an
+    # update, went on showing the old window (7 Oct). What it kept is thrown away at every start; nothing else is.
+    for kept in ("Cache", "Code Cache"):
+        shutil.rmtree(cfg.paths.workspace / "webview" / "EBWebView" / "Default" / kept, ignore_errors=True)
 
     quitting = threading.Event()
     window = webview.create_window(NAME, url=str(index), js_api=None, width=1376, height=860,

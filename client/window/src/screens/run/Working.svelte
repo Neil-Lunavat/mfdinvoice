@@ -27,6 +27,7 @@
     store.answerRun({ type: 'captcha', text, refresh });
   }
   let stoppedAt = $state(0);
+  let skipping = $state(false);
   function stopNow() { stoppedAt = Date.now(); if (store.run) store.run.stopAsked = true; app.stopRun(run.id); }
   // Stop is at once, except while a Submit's answer is being read. If nothing has happened after 6 seconds, the
   // person can close this window.
@@ -44,7 +45,8 @@
     {/if}
   {:else if run.waitingEmail}
     <div class="banner wait"><span class="spin amber"></span>
-      <div><b>CAMS was asked at {hhmm(run.waitingEmail.since)}{run.waitingEmail.ref ? ` · ref ${run.waitingEmail.ref}` : ''}</b><p>Its email usually comes within a minute. The run carries on by itself when it does.</p></div></div>
+      <div><b>CAMS was asked at {hhmm(run.waitingEmail.since)}{run.waitingEmail.ref ? ` · ref ${run.waitingEmail.ref}` : ''}</b><p>CAMS takes a few minutes to send it. The run carries on by itself when it comes.{run.waitingEmail.skip ? " Or skip CAMS: KFintech goes on, and CAMS's email is read when it comes." : ''}</p></div>
+      {#if run.waitingEmail.skip}<div class="bact"><button class="btn secondary sm" disabled={skipping} onclick={() => { skipping = true; app.skipCams(run.id); }}>{skipping ? 'Skipping…' : 'Skip CAMS'}</button></div>{/if}</div>
   {/if}
   {#if v.done.length}
     <div class="donelist">

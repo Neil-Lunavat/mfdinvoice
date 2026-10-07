@@ -1,14 +1,14 @@
 ---
 /* The version, the date, the size and what's new come from RELEASES in consts.ts (ops/release.py writes it).
    The Download button serves the one installer in R2 (bun run installer), to a signed-in account whose plan hasn't
-   ended: one that is running, or none yet (the free trial starts in the app). */
+   ended: one that is running, or none yet (the free trial starts in the software). */
 import Layout from '../layouts/Layout.astro';
 import '../styles/kit.css';
 import Mark from '../components/Mark.astro';
 import { NAME, TRIAL, RELEASES } from '../consts';
 const now = RELEASES[0];
 ---
-<Layout title={`Download · ${NAME}`} description={`${NAME} for Windows 11. An update is one click, inside the app.`} path="/downloads" navOn="/downloads" reveal={0.15}>
+<Layout title={`Download · ${NAME}`} description={`${NAME} for Windows 11. An update is one click, inside the software.`} path="/downloads" navOn="/downloads" reveal={0.15}>
 <main>
   <section class="head c">
     <div class="wrap">
@@ -28,7 +28,7 @@ const now = RELEASES[0];
           <ul class="facts">
             <li><span>Size</span>{now ? <b>{now.size}</b> : <b class="ph">[About 130 MB]</b>}</li>
             <li><span>Needs</span><b>Windows 11 and an internet connection</b></li>
-            <li><span>Updates</span><b>One click, inside the app</b></li>
+            <li><span>Updates</span><b>One click, inside the software</b></li>
             <li><span>Free trial</span><b>{TRIAL.days} days, from the day you add your ARN</b></li>
           </ul>
           <div id="act">
@@ -60,7 +60,7 @@ const now = RELEASES[0];
 .get{padding:44px;border-right:1px solid var(--line);display:flex;flex-direction:column}
 .app{display:flex;align-items:center;gap:16px}
 .app .mark{width:56px;height:56px;border-radius:15px}
-.app .mark svg{width:30px;height:30px}
+.app .mark svg{width:44px;height:24px}
 .app b{display:block;font-size:22px;font-weight:600;letter-spacing:-.025em}
 .app span{font-size:14px;color:var(--muted)}
 .facts{margin:28px 0 0;padding:0;list-style:none;border-top:1px solid var(--line-2)}
@@ -103,7 +103,7 @@ import { $, me } from '../scripts/client';
 
 /* The page is open to everyone. Only the button depends on who you are:
    signed out → sign in, then back here · a plan that has ended → pay · a running plan, or none yet (the free trial
-   starts in the app) → the file starts, then Setup. The download route checks the session and the plan again. */
+   starts in the software) → the file starts, then Setup. The download route checks the session and the plan again. */
 const why = { out: 'You’ll need to sign in first.', ended: 'Your plan has ended. You’ll need to buy one first.', ok: '' };
 let who: keyof typeof why = document.documentElement.classList.contains('si') ? 'ok' : 'out';
 const show = () => { $('why').textContent = why[who]; };

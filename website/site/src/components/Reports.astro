@@ -1,0 +1,46 @@
+---
+/* What the software sent, as a table (the Software tab, and an account's page). Result is a colour (lib/software.ts
+   RESULT); a person's message says which run it is about when that run is in the list too. View opens one
+   (scripts/software.ts). */
+import type { SoftwareReport } from '../lib/server/software';
+import { RESULT, took, STATE } from '../lib/software';
+import { istShort } from '../lib/server/util';
+interface Props { rows: SoftwareReport[]; email?: boolean }
+const { rows, email = true } = Astro.props;
+const mb = (n: number) => (!n ? '' : n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(1)} MB`);
+/* a run's id → its own report's number, for "about #12" on what a person sent */
+const runOf = new Map(rows.filter(r => r.run && r.kind !== 'problem' && r.kind !== 'idea').map(r => [r.run!, r.id]));
+---
+<table class="t cards sw" id="tbl"><thead><tr><th data-sort="num">#</th><th data-sort="text">When</th><th data-sort="cat">Result</th>{email && <th data-sort="text">Email</th>}<th data-sort="text">ARN</th><th data-sort="text">Where</th><th>What it said</th><th data-sort="num">Took</th><th data-sort="text">Software · steps</th><th data-sort="cat">State</th><th></th></tr></thead><tbody>
+  {rows.map(r => { const [label, tone] = RESULT(r); const open = (tone === 'red' || r.kind === 'problem') && r.state !== 'fixed'; const about = r.kind === 'problem' && r.run ? runOf.get(r.run) : undefined;
+    return <tr class:list={[{ wait: open, gone: r.state === 'fixed' }]}>
+    <td data-l="#" class="mono" data-v={r.id}>#{r.id}</td>
+    <td data-l="When" class="nw" data-v={r.created_at}>{istShort(r.created_at)}</td>
+    <td data-l="Result"><span class:list={['tag', tone]}>{label}</span>{r.ended && tone === 'amber' && r.kind !== 'problem' && <span class="note mono"> {r.ended}</span>}</td>
+    {email && <td data-l="Email">{r.email ? <a href={`/accounts?q=${encodeURIComponent(r.email)}`}>{r.email}</a> : <span class="muted">—</span>}</td>}
+    <td data-l="ARN" class="mono nw">{r.arn || '—'}</td>
+    <td data-l="Where">{r.place || '—'}</td>
+    <td data-l="What it said">{r.message || <span class="muted">—</span>}{about && <span class="note"> · about <button type="button" class="linkish" data-view={about}>#{about}</button></span>}</td>
+    <td data-l="Took" class="nw" data-v={r.seconds ?? -1}>{took(r.seconds) || <span class="muted">—</span>}</td>
+    <td data-l="Software · steps" class="mono nw">{r.version || '—'}<br><span class="muted">{r.steps || '—'}</span></td>
+    <td data-l="State" data-state-of={r.id}>{r.state && <span class:list={['tag', STATE[r.state][1]]}>{STATE[r.state][0]}</span>}</td>
+    <td><button class="btn secondary sm" type="button" data-view={r.id}>View{r.record ? ` · ${mb(r.record)}` : ''}</button></td>
+  </tr>; })}
+</tbody></table>
+
+<script>
+  import '../scripts/software';
+</script>
+<style is:global>
+.pc:has(.sw){overflow-x:auto}
+.sw tr.gone td{opacity:.55}
+.linkish{border:0;background:none;padding:0;color:var(--blue);font:inherit;cursor:pointer}
+.linkish:hover{text-decoration:underline}
+.sw-state{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.sw-same{display:flex;flex-direction:column;gap:8px;margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:8px}
+.sw-same > div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sw-same .btn{margin-left:auto}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:12px 0}
+.shots img{width:100%;border:1px solid var(--line);border-radius:8px;display:block}
+.applog{max-height:360px;overflow:auto;margin-top:12px;padding:12px;background:var(--sunken);border-radius:8px;font:11.5px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word}
+</style>

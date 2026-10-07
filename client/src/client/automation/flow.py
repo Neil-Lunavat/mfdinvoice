@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import shutil
 import time
 from datetime import datetime
@@ -43,7 +44,7 @@ from client.automation.words import CAMS, KFIN, NAMES, inr, plural
 
 log = logging.getLogger(__name__)
 
-MAIL_EVERY_S = 15                # CAMS's email comes 13 to 33 seconds after it is asked for
+MAIL_EVERY_S = 15                # CAMS's email takes from a minute to several (asked 17:07, sent 17:09 on 6 Oct)
 MAIL_GIVE_UP_S = 10 * 60
 ASKED_KEPT_S = 2 * 24 * 60 * 60  # an email asked for longer ago than this is not waited for; CAMS is asked again
 IDLE_S = 20 * 60                 # a portal left alone longer than this is signed in to afresh (tested safe, 4 Oct 2026)
@@ -63,6 +64,7 @@ class Job:
         self.skipped: set[str] = set()           # ... the ones the person left out of this run
         self.locked: dict[str, str] = {}         # own invoices: the numbers already given for good
         self.listed: dict[str, list[str]] = {}   # registrar -> the invoices it lists for the month
+        self.no_file: list[str] = []             # listed by KFintech, with no file in its download
         self.items: dict[str, dict] = {}         # every invoice read off the month's files, by key
         self.open: list[str] = []                # the ones this run may send, CAMS's first
         self.blocked: dict[str, str] = {}        # key -> why it cannot be sent by this run
@@ -244,15 +246,21 @@ class Job:
         person when no mailbox is connected. False when the person skipped CAMS instead of adding its files: CAMS
         is left out of this run, and the next one does not ask CAMS for the email again."""
         host, m, page = self.host, self.month, self.pages[CAMS]
-        by_hand = host.profile["mailbox"]["provider"] != "gmail"
+        # forwarded to us, or Gmail: the email is waited for; whatever fails falls back to by hand (Neil, 7 Oct)
+        by_hand = host.profile["mailbox"]["provider"] not in ("gmail", "forward")
         if not by_hand:
             ok, said = await host.mailbox_ok()
             if not ok:
-                raise Stop("mailbox", "Your mailbox couldn't be read", "Nothing was asked of CAMS. Fix the mailbox "
-                           "in Settings › Connections, then run again.", said=said, registrar=CAMS)
+                host.activity(f"CAMS's email couldn't be read ({said}): its files are asked for instead", CAMS)
+                by_hand = True
         asked = m.facts.get("asked") or {}
         waiting = (asked.get("listed") == self.listed[CAMS]
                    and time.time() - datetime.fromisoformat(asked["at"]).timestamp() < ASKED_KEPT_S)
+        # an email of CAMS's for this month already in the mailbox does, whichever request it answered: CAMS isn't
+        # asked again
+        found = None if by_hand or waiting else await self._month_mail(fetch=True)
+        if found:
+            return self._take_cams(found, "Found CAMS's email for {} in your mailbox")
         if not waiting:
             await self.at("Get", f"Asking CAMS to email {self.label}'s invoices")
             if not await cams.ready_to_ask(page):
@@ -265,31 +273,72 @@ class Job:
 
         dest = m.folder(CAMS, "fetched")
         if by_hand:
-            await self.at("Get", "Choose CAMS's invoice files")
-            got = await host.files(self.label, skip=KFIN in self.active())
-            if got.get("skip"):
-                self.skipped.add(CAMS)
-                self.aside[CAMS] = "CAMS's files weren't added"
+            pair = await self._by_hand()
+            if pair is None:
                 return False
-            pair = [Path(got["zip"]), Path(got["xls"])]
         else:
             await self.at("Get", "Waiting for CAMS's email")
-            await host.waiting_email(asked["at"], asked["ref"])
+            # Skip CAMS is offered while KFintech is in the same run (a software too old for it isn't asked)
+            skip = getattr(host, "skip_wanted", None) if KFIN in self.active() else None
+            await (host.waiting_email(asked["at"], asked["ref"], skip=True) if skip
+                   else host.waiting_email(asked["at"], asked["ref"]))
             deadline = time.monotonic() + MAIL_GIVE_UP_S
             while True:
-                pair = await host.mail_look(asked["ref"])
+                pair = await host.mail_look(asked["ref"]) or await self._month_mail(fetch=False)
                 if pair:
                     break
+                if skip and skip():
+                    # CAMS's request stands (`asked` is kept): its email is read when it comes, and asked for no more
+                    self.skipped.add(CAMS)
+                    self.aside[CAMS] = "CAMS's email hadn't come; it's read when it does"
+                    return False
                 if time.monotonic() > deadline:
-                    raise Stop("mailback_late", "CAMS's email hasn't arrived yet",
-                               f"CAMS was asked at {asked['at'][11:16]}. Run again in a few minutes: the run looks "
-                               "for that email first and doesn't ask twice.", registrar=CAMS)
+                    # not here in time: by hand from here (the files from CAMS's email, if it has come elsewhere).
+                    # The request stands, so the email is still read when it comes.
+                    host.activity(f"CAMS's email hadn't come {MAIL_GIVE_UP_S // 60} minutes after it was asked "
+                                  "for: its files were asked for instead", CAMS)
+                    pair = await self._by_hand()
+                    if pair is None:
+                        return False
+                    break
                 await asyncio.sleep(MAIL_EVERY_S)
-        dest = m.folder(CAMS, "fetched", empty=True)                 # the latest pair only, never two
+        return self._take_cams(pair, "Got CAMS's invoices for {}")
+
+    async def _by_hand(self) -> list[Path] | None:
+        """CAMS's two files, chosen by the person; None when they skipped CAMS instead."""
+        await self.at("Get", "Choose CAMS's invoice files")
+        got = await self.host.files(self.label, skip=KFIN in self.active())
+        if got.get("skip"):
+            self.skipped.add(CAMS)
+            self.aside[CAMS] = "CAMS's files weren't added"
+            return None
+        return [Path(got["zip"]), Path(got["xls"])]
+
+    def _take_cams(self, pair: list[Path], said: str) -> bool:
+        dest = self.month.folder(CAMS, "fetched", empty=True)        # the latest pair only, never two
         for src in pair:
             shutil.copyfile(src, dest / Path(src).name)
-        host.activity(f"Got CAMS's invoices for {self.label}", CAMS)
+        self.host.activity(said.format(self.label), CAMS)
         return True
+
+    async def _month_mail(self, fetch: bool) -> list[Path] | None:
+        """The newest of CAMS's emails in the mailbox that is this ARN's month and holds every invoice CAMS lists now,
+        whichever request it answered (Neil, 7 Oct). None when there is none, or the software is too old to say."""
+        look = getattr(self.host, "mail_pairs", None)
+        if look is None:
+            return None
+        arn = re.sub(r"\D", "", str(self.host.profile.get("arn") or ""))
+        for zip_file, xls in await look(fetch):
+            try:
+                rows = await asyncio.to_thread(cams.read_report, xls, self.period)
+            except (Stop, Changed, OSError, ValueError):
+                continue                                             # another month's, or not a report we know
+            if {re.sub(r"\D", "", str(r.get("BROKER CODE") or "")) for r in rows} != {arn}:
+                continue
+            if set(self.listed[CAMS]) - {r[cams.CAMS_INVOICE] for r in rows}:
+                continue                                             # older than what CAMS lists now
+            return [zip_file, xls]
+        return None
 
     # --- Read ---------------------------------------------------------------------------------------------------------
 
@@ -304,10 +353,18 @@ class Job:
             if confirm:
                 ok, said = await confirm()
                 if not ok:
-                    raise Stop("arn_unbound", "This ARN couldn't be added to your account", said, registrar=CAMS)
+                    raise Stop("arn_unbound", "This ARN couldn't be added to your account", "Nothing was submitted. "
+                               "CAMS's files for this month are on this PC, so the next run starts from them.",
+                               said=said, registrar=CAMS)
         if KFIN in self.active():
             await self.at("Read", "Reading KFintech's invoices")
             await asyncio.to_thread(self._read_kfin)
+            # KFintech lists it and its download holds no file for it (seen 7 Oct): said, and the rest go on
+            self.no_file = [k for k in self.listed.get(KFIN, []) if k not in self.items]
+            if self.no_file:
+                self.host.activity(f"KFintech lists {plural(len(self.listed[KFIN]), 'invoice')} for {self.kf_label} "
+                                   f"and its download held {len(self.listed[KFIN]) - len(self.no_file)}. "
+                                   f"No file for {', '.join(self.no_file)}.", tone="warn")
         self.open = [k for reg in self.regs for k, i in self.items.items()
                      if i["registrar"] == reg and reg in self.active() and k not in m.with_registrar(reg)]
         if self.own:
@@ -705,12 +762,44 @@ async def download(host, period: str, registrars: list[str]) -> dict:
         await job.get()
         await job.done("Get", " · ".join(job.aside.get(r) or f"{NAMES[r]} {len(job.listed[r])}" for r in job.regs))
         await job.read()
+        short = f" KFintech's download had no file for {plural(len(job.no_file), 'invoice')} it lists." if job.no_file else ""
         await job.done("Read", f"{plural(len(job.items), 'invoice')} on this PC")
-        summary = f"{plural(len(job.items), 'invoice')} for {words.month_name(period)} downloaded."
+        summary = f"{plural(len(job.items), 'invoice')} for {words.month_name(period)} downloaded.{short}"
         job.host.activity(summary)
         return {"how": "done", "summary": summary, "used": "", "counts": {}, "total": 0, "downloaded": True}
 
     return await _guarded(job, steps, keeps_last_run=True)
+
+
+async def pickup(host, period: str) -> dict:
+    """CAMS's email for a month whose run went on without it (Skip CAMS) or stopped waiting: when it has come, its
+    files are taken and read, with no portal and no run. {got: N}, or {} when it hasn't come yet."""
+    job = Job(host, period, [CAMS])
+    m = job.month
+    asked = m.facts.get("asked") or {}
+    if not asked or (m.facts.get("fetched") or {}).get(CAMS):
+        return {}
+    job.listed[CAMS] = list(asked.get("listed") or [])
+    pair = await job._month_mail(fetch=True)
+    if not pair:
+        return {}
+    job._take_cams(pair, "CAMS's email for {} came; its invoices are on this PC")
+    m.facts.setdefault("fetched", {})[CAMS] = {"at": now(), "listed": job.listed[CAMS]}
+    m.facts.pop("asked", None)
+    m.save()
+    await job.read()
+    return {"got": len(job.items)}
+
+
+CHECK_AGAIN_S = 10 * 60          # a status read less than this long ago is shown again, not read again
+SHOWN_AGAIN_S = 1.2              # ... each line of it staying this long
+
+
+def _checked_just_now(m: Month) -> bool:
+    try:
+        return (datetime.now() - datetime.fromisoformat(m.facts.get("checkedAt") or "")).total_seconds() < CHECK_AGAIN_S
+    except (ValueError, TypeError):
+        return False
 
 
 async def check(host, period: str, registrars: list[str]) -> dict:
@@ -719,9 +808,17 @@ async def check(host, period: str, registrars: list[str]) -> dict:
     await job.plan(["Check"])
 
     async def steps(job: Job) -> dict:
+        if _checked_just_now(job.month):
+            # read under ten minutes ago: it looks like a check and the portals are left alone (Neil, 7 Oct)
+            for line in [f"Signing in to {NAMES[r]}" for r in job.regs] + [f"Reading what {NAMES[r]} has" for r in job.regs]:
+                await job.at("Check", line)
+                await asyncio.sleep(SHOWN_AGAIN_S)
+            return {"how": "done", "news": job.month.facts.get("checkNews") or job.check_line()}
         await job.enter()
         await job.status()
-        return {"how": "done", "news": job.check_line()}
+        job.month.facts["checkNews"] = job.check_line()
+        job.month.save()
+        return {"how": "done", "news": job.month.facts["checkNews"]}
 
     got = await _guarded(job, steps, keeps_last_run=True)
     return {"news": got.get("news", ""), "stop": got.get("stop")}
@@ -797,4 +894,4 @@ def _as_stop(e: Exception, registrar: str = "") -> Stop:
                     registrar=registrar)
     return Stop("ours", f"Something on {name}'s side isn't what {NAME} expects",
                 "This one is ours to fix, and it has been sent to us. Nothing is sent twice: run again once the "
-                "app says it is fixed.", registrar=registrar)
+                "software says it is fixed.", registrar=registrar)

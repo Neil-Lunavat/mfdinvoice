@@ -11,7 +11,7 @@ export default defineConfig({
      because the blog's posts come from the database. */
   output: 'static',
   /* No images to resize and no sessions, so the Worker needs no Images or KV binding. */
-  adapter: cloudflare({ imageService: 'passthrough' }),
+  adapter: cloudflare({ imageService: 'passthrough', ...(process.argv.includes('dev') ? { configPath: './wrangler.dev.jsonc' } : {}) }),
   session: false,
   /* The blog's pages are cached at Cloudflare's edge (Astro.cache, tag 'blog'); publishing purges the tag. */
   cache: { provider: cacheCloudflare() },

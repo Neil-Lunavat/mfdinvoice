@@ -5,13 +5,15 @@
 import type { Plan } from '../bridge/types';
 import { dayMon, dayMonYear } from './format';
 
-/** What Overview shows instead of the month: the free trial to activate, the plain screen of a plan that ended, an
+/** What Overview shows instead of the month: the free trial to activate (or `used`: this email had it already), the
+    plain screen of a plan that ended, an
     ARN that is set up here but not on the plan (`unbound`), or nothing (the month as usual). An ARN set up without
     KFintech is bound by its first run (`bindOnRun`): with a plan running it just runs; with none, once Activate free
     trial has been pressed (`bindAsked`). */
-export function planScreen(p: Plan | null, arn = '', prof?: { bindOnRun?: boolean; bindAsked?: boolean } | null): 'activate' | 'ended' | 'unbound' | null {
+export function planScreen(p: Plan | null, arn = '', prof?: { bindOnRun?: boolean; bindAsked?: boolean } | null): 'activate' | 'used' | 'ended' | 'unbound' | null {
   if (!p) return null;
   if (p.state === 'ended') return 'ended';
+  if (p.state === 'none' && p.trialUsed) return 'used';
   if (p.state === 'none') return prof?.bindOnRun && prof.bindAsked ? null : 'activate';
   if (p.state === 'active' && arn && !p.arns.includes(arn)) return prof?.bindOnRun ? null : 'unbound';
   return null;

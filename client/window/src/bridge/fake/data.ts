@@ -134,7 +134,7 @@ export const RK: Omit<Profile, 'signature'> = {
   invoices: { source: 'own', last: 'RKM/26-27/073', at: 10, settings: {
     template: 'tally', address: ['12, Shanti Kunj, College Road', 'Nashik 422005'], phone: '98220 12345',
     email: 'rkmehta@gmail.com', website: '', particulars: 'Commission', particularsAmc: true, remarks: '' } },
-  lastLogin: { CAMS: '2026-10-03', KFINTECH: '2026-10-03' }, tally: { company: 'R K Mehta & Co', ledgers: 17 },
+  lastLogin: { CAMS: '2026-10-03', KFINTECH: '2026-10-03' }, tally: { company: 'Lunavat & Co', ledgers: 17 },
   consent: { version: 1, text: `I authorise ${NAME} to sign in and act for me on CAMS and KFintech for ARN-104512.`, at: '2026-06-02T10:14:00', device: 'THIS-PC' }
 };
 
@@ -184,3 +184,13 @@ export function activity(state: MonthState): ActivityEntry[] {
   ];
   return [...sep, ...oct].reverse();
 }
+
+/** A survey from the panel, as /api/app/me brings it. */
+export const SURVEY = {
+  id: 1, title: 'Your first month',
+  questions: [
+    { key: 'q1', q: 'How did your first month with MFDInvoice go?', type: 'one' as const, options: ['Smoothly', 'A few bumps', 'It was hard'], other: false },
+    { key: 'q2', q: 'Which of these would you use?', type: 'many' as const, options: ['Download several months at once', 'Zoho Books', 'A reminder when invoices are listed'], other: true },
+    { key: 'q3', q: 'What one thing should we change?', type: 'text' as const, options: [], other: false }
+  ]
+};

@@ -52,7 +52,7 @@ const questions = ASKED.map(q => all.find(([x]) => x === q)!);
           <div class="grp">
             <h4>Your books and records</h4>
             <ul>
-              <li><span class="tick"><svg><use href="#tk"/></svg></span>Tally, and Zoho Books soon</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Tally and Zoho Books</li>
               <li><span class="tick"><svg><use href="#tk"/></svg></span>Every month kept on your PC</li>
             </ul>
           </div>
@@ -60,9 +60,8 @@ const questions = ASKED.map(q => all.find(([x]) => x === q)!);
             <h4>Always</h4>
             <ul>
               <li><span class="tick"><svg><use href="#tk"/></svg></span>Keeps working when the portals change</li>
-              <li><span class="tick"><svg><use href="#tk"/></svg></span>Support from inside the app</li>
+              <li><span class="tick"><svg><use href="#tk"/></svg></span>Support from inside the software</li>
               <li><span class="tick"><svg><use href="#tk"/></svg></span>Your passwords stay on your PC</li>
-              <li><span class="tick"><svg><use href="#tk"/></svg></span>Analytics and insights<span class="soon">Coming soon</span></li>
             </ul>
           </div>
         </div>
@@ -103,7 +102,6 @@ const questions = ASKED.map(q => all.find(([x]) => x === q)!);
 .grp li{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-2);font-size:14.5px;color:var(--ink-2)}
 .tick{width:18px;height:18px;margin-top:2px;border-radius:99px;background:var(--green-wash);color:var(--green);display:grid;place-items:center;flex-shrink:0}
 .tick svg{width:10px;height:10px}
-.soon{margin-left:auto;align-self:center;font-size:11px;font-weight:600;color:var(--muted);border:1px dashed var(--faint);border-radius:6px;padding:1px 6px;white-space:nowrap}
 
 @media (max-width:980px){
   .plan{grid-template-columns:1fr}

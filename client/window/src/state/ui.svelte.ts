@@ -3,10 +3,10 @@
 import type { Invoice, InvoiceSettings, Invoices, ProfileDraft, Registrar, RunKind } from '../bridge';
 import type { Clash } from '../logic/clash';
 
-export type Page = 'splash' | 'signin' | 'setup' | 'overview' | 'invoices' | 'tally' | 'settings';
+export type Page = 'splash' | 'signin' | 'setup' | 'overview' | 'invoices' | 'downloads' | 'tally' | 'settings';
 export type Detail = 'who' | 'cams' | 'mb' | 'kf' | 'sig' | 'inv';
 
-export const SECTIONS = ['Connections', 'Your details', 'Your invoices', 'History', 'Account & plan', 'This PC', 'Support'] as const;
+export const SECTIONS = ['Connections', 'Your details', 'Your invoices', 'History', 'Account & plan', 'This PC', 'Support', 'Send an idea'] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export type Popup =
@@ -41,7 +41,7 @@ class Ui {
   popups = $state<Popup[]>([]);
   menu = $state<'' | 'bell' | 'arn' | 'run' | 'month'>('');        // a small popover, closed by Esc or a click elsewhere
   // the run window is open: for these registrars and this month, as a run, a status check or a download
-  runWith = $state<{ registrars: Registrar[]; period: string; what: RunKind } | null>(null);
+  runWith = $state<{ registrars: Registrar[]; period: string; what: RunKind; periods?: string[] } | null>(null);   // periods: a download of several months
   month = $state<string | null>(null);                   // the month Overview shows; null: this month
   tallyMonth = $state<string | null>(null);              // the month the Tally tab opens on; null: the newest
   settingsDirty = $state(false);                         // Your invoices has unsaved changes

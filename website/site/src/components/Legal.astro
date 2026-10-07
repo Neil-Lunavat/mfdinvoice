@@ -1,7 +1,7 @@
 ---
 /* Terms, Privacy and Refunds: one layout. Each section is a heading and its paragraphs (HTML allowed: links, lists,
    and a company detail still in [brackets], greyed by lib/format.ts shown). The company's details and the prices come
-   from consts.ts, so the three pages follow it. A draft until the lawyer has read it: the note says so. */
+   from consts.ts, so the three pages follow it. */
 import { TERMS_VERSION } from '../consts';
 import { longDate } from '../lib/date';
 export type Section = { h: string; p: string[] };
@@ -15,7 +15,6 @@ const id = (h: string) => h.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0
     <div class="legal-g">
       <nav class="ltoc">{sections.map(s => <a href={`#${id(s.h)}`}>{s.h}</a>)}</nav>
       <div class="doc">
-        <p class="draft">A draft, until our lawyer has reviewed it.</p>
         {sections.map(s => <Fragment><h2 id={id(s.h)}>{s.h}</h2>{s.p.map(x => x.startsWith('<ul') ? <Fragment set:html={x} /> : <p set:html={x} />)}</Fragment>)}
       </div>
     </div>

@@ -68,6 +68,6 @@ a = Analysis(
 )
 a.datas = [d for d in a.datas if Path(d[0]).parent.name != META or Path(d[0]).name == "METADATA"]
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name=NAME, console=False, upx=False,
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name=NAME, console=False, upx=False, icon=str(HERE / "icon.ico"),
           version=os.environ.get("APP_VERSION_FILE") or None)
 coll = COLLECT(exe, a.binaries, a.datas, upx=False, name=NAME)

@@ -6,18 +6,19 @@
   import { app, type Month, type Registrar, type RunKind } from '../bridge';
   import { consentCurrent } from '../logic/consent';
   import { nextInvoice, registrarsOf } from '../logic/details';
-  import { checkedLine, dayMon, hhmm, inr, regName } from '../logic/format';
+  import { checkedLine, dayMon, inr, regName } from '../logic/format';
   import { card, registrarCard, rejections } from '../logic/month';
   import { planBlocksRun } from '../logic/plan';
   import { store } from '../state/store.svelte';
   import { ui } from '../state/ui.svelte';
   import { icons } from '../ui/icons';
+  import SurveyToast from '../ui/SurveyToast.svelte';
 
   let { banner }: { banner: 'down' | 'offline' | null } = $props();
 
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const CHECK_AGAIN_MS = 10 * 60_000;          // a status read less than this long ago is shown again, not read again
+  const FIRST = 'APR-2026';                     // CAMS's and KFintech's GST invoices began with April 2026
 
   const s = $derived(store.snap!);
   const p = $derived(s.profile!);
@@ -40,7 +41,10 @@
     return `${MON[((n % 12) + 12) % 12]}-${Math.floor(n / 12)}`;
   }
   function labelOf(of: string) { const [mon, yr] = of.split('-'); return `${NAMES[MON.indexOf(mon)]} ${yr}`; }
-  const months = $derived(Array.from({ length: 12 }, (_, i) => step(now, -i)));
+  const index = (of: string) => { const [mon, yr] = of.split('-'); return Number(yr) * 12 + MON.indexOf(mon); };
+  // the picker: this month back to April 2026, by name only (a year picker comes when there is a second year)
+  const months = $derived(Array.from({ length: Math.max(1, index(now) - index(FIRST) + 1) }, (_, i) => step(now, -i)));
+  const nameOf = (of: string) => NAMES[MON.indexOf(of.split('-')[0])];
   function pickMonth(of: string) { ui.menu = ''; ui.month = of === now ? null : of; }
 
   const c = $derived(card(m));
@@ -66,7 +70,6 @@
   function open(what: RunKind, only?: Registrar) { ui.menu = ''; ui.runWith = { registrars: only ? [only] : regs, period, what }; }
   function checkNow() {
     if (runOff) return;
-    if (m.checkedAt && Date.now() - new Date(m.checkedAt).getTime() < CHECK_AGAIN_MS) { store.toast(`Checked at ${hhmm(m.checkedAt)}.`); return; }
     open('check');
   }
   function openRejected() {
@@ -74,6 +77,8 @@
     else { ui.go('invoices'); ui.invoicesMonth = m.period; }
   }
   const stageNames = (bad: boolean) => ['Fetched', 'Signed', 'Checked', 'Submitted', bad ? 'Rejected' : 'Approved'];
+  // CAMS's email hadn't come when the last run went on with KFintech: Run is CAMS's now; both and KFintech are in the menu
+  const camsNext = $derived(!!m.camsWaiting && regs.length > 1);
   const openOf = (r: Registrar) => m.invoices.filter(x => x.registrar === r && !['Waiting approval', 'Approved', 'Paid', 'Submitted'].includes(x.status)).length;
 </script>
 
@@ -83,12 +88,12 @@
     <div class="stepper" style="position:relative">
       <button aria-label="The month before" disabled={period === months.at(-1)} onclick={() => pickMonth(step(period, -1))}>{@html icons.prev}</button>
       <button class="val pick" aria-haspopup="menu" aria-expanded={ui.menu === 'month'} aria-label="Pick a month"
-        onclick={e => { e.stopPropagation(); ui.menu = ui.menu === 'month' ? '' : 'month'; }}>{m.label}{@html icons.chevDown}</button>
+        onclick={e => { e.stopPropagation(); ui.menu = ui.menu === 'month' ? '' : 'month'; }}>{nameOf(period)}{@html icons.chevDown}</button>
       <button aria-label="The month after" disabled={period === now} onclick={() => pickMonth(step(period, 1))}>{@html icons.next}</button>
       {#if ui.menu === 'month'}
         <div class="menu months" role="menu">
           {#each months as of (of)}
-            <button role="menuitem" class:on={of === period} onclick={e => { e.stopPropagation(); pickMonth(of); }}>{labelOf(of)}<span>{of === now ? 'This month' : ''}</span></button>
+            <button role="menuitem" class:on={of === period} onclick={e => { e.stopPropagation(); pickMonth(of); }}>{nameOf(of)}<span>{of === now ? 'This month' : ''}</span></button>
           {/each}
         </div>
       {/if}
@@ -148,7 +153,7 @@
         <div class="facts">{#if c.lastStopped}Last run stopped: {c.lastStopped}<span>·</span>{/if}{regs.map(r => `${regName(r)} ${c.byRegistrar[r]}`).join(' · ')}<span>·</span>{checkedLine(m.checkedAt, s.today)}
           <a href="#check" onclick={e => { e.preventDefault(); checkNow(); }}>Check now</a></div>
       {:else if c.state === 'partly'}
-        <span class="chip wait">Submitted</span>
+        <span class="chip wait">{c.sent} of {c.count} submitted</span>
         <div class="big">{c.sent} of {c.count} submitted. This run does the other {c.open}.</div>
         <div class="facts">{#if c.lastStopped}Last run stopped: {c.lastStopped}<span>·</span>{/if}{c.open} to do · {inr(c.openTotal)}<span>·</span>{checkedLine(m.checkedAt, s.today)}
           <a href="#check" onclick={e => { e.preventDefault(); checkNow(); }}>Check now</a></div>
@@ -167,17 +172,21 @@
         <button class="btn secondary lg" data-primary onclick={() => { ui.go('invoices'); ui.invoicesMonth = period; }}>See invoices</button>
       {:else}
         <div class="splitrun">
-          <button class="btn run" id="run" data-primary disabled={runOff} onclick={() => open('run')}>{@html icons.playFill}Run {monthName}</button>
+          <button class="btn run" id="run" data-primary disabled={runOff} onclick={() => (camsNext ? open('run', 'CAMS') : open('run'))}>{@html icons.playFill}{camsNext ? 'Run CAMS' : `Run ${monthName}`}</button>
+          {#if camsNext || regs.length > 1}
           <button class="btn run caret" aria-label="More ways to run" aria-haspopup="menu" aria-expanded={ui.menu === 'run'} disabled={runOff}
             onclick={e => { e.stopPropagation(); ui.menu = ui.menu === 'run' ? '' : 'run'; }}>{@html icons.caret}</button>
+          {/if}
           {#if ui.menu === 'run'}
             <div class="menu" role="menu">
-              {#if regs.length > 1}
+              {#if camsNext}
+                <button role="menuitem" onclick={() => open('run')}>Run both <span>CAMS and KFintech</span></button>
+                <button role="menuitem" onclick={() => open('run', 'KFINTECH')}>Run KFintech only <span>{m.invoices.length ? `${openOf('KFINTECH')} to do` : ''}</span></button>
+              {:else if regs.length > 1}
                 {#each regs as r (r)}
                   <button role="menuitem" onclick={() => open('run', r)}>Run {regName(r)} only <span>{m.invoices.length ? `${openOf(r)} to do` : ''}</span></button>
                 {/each}
               {/if}
-              <button role="menuitem" onclick={() => open('download')}>Download invoices <span>{monthName}'s, onto this PC. Nothing is submitted</span></button>
             </div>
           {/if}
         </div>
@@ -208,4 +217,5 @@
       </div>
     {/each}
   </div>
+  <SurveyToast />
 </div>

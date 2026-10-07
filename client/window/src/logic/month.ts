@@ -73,7 +73,8 @@ export function card(m: Month): Card {
     sent, approved, waiting, rejected,
     byRegistrar: { CAMS: xs.filter(x => x.registrar === 'CAMS').length, KFINTECH: xs.filter(x => x.registrar === 'KFINTECH').length },
     canRun: RUNNABLE.includes(state),
-    lastStopped: stopped ? last!.said || 'The run stopped' : '',
+    // "not listed yet" is over once the month's invoices are here
+    lastStopped: stopped && !(last!.code === 'not_listed' && xs.length) ? last!.said || 'The run stopped' : '',
     rerun: rejected && !RUNNABLE.includes(state)
       ? { keys: xs.filter(isRejected).map(x => x.key),
           registrars: (['CAMS', 'KFINTECH'] as Registrar[]).filter(r => xs.some(x => isRejected(x) && x.registrar === r)) }
@@ -104,6 +105,7 @@ export function registrarCard(m: Month, registrar: Registrar): RegistrarCard {
     rejected ? { text: `${rejected} rejected`, tone: 'bad' }
       : xs.length && xs.every(isApproved) ? { text: 'Approved', tone: 'good' }
       : xs.length && xs.every(isWithRegistrar) ? { text: 'Waiting approval', tone: 'wait' }
+      : xs.some(isWithRegistrar) ? { text: `${xs.filter(isWithRegistrar).length} of ${xs.length} submitted`, tone: 'wait' }
       : { text: 'Not submitted', tone: 'neutral' };
   return { registrar, count: xs.length, total: totalOf(xs), on: rejected ? 4 : on, bad: rejected > 0, chip };
 }

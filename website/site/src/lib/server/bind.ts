@@ -1,15 +1,20 @@
 /* Binding an ARN to an account: the app does it when setup finishes, once the person's own portal sign-ins have shown
    the ARN (/api/app/bind). On an account that has never had a plan it starts the free trial with that ARN (trial.ts;
-   trial_until is its last day). Refuses (409) arn_taken (another account has it, on a plan that is running),
-   no_free_slot, or (403) no_active_plan. Binding an ARN the account already has is fine (already: true).
-   An ARN on an account whose plan has ended is free to take: it leaves that account and comes to this one. */
+   trial_until is its last day), unless this email has had one: then it answers (403) no_active_plan with
+   trial_used: true, as for a plan that has ended. Refuses (409) arn_taken (another account has it, on a plan that
+   is running), no_free_slot, or (403) no_active_plan. Binding an ARN the account already has is fine (already: true).
+   An ARN on an account whose plan has ended is free to take: it leaves that account, which is emailed, and comes to
+   this one. */
 import { env } from 'cloudflare:workers';
 import { json, fail, str } from './http';
 import { normArn } from './arn';
-import { getAccount, getPlan, isActive } from './account';
+import { getAccount, getPlan, isActive, trialUsed } from './account';
 import { startTrial } from './trial';
 import { event } from './events';
-import { now, todayIST } from './util';
+import { now, todayIST, siteOrigin } from './util';
+import { send } from './mail';
+import { record } from './errors';
+import { arnTakenMail } from '../emails';
 
 const ownerOf = (arn: string) => env.DB.prepare('SELECT account_id FROM arns WHERE arn = ?').bind(arn).first<{ account_id: number }>();
 const usedBy = async (account: number) =>
@@ -25,7 +30,12 @@ async function release(arn: string, from: number, to: number) {
         SELECT ?1, 'system', 'arn.freed', ?2, ?3, ?4 WHERE changes() > 0`)
       .bind(now(), from, arn, `Its plan had ended; taken by account ${to}`),
   ]);
-  return !!r.meta.changes;
+  if (!r.meta.changes) return false;
+  /* the old account is told once; a failed email doesn't stop the bind */
+  const old = await getAccount(from);
+  if (old) await send(old.email, arnTakenMail({ arn: `ARN-${arn}`, link: `${siteOrigin()}/support` }))
+    .catch(e => record('email', `arn taken ${arn}`, e));
+  return true;
 }
 
 export async function bindArn(account: number, rawArn: unknown, rawHolder: unknown): Promise<Response> {
@@ -41,6 +51,8 @@ export async function bindArn(account: number, rawArn: unknown, rawHolder: unkno
   /* never had a plan: this ARN starts the account's free trial */
   if (!plan) {
     if (!(await getAccount(account))) return fail(404, 'no_account');
+    /* one free trial per email: an account deleted and made again doesn't get a second */
+    if (await trialUsed(account)) return fail(403, 'no_active_plan', { paid_until: null, trial_used: true });
     if (theirs !== null && !(await release(arn, theirs, account))) return fail(409, 'arn_taken');
     const until = await startTrial(account, arn, holder);
     if (until) return json({ ok: true, arn, already: false, slots: 1, used: 1, trial_until: until });

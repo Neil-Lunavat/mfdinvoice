@@ -54,7 +54,7 @@ SIGNING_REFUSED = _c("signing_refused", USER, "The token did not sign: the PIN b
                      "locked, the certificate has expired, or its software said no.", True)
 ARN_MISMATCH = _c("arn_mismatch", USER, "The portal login belongs to a different ARN than the one on this plan.", False)
 NO_BROWSER = _c("no_browser", USER, "No usable browser on this PC and none could be installed.", True)
-ANOTHER_COPY = _c("another_copy", USER, "Another copy of the app is already running on this PC.", True)
+ANOTHER_COPY = _c("another_copy", USER, "Another copy of the software is already running on this PC.", True)
 BROWSER_DOWNLOAD = _c("browser_download", USER, "A browser had to be downloaded and the download failed.", True)
 SETUP_INCOMPLETE = _c("setup_incomplete", USER, "Something this run needs was never set up.", True)
 

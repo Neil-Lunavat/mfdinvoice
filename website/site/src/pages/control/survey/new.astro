@@ -1,0 +1,98 @@
+---
+/* Writing a survey for the software: a title, then questions one by one (the question, its type, its options, "Other"
+   on or off). Saved as a draft; its own page sends it live. ?id= writes a draft again; a live or closed one can't
+   be changed (its answers are read against its questions). */
+import Panel from '../../../layouts/Panel.astro';
+import { accessUser } from '../../../lib/server/access';
+import { tabCounts } from '../../../lib/server/admin';
+import { survey } from '../../../lib/server/surveys';
+import { LIMITS, TYPES } from '../../../lib/surveys';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const id = Number(Astro.url.searchParams.get('id')) || 0;
+const [was, tabs] = await Promise.all([id ? survey(id) : null, tabCounts()]);
+if (id && (!was || was.state !== 'draft')) return Astro.redirect(`/survey/${id}`);
+const start = { id: was?.id ?? 0, title: was?.title ?? '', questions: was?.questions ?? [{ q: '', type: 'one', options: ['', ''], other: false }] };
+---
+<Panel title={was ? 'Edit survey' : 'New survey'} app="control" on="/survey" me={me.email} counts={tabs}>
+  <div class="ph1"><div><h1>{was ? 'Edit survey' : 'New survey'}</h1><p>The software asks it on Overview, one question at a time, then says thank you. No question is required.</p></div>
+    <a class="btn secondary sm" href="/survey?view=software" style="align-self:center;margin-left:auto">Back</a></div>
+  <section class="pc"><div class="sv-b">
+    <div class="field"><label for="title">Title <span class="muted">(for you; the software shows the questions)</span></label>
+      <input class="input" id="title" maxlength={LIMITS.title} value={start.title} placeholder="e.g. How was your first month?"></div>
+  </div></section>
+  <div id="qs"></div>
+  <div class="sv-foot">
+    <button class="btn secondary" type="button" id="add">Add a question</button>
+    <p class="err-line" id="err" hidden></p>
+    <button class="btn primary" type="button" id="save" style="margin-left:auto">Save draft</button>
+  </div>
+  <script type="application/json" id="start" set:html={JSON.stringify(start)} />
+  <script type="application/json" id="types" set:html={JSON.stringify(TYPES)} />
+</Panel>
+
+<style is:global>
+.sv-b{padding:16px 18px}
+.sv-q{padding:16px 18px;display:grid;gap:12px}
+.sv-q .top{display:flex;gap:10px;align-items:flex-start}
+.sv-q .top textarea{flex:1;min-height:44px;resize:vertical}
+.sv-q .opts{display:grid;gap:6px;max-width:560px}
+.sv-q .opt{display:flex;gap:6px}
+.sv-q .opt input{flex:1}
+.sv-foot{display:flex;align-items:center;gap:12px;margin:4px 0 30px}
+.sv-b .muted{color:var(--muted);font-weight:400}
+</style>
+
+<script>
+import { $, post, esc } from '../../../scripts/client';
+import { errText } from '../../../scripts/panel';
+
+type Q = { q: string; type: 'one' | 'many' | 'text'; options: string[]; other: boolean };
+const start = JSON.parse($('start').textContent) as { id: number; title: string; questions: Q[] };
+const TYPES = JSON.parse($('types').textContent) as Record<string, string>;
+const qs: Q[] = start.questions.map(q => ({ ...q, options: [...q.options] }));
+
+function draw() {
+  $('qs').innerHTML = qs.map((q, i) => `<section class="pc"><div class="pc-h"><h2>Question ${i + 1}</h2>
+      <button class="btn ghost sm" type="button" data-del="${i}" style="margin-left:auto"${qs.length === 1 ? ' disabled' : ''}>Remove</button></div>
+    <div class="sv-q">
+      <div class="top"><textarea class="input" data-q="${i}" maxlength="300" placeholder="The question">${esc(q.q)}</textarea>
+        <select class="input sel" data-type="${i}" style="width:auto">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}"${k === q.type ? ' selected' : ''}>${v}</option>`).join('')}</select></div>
+      ${q.type === 'text' ? '<p class="note">They type a short answer.</p>' : `<div class="opts">
+        ${q.options.map((o, j) => `<div class="opt"><input class="input" data-opt="${i}:${j}" maxlength="120" placeholder="Option ${j + 1}" value="${esc(o)}">
+          <button class="btn ghost sm" type="button" data-rm="${i}:${j}"${q.options.length <= 2 ? ' disabled' : ''}>×</button></div>`).join('')}
+        <div style="display:flex;gap:14px;align-items:center"><button class="btn ghost sm" type="button" data-addopt="${i}"${q.options.length >= 12 ? ' disabled' : ''}>Add an option</button>
+          <label class="check"><input type="checkbox" data-other="${i}"${q.other ? ' checked' : ''}> “Other”, typed in their words</label></div></div>`}
+    </div></section>`).join('');
+}
+
+document.addEventListener('input', e => {
+  const t = e.target as HTMLInputElement, d = t.dataset;
+  if (d.q) qs[+d.q].q = t.value;
+  if (d.opt) { const [i, j] = d.opt.split(':').map(Number); qs[i].options[j] = t.value; }
+});
+document.addEventListener('change', e => {
+  const t = e.target as HTMLInputElement, d = t.dataset;
+  if (d.type) { const q = qs[+d.type]; q.type = t.value as Q['type']; if (q.type !== 'text' && q.options.length < 2) q.options = ['', '']; draw(); }
+  if (d.other) qs[+d.other].other = t.checked;
+});
+document.addEventListener('click', e => {
+  const b = (e.target as HTMLElement).closest('button'); if (!b) return;
+  const d = b.dataset;
+  if (d.del) { qs.splice(+d.del, 1); draw(); }
+  if (d.addopt) { qs[+d.addopt].options.push(''); draw(); }
+  if (d.rm) { const [i, j] = d.rm.split(':').map(Number); qs[i].options.splice(j, 1); draw(); }
+});
+$('add').onclick = () => { qs.push({ q: '', type: 'one', options: ['', ''], other: false }); draw(); };
+$('save').onclick = async () => {
+  const err = $('err'); err.hidden = true;
+  const b = $('save') as HTMLButtonElement; b.disabled = true;
+  const r = await post('/api/admin/surveys', { action: 'save', id: start.id || undefined, title: ($('title') as HTMLInputElement).value,
+    questions: qs.map(q => ({ ...q, options: q.options.map(o => o.trim()).filter(Boolean) })) });
+  if (!r.ok) { b.disabled = false; err.textContent = errText(r); err.hidden = false; return; }
+  location.href = `/survey/${r.id}`;
+};
+draw();
+</script>

@@ -8,7 +8,7 @@ interface __BaseEnv_Env {
 	ASSETS: Fetcher;
 	PAYMENTS: "upi";
 	CASHFREE_MODE: "sandbox";
-	SITE_ORIGIN: "https://site.develop-tbc.workers.dev";
+	SITE_ORIGIN: "https://mfdinvoice.co.in";
 	CONTROL_HOST: "control.mfdinvoice.co.in";
 	WRITE_HOST: "write.mfdinvoice.co.in";
 	ACCESS_TEAM: "winter-mouse-cce4.cloudflareaccess.com";

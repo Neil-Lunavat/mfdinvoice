@@ -64,8 +64,6 @@ select.sel option{color:var(--ink)}
 .dlg-b .input.mono{font-size:14px}
 .dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px;border-top:1px solid var(--line-2);background:var(--subtle)}
 
-/* a draft banner on pages whose words are not ours to write */
-.draft{margin-bottom:28px;padding:12px 16px;border:1px dashed var(--faint);border-radius:var(--r-card);font-size:13.5px;color:var(--muted);background:var(--surface)}
 .ph{color:var(--faint);font-style:italic}
 
 /* The result card (Checkout, Sign in, Support): the tick, or the cross, left of the title; the rest under them.

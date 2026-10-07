@@ -138,7 +138,8 @@ export const clearCookies = () => ['sid=; Path=/; HttpOnly; Secure; SameSite=Lax
 export const setupCookie = (missing: boolean) =>
   missing ? `sb=1; Path=/; Secure; SameSite=Lax; Max-Age=${WEB_KEEP / 1000}` : 'sb=; Path=/; Secure; SameSite=Lax; Max-Age=0';
 
-/* hp: this account has had a plan (a free trial counts), so the site's main button says "Buy now", not "Try for
+/* hp: this account has had a plan, or its email a free trial (account.ts hadPlan), so the site's main button says
+   "Buy now", not "Try for
    Free" (si.js, components/Cta.astro). Set at sign-in, by the Account page and whenever a page asks /api/me. It
    stays after signing out: this browser's person has had their trial. */
 export const planCookie = (had: boolean) =>

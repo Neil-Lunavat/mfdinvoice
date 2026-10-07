@@ -163,7 +163,7 @@ function survey() {
   const box = document.createElement('div');
   host.appendChild(box);
   box.innerHTML = `<div class="card sv rv in">
-    <h2>While we check: three quick questions</h2>
+    <h2>While we check: four quick questions</h2>
     <p class="sv-s">All optional.</p>
     ${QUESTIONS.map(q => `<fieldset class="svq"><legend>${q.q}</legend><div class="chips">${q.options.map(([k, l]) =>
       `<label class="chip"><input type="radio" name="${q.key}" value="${k}"><span>${l}</span></label>`).join('')}</div>${q.other

@@ -14,7 +14,7 @@
   import Editor from '../setup/Editor.svelte';
   import LastNumberEditor from './LastNumber.svelte';
 
-  let { registrars, period, what, onclose }: { registrars: Registrar[]; period: string; what: RunKind; onclose: () => void } = $props();
+  let { registrars, period, what, periods, onclose }: { registrars: Registrar[]; period: string; what: RunKind; periods?: string[]; onclose: () => void } = $props();
 
   const p = $derived(store.snap!.profile!);
   const held = $derived(what !== 'check' && blocksRun(ui.clash, registrars));
@@ -35,7 +35,7 @@
   async function start() {
     if (held || starting || (own && !next)) return;
     starting = true;
-    const r = await app.startRun({ registrars, period, what, last: own ? last : null });
+    const r = await app.startRun({ registrars, period, what, periods, last: own ? last : null });
     if (!r.run) { store.toast(r.said || "It couldn't start just now."); onclose(); return; }
     store.beginRun(r.run, registrars, what, period);
   }

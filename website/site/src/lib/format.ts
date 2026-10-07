@@ -13,7 +13,7 @@ export const isPlaceholder = (v: string) => v.startsWith('[');
 /* ... as HTML, for a value set into a sentence (the legal pages): greyed while it is a placeholder (kit.css .ph) */
 export const shown = (v: string) => (isPlaceholder(v) ? `<span class="ph">${v}</span>` : v);
 
-/* The company as an address block, as HTML, for the legal pages' Contact. The phone appears here and nowhere else. */
+/* The company as an address block, as HTML, for the legal pages' Contact. The phone appears here and in Privacy's grievance line. */
 export const companyLine = () => {
   const B = BUSINESS, cap = (s: string) => s[0].toUpperCase() + s.slice(1);
   return [`<b>${B.legalName}</b>`, shown(cap(B.entity)), `${shown(B.address)}, ${B.state}, India`,

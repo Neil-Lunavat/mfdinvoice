@@ -20,7 +20,7 @@ from pathlib import Path
 
 from playwright.async_api import Keyboard, Locator, Page, async_playwright
 
-from client.hands import inbox, local, mail, ops_pdf
+from client.hands import forward, inbox, local, mail, ops_pdf
 from client.hands.mail import MailError
 
 log = logging.getLogger(__name__)
@@ -246,8 +246,12 @@ class Host:
         if self.run and rows:
             self.w.steps(self.run, rows)
 
-    async def waiting_email(self, since: str, ref: str) -> None:
-        self.w.waiting_email(self.run, since, ref)
+    async def waiting_email(self, since: str, ref: str, skip: bool = False) -> None:
+        self.w.waiting_email(self.run, since, ref, skip)
+
+    def skip_wanted(self) -> bool:
+        """Skip CAMS was pressed while its email was awaited."""
+        return bool(getattr(self.w, "_skip_cams", False))
 
     async def submitted(self, registrar: str, count: int) -> None:
         self.w.submitted(self.run, registrar, count)
@@ -282,7 +286,19 @@ class Host:
             self.profile.pop("bindOnRun", None)
         return got["ok"], got.get("said", "")
 
+    def _fetch(self, folder: Path) -> None:
+        """CAMS's emails into the inbox folder, from wherever this person's come: forwarded to us, or Gmail."""
+        if self.profile["mailbox"].get("provider") == "forward":
+            try:
+                forward.fetch(self.store, folder)
+            except OSError as e:                       # no internet, or our server not answering: the next look
+                raise MailError(f"Couldn't reach MFDInvoice's server: {e}") from e
+        else:
+            mail.fetch(self.store, folder)
+
     async def mailbox_ok(self) -> tuple[bool, str]:
+        if self.profile["mailbox"].get("provider") == "forward":
+            return (True, "") if forward.configured(self.store) else                 (False, "Forwarding to MFDInvoice isn't set up on this PC.")
         user, password = self.store.get("gmail_user"), self.store.get_secret("gmail_app_password")
         if not user or not password:
             return False, "No mailbox is connected on this PC."
@@ -299,7 +315,7 @@ class Host:
 
         def look():
             try:
-                mail.fetch(self.store, folder)
+                self._fetch(folder)
             except MailError as e:
                 log.warning("the mailbox: %s", e)
                 return None
@@ -307,6 +323,22 @@ class Host:
             got = pairs.get(inbox.ref_of(ref)) if ref else max(pairs.values(), key=lambda p: p.xls.stat().st_mtime,
                                                                default=None)
             return [got.zip, got.xls] if got else None
+
+        return await asyncio.to_thread(look)
+
+    async def mail_pairs(self, fetch: bool = True) -> list[list[Path]]:
+        """Every one of CAMS's emails in the mailbox (zip and Excel), newest first, whichever request it answered: the
+        steps pick the one that is this ARN's month. `fetch`: look in the mailbox first, else only at what is saved."""
+        folder = self.hands.cfg.paths.inbox
+
+        def look():
+            if fetch:
+                try:
+                    self._fetch(folder)
+                except MailError as e:
+                    log.warning("the mailbox: %s", e)
+            pairs = sorted(inbox.scan(folder).values(), key=lambda p: p.xls.stat().st_mtime, reverse=True)
+            return [[p.zip, p.xls] for p in pairs]
 
         return await asyncio.to_thread(look)
 

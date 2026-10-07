@@ -1,6 +1,10 @@
 ---
-/* Geist and Geist Mono, from Google Fonts (both layouts' <head>). */
+/* Geist and Geist Mono, served from this site (public/fonts: the variable files from the geist package, OFL), so no
+   page asks anyone else for anything. Both layouts' <head>. Variable, because the pages use weights between the
+   named ones (the home page's heading is 560). */
 ---
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<style is:inline>
+@font-face{font-family:'Geist';src:url(/fonts/Geist-Variable.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'Geist Mono';src:url(/fonts/GeistMono-Variable.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+</style>

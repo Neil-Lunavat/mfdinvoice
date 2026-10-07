@@ -15,8 +15,8 @@ const notFound = () => new Response('Not found', { status: 404, headers: { 'cont
 
 /* On a panel host, what passes through as it is; everything else is one of that app's pages, under /control or /write. */
 const PASS = {
-  control: [/^\/api\/admin\//, /^\/_astro\//],
-  write: [/^\/api\/write\//, /^\/_astro\//, /^\/blog\/images\//, /^\/si\.js$/],
+  control: [/^\/api\/admin\//, /^\/_astro\//, /^\/fonts\//],
+  write: [/^\/api\/write\//, /^\/_astro\//, /^\/fonts\//, /^\/blog\/images\//, /^\/si\.js$/],
 } as const;
 const PRIVATE = /^\/(control|write)(\/|$)|^\/api\/(admin|write)\//;
 

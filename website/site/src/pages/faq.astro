@@ -11,12 +11,12 @@ const schema = [{
   mainEntity: FAQ.flatMap(g => g.items).map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: strip(a) } })),
 }];
 ---
-<Layout title={`Questions · ${NAME}`} description="About the app, your data and your plan." path="/faq" schema={schema}>
+<Layout title={`Questions · ${NAME}`} description="About the software, your data and your plan." path="/faq" schema={schema}>
 <main>
   <section class="page">
     <div class="head c">
       <h1 class="h1 rv">Questions</h1>
-      <p class="lede rv">About the app, your data and your plan.</p>
+      <p class="lede rv">About the software, your data and your plan.</p>
     </div>
     <div class="faq">
       <nav class="toc" id="toc">{FAQ.map(g => <a href={`#${g.id}`}>{g.title}</a>)}</nav>

@@ -280,6 +280,7 @@ p{margin:0}
 .stages .bar.done{background:var(--green)}
 .splitrun{position:relative;display:flex}
 .splitrun #run{border-top-right-radius:0;border-bottom-right-radius:0}
+.splitrun #run:only-child{border-radius:12px}
 .splitrun .caret{padding:0 14px;border-top-left-radius:0;border-bottom-left-radius:0;border-left:1px solid rgba(255,255,255,.25);font-size:14px}
 .menu{position:absolute;top:62px;right:0;z-index:10;min-width:230px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--e-float);padding:4px;display:flex;flex-direction:column}
 .menu[hidden]{display:none}

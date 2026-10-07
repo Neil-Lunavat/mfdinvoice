@@ -336,9 +336,11 @@ class Session:
         mine = str(self.profile.get("gstin") or "").strip().upper()
         if not self.books["gstin"]:
             self.warn.append(f"{self.company} has no GSTIN in Tally, so GSTR-1 will list every invoice as uncertain.")
-        elif mine and self.books["gstin"] != mine:
-            self.warn.append(f"{self.company}'s GSTIN in Tally is {self.books['gstin']}. Yours here is {mine}. "
-                             "Is this the right company?")
+        elif mine and self.books["gstin"] != mine and self.answers.get("gstin") != "yes"                 and self.remember.get("gstin_ok") != self.books["gstin"]:
+            # a question, not a warning: Import waits for it, and the yes is remembered for this company's GSTIN
+            self.asks.append({"id": "gstin", "options": ["yes"],
+                              "question": f"{self.company}'s GSTIN in Tally is {self.books['gstin']}. "
+                                          f"Yours here is {mine}. Is this the right company?"})
         if self.method == "None":
             self.warn.append(f"'{self.vtype}' invoices have no numbers in this company (its numbering is None).")
         used_by_hand: set[int] = set()
@@ -352,9 +354,18 @@ class Session:
     def _numbering(self) -> None:
         vouchers, vtypes = self.books["vouchers"], self.books["vtypes"]
         live = sorted((v for v in vouchers if not v["off"]), key=lambda v: v["mid"])
-        self.vtype = self.remember.get("vtype") or (live[-1]["type"] if live else "Sales")
-        if self.vtype not in vtypes:
-            self.vtype = next((n for n, t in vtypes.items() if t["reserved"] == "Sales"), "Sales")
+        # which kind of sales voucher: Sales when it is the only one; asked once when the company has more (Neil,
+        # 7 Oct: never guessed from the last voucher entered, which picked a lab's own type)
+        sales = sales_types(vtypes)
+        said, kept = self.answers.get("vtype"), self.remember.get("vtype")
+        if said in sales or kept in sales:
+            self.vtype = said if said in sales else kept
+        else:
+            self.vtype = next((n for n in sales if vtypes[n]["reserved"] == "Sales"), sales[0] if sales else "Sales")
+            if len(sales) > 1:
+                self.asks.append({"id": "vtype", "options": sales,
+                                  "question": f"{self.company} has {len(sales)} kinds of sales voucher. Which one do "
+                                              "these invoices go in as?"})
         self.method = vtypes.get(self.vtype, {}).get("method", "")
         self.sends = self.method in KEEPS_OUR_NUMBER
         of_type = [v for v in live if v["type"] == self.vtype and v["number"]]
@@ -521,6 +532,16 @@ class Session:
         # the submitted ones first: the rest take the numbers after them
         going = sorted((p for p in self.rows if p["action"] == "import"), key=lambda p: not p["submitted"])
         if self.own:
+            # Tally is the truth (Neil, 7 Oct): an own invoice already in the books, typed by hand, has the number it
+            # has there. It is kept as that invoice's number, so the series never gives it another.
+            truth = {p["key"]: p["number"] for p in self.rows if p["action"] == "by_hand" and p["number"]
+                     and self.books_of_ours.number_of(p["key"]) != p["number"]}
+            if truth:
+                self.books_of_ours.lock(truth)
+                for key, n in truth.items():
+                    row = next(p for p in self.rows if p["key"] == key)
+                    self.month.put(row["registrar"], key, number=n)
+                self.read_now = True                   # the month is saved with them
             held = {p["key"]: self.books_of_ours.number_of(p["key"]) for p in self.rows}
             for p in self.rows:
                 p["ours"] = held.get(p["key"], "")
@@ -697,7 +718,9 @@ class Session:
                                                                                  text, re.DOTALL)}
 
     def _remember(self, sent: list[dict], went: set[str]) -> None:
-        keep = {"company": self.company, "guid": self.guid, "vtype": self.vtype,
+        sure = self.answers.get("gstin") == "yes" or self.remember.get("gstin_ok") == self.books.get("gstin")
+        keep = {"company": self.company, "guid": self.guid, "vtype": self.vtype, "gstin": self.books.get("gstin", ""),
+                **({"gstin_ok": self.books.get("gstin", "")} if sure else {}),
                 "tax": {k: v[0] for k, v in self.tax.items() if not v[1] or k == "igst"},
                 "party": dict(self.remember.get("party") or {}), "sales": dict(self.remember.get("sales") or {})}
         for p in sent:
@@ -720,9 +743,19 @@ def last_number(base: Path) -> dict:
         filters={"MFDSales": "$$IsSales:$VoucherTypeName"}, SVFROMDATE=f"{fy}0401", SVTODATE=f"{fy + 1}0331"),
         timeout=120)
     live = sorted((v for v in _vouchers(text) if not v["off"] and v["number"]), key=lambda v: v["mid"])
-    want = s.remember.get("vtype") or (live[-1]["type"] if live else "")
+    want = s.remember.get("vtype") or "Sales"
     of_type = [v for v in live if v["type"] == want]
     return {"state": "ready", "company": s.company, "last": of_type[-1]["number"] if of_type else ""}
+
+
+def sales_types(vtypes: dict) -> list[str]:
+    """The company's kinds of sales voucher: Tally's own Sales, and every type made under it, however deep."""
+    def sales(name: str, seen: frozenset = frozenset()) -> bool:
+        t = vtypes.get(name)
+        if not t or name in seen:
+            return False
+        return t["reserved"] == "Sales" or sales(t["parent"], seen | {name})
+    return [n for n in vtypes if sales(n)]
 
 
 def setup_look(gstin: str) -> dict:
@@ -741,12 +774,14 @@ def setup_look(gstin: str) -> dict:
     return {"state": "ready", "companies": out}
 
 
-def keep_company(base: Path, name: str, guid: str) -> None:
-    """The company chosen at setup: the first look goes straight to it. Ledgers kept for another company go."""
+def keep_company(base: Path, name: str, guid: str, gstin: str = "", sure: bool = False) -> None:
+    """The company chosen at setup: the first look goes straight to it. Ledgers kept for another company go. `sure`:
+    the person ticked "This is the right company" for a GSTIN that isn't theirs, so the Tally tab doesn't ask again."""
     kept = _load(base / "tally.json")
     if kept.get("guid") != guid:
         kept = {}
-    _write(base / "tally.json", {**kept, "company": name, "guid": guid})
+    _write(base / "tally.json", {**kept, "company": name, "guid": guid, "gstin": gstin.strip().upper(),
+                                 **({"gstin_ok": gstin.strip().upper()} if sure else {})})
 
 
 def forget(base: Path) -> None:
@@ -755,7 +790,7 @@ def forget(base: Path) -> None:
 
 def remembered(base: Path) -> dict:
     kept = _load(base / "tally.json")
-    return {"company": kept.get("company", ""), "ledgers": len(kept.get("party") or {})}
+    return {"company": kept.get("company", ""), "gstin": kept.get("gstin", ""), "ledgers": len(kept.get("party") or {})}
 
 
 def _load(path: Path) -> dict:

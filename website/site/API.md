@@ -1,6 +1,7 @@
 # The site's API (for the app and the app's server)
 
-Base URL: the site (`https://site.develop-tbc.workers.dev` today, `https://mfdinvoice.co.in` later).
+Base URL: the site, `https://mfdinvoice.co.in`. (`https://site.develop-tbc.workers.dev` still answers, for installed
+copies from before the move: they ask it whether they must update.)
 Every body is JSON (`content-type: application/json`), and so is every response. An error is always
 `{ "error": "<code>", ...details }` with a 4xx or 5xx status; the codes below are the ones to handle.
 Send a `User-Agent` that names the caller (for example `MFDApp/1.0`). Cloudflare refuses Python's bare `urllib`
@@ -46,16 +47,30 @@ Bearer token →
 ```json
 { "email": "a@b.com", "active": true, "paid_until": "2027-09-26", "source": "paid",
   "slots": 2, "arns": [{ "arn": "123456", "holder": "R K Mehta" }],
-  "app": { "version": "1.0.0", "sha256": "<the installer's>", "note": "One sentence for the update screen." } }
+  "trial_used": false,
+  "app": { "version": "1.0.0", "sha256": "<the installer's>", "note": "One sentence for the update screen." },
+  "survey": null }
 ```
 - `active`: the plan runs through `paid_until` (a day in India, inclusive). No plan: `active: false`, `paid_until: null`, `source: null`, `slots: 0`.
-- `source`: `"paid"`, `"grant"` (a gift: given without payment) or `"trial"` (the free trial: 15 days, once per account).
+- `source`: `"paid"`, `"grant"` (a gift: given without payment) or `"trial"` (the free trial: 15 days, once per email).
+- `trial_used`: this email has had its free trial (on this account, or on one deleted before). Binding a first ARN
+  then starts no trial: the person buys a plan on the website.
   Buying during a trial makes it `"paid"`, and `paid_until` then runs a year from the trial's last day.
 - `arn` is the number without "ARN-".
 - `app`: the app's current version (`APP` in `src/consts.ts`). It is also the oldest that may run: an app older than
   `app.version` shows only Update now, downloads `/api/download`, and checks the file against `app.sha256`.
+- `survey`: the live survey this account hasn't answered or closed (written in the panel, Survey › Software), the
+  oldest first, or `null`: `{ "id": 3, "title": "…", "questions": [{ "key": "q1", "q": "…", "type": "one" | "many" |
+  "text", "options": ["…"], "other": true }] }`. The software asks it on Overview.
 - `401 bad_token`: unknown, signed out, expired, the account was deleted, or its deletion is pending (asking to
   delete an account ends every token at once). Sign in again.
+
+### `POST /api/app/survey`
+Bearer token, `{ "id": 3, "answers": { "q1": { "picked": ["…"], "text": "" } } }` → `200 { "ok": true }`. No question
+is required; answers that don't fit the questions are dropped. `{ "id": 3, "closed": true }` is the toast's X: that
+survey is never asked again. Once per account and survey.
+- `409 not_open`: already answered or closed, or the survey isn't live any more. Nothing more to do.
+- `400 no_answers`, `401 bad_token`
 
 ### `POST /api/app/bind`
 Bearer token, `{ "arn": "ARN-123456", "holder": "R K Mehta" }` (`arn` may be `"ARN-123456"`, `"123456"` or
@@ -64,11 +79,13 @@ Binds an ARN to a free slot on the signed-in account. The app calls it when setu
 CAMS and KFintech sign-ins have shown that ARN. Binding an ARN the account already has is fine: `already: true`.
 **The free trial:** on an account that has never had a plan, this call starts the 15-day free trial with this ARN in
 its one slot, and the answer adds `"trial_until": "2026-10-16"` (its last day, in India). The app calls it when the
-person presses Activate free trial. Each account gets one trial; a second ARN is bought.
+person presses Activate free trial. Each email gets one trial, ever: an account deleted and made again with the same
+email gets none. A second ARN is bought.
 - `409 arn_taken`: another account has this ARN, on a plan that is running. Tell the person to write to support.
   An ARN on an account whose plan has ended is not taken: it moves to the account binding it.
 - `409 no_free_slot` `{ slots, used }`: every slot is in use. They can buy more ARNs on the website (Account → Buy more ARNs).
-- `403 no_active_plan` `{ paid_until }`: the plan (or the trial) has ended.
+- `403 no_active_plan` `{ paid_until }`: the plan (or the trial) has ended. With `trial_used: true` (and
+  `paid_until: null`): the account has no plan and this email has had its free trial, so none starts.
 - `400 bad_arn`, `400 no_holder`, `401 bad_token`
 
 ### `GET /api/download`

@@ -10,6 +10,7 @@ type Block =
   | { t: 'h'; s: string }            /* the heading */
   | { t: 'h2'; s: string }           /* a section heading (the data copy) */
   | { t: 'p'; s: string }
+  | { t: 'say'; s: string }          /* words as typed: line breaks kept (the panel's reply) */
   | { t: 'code'; s: string }         /* the sign-in code, first and large */
   | { t: 'rows'; r: Row[] }          /* label / value pairs */
   | { t: 'box'; s: string }          /* a message, quoted as written */
@@ -29,6 +30,7 @@ function blockHtml(b: Block): string {
     case 'h2': return `<h2 style="margin:26px 0 8px;font:600 15px/1.4 ${SANS};color:${C.ink}">${esc(b.s)}</h2>`;
     case 'p': return `<p style="margin:0 0 14px;font:15px/1.6 ${SANS};color:${C.ink2}">${esc(b.s)}</p>`;
     case 'code': return `<p style="margin:0 0 18px;font:600 36px/1.2 ${MONO};letter-spacing:8px;color:${C.ink}">${esc(b.s)}</p>`;
+    case 'say': return `<p style="margin:0 0 14px;font:15px/1.6 ${SANS};color:${C.ink2}">${esc(b.s).replace(/\n/g, '<br>')}</p>`;
     case 'note': return `<p style="margin:14px 0 0;font:13px/1.55 ${SANS};color:${C.muted}">${esc(b.s)}</p>`;
     case 'box': return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px"><tr><td style="padding:14px 16px;background:${C.subtle};border:1px solid ${C.line};border-radius:10px;font:14.5px/1.6 ${SANS};color:${C.ink};white-space:pre-wrap">${esc(b.s)}</td></tr></table>`;
     case 'btn': return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 14px"><tr><td style="background:${C.blue};border-radius:8px"><a href="${esc(b.href)}" style="display:inline-block;padding:11px 20px;font:500 14.5px/1.2 ${SANS};color:#ffffff;text-decoration:none">${esc(b.s)}</a></td></tr></table>`;
@@ -147,15 +149,29 @@ export const trialEndingMail = (v: { until: string; link: string }) => layout(`Y
 
 export const trialEndedMail = (v: { link: string }) => layout(`Your ${NAME} free trial has ended`, [
   { t: 'h', s: 'Ready when you are' },
-  { t: 'p', s: 'The app has stopped running for now. Buy a plan and it picks up right where it stopped. Everything on your PC is still kept safely.' },
+  { t: 'p', s: 'The software has stopped running for now. Buy a plan and it picks up right where it stopped. Everything on your PC is still kept safely.' },
   { t: 'btn', s: 'Continue with a plan', href: v.link },
 ], FOR_YOU);
 
 /* The owner freed one of the plan's ARN slots (if he chose to tell them). */
 export const arnFreedMail = (v: { arn: string }) => layout(`Your ${NAME} ARN slot is free`, [
   { t: 'h', s: 'Your ARN slot is free' },
-  { t: 'p', s: `We’ve taken ${v.arn} off your plan. Add the new ARN in the app, and it takes the free slot.` },
+  { t: 'p', s: `We’ve taken ${v.arn} off your plan. Add the new ARN in the software, and it takes the free slot.` },
 ], FOR_YOU);
+
+/* Another account added an ARN this account had, after this account's plan ended (bind.ts). Sent once, as it moves. */
+export const arnTakenMail = (v: { arn: string; link: string }) => layout(`${v.arn} is now on another ${NAME} account`, [
+  { t: 'h', s: `${v.arn} has moved` },
+  { t: 'p', s: `Another ${NAME} account has added ${v.arn}. Your plan had ended, so it was free to add. The files on your PC are untouched.` },
+  { t: 'p', s: 'Something wrong? Write to support and we’ll look into it.' },
+  { t: 'btn', s: 'Write to support', href: v.link },
+], FOR_YOU);
+
+/* The panel's one reply to a support request (Support › Reply), from support@: his words, a paragraph per blank line,
+   in the usual layout. Replying to it reaches support@, and the conversation goes on from the mailbox. */
+export const supportReplyMail = (v: { subject: string; message: string; number: string }) => layout(v.subject,
+  v.message.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).map(s => ({ t: 'say' as const, s })),
+  `About your support request #${v.number}. Reply to this email to write back.`);
 
 /* A support request has reached us: the person's own copy (not for "A copy of my data", which has its own email). */
 export const supportReceivedMail = (v: { number: string; topic: string }) => layout(`We’ve received your support request #${v.number}`, [
@@ -201,7 +217,7 @@ export const dataCopyMail = (v: { asked: string; sections: { title: string; rows
   { t: 'h', s: 'A copy of your data' },
   { t: 'p', s: `Everything our website stores about your account, as you asked on ${v.asked}. The same data is attached as a JSON file.` },
   ...v.sections.flatMap(s => [{ t: 'h2' as const, s: s.title }, s.rows.length ? { t: 'rows' as const, r: s.rows } : { t: 'p' as const, s: s.empty ?? 'None.' }]),
-  { t: 'note', s: 'The app keeps your passwords, signature and invoices on your PC, so they aren’t here.' },
+  { t: 'note', s: 'The software keeps your passwords, signature and invoices on your PC, so they aren’t here.' },
 ], FOR_YOU);
 
 /* ---- to support@ and the owner ---- */

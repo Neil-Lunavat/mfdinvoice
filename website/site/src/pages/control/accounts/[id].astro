@@ -1,6 +1,6 @@
 ---
-/* One account: details, plan, ARNs, orders, receipts, gifts, support requests, deletion and the activity list,
-   with the fixes: free an ARN, change the email, resend a receipt, cancel a deletion, give a gift. */
+/* One account: details, plan, ARNs, orders, receipts, gifts, support requests, its runs (what its app sent to the
+   software's server, by the account's email), deletion and the activity list, with the fixes: free an ARN, change the email, resend a receipt, cancel a deletion, give a gift. */
 import Panel from '../../../layouts/Panel.astro';
 import { accessUser } from '../../../lib/server/access';
 import { accountDetail, tabCounts, PLAN_TAG } from '../../../lib/server/admin';
@@ -14,6 +14,8 @@ import { longDate } from '../../../lib/date';
 import { istShort, istWhen } from '../../../lib/server/util';
 import { answersFor } from '../../../lib/server/survey';
 import { QUESTIONS, answerLabel } from '../../../lib/survey';
+import Reports from '../../../components/Reports.astro';
+import { softwareReports } from '../../../lib/server/software';
 export const prerender = false;
 
 const me = await accessUser(Astro.request, 'control');
@@ -22,7 +24,7 @@ const d = /^[0-9a-f]{16}$/.test(Astro.params.id ?? '') ? await accountDetail(Ast
 if (!d) return new Response(null, { status: 404 });
 const { a, orders, invoices, requests } = d;
 const id = a.id;
-const [plan, arns, gifts, events, counts, answers] = await Promise.all([getPlan(id), getArns(id), listGifts({ email: a.email }), eventsFor(id), tabCounts(), answersFor(id)]);
+const [plan, arns, gifts, events, counts, answers, runs] = await Promise.all([getPlan(id), getArns(id), listGifts({ email: a.email }), eventsFor(id), tabCounts(), answersFor(id), softwareReports('', 50, a.email)]);
 const active = isActive(plan);
 /* a gift can take over a free trial, but not a plan that was bought or gifted */
 const gifted = !!plan && plan.source !== 'trial';
@@ -96,6 +98,11 @@ const GIFT_TEXT = { waiting: ['Waiting', 'amber'], used: ['Used', 'green'], revo
     </tbody></table>}
   </section>
 
+  <section class="pc" id="runs">
+    <div class="pc-h"><h2>Runs</h2><span class="note" style="margin-left:auto">What the software sent, the latest 50</span></div>
+    {!runs ? <p class="empty">The software’s server gave no answer just now.</p> : runs.length === 0 ? <p class="empty">None yet.</p> : <Reports rows={runs} email={false} />}
+  </section>
+
   {answers.length > 0 && <section class="pc">
     <div class="pc-h"><h2>Survey</h2><span class="note" style="margin-left:auto">{istShort(answers[answers.length - 1].at)}</span></div>
     <div class="pc-b"><div class="dl">{answers.map(x => <><span>{QUESTIONS.find(q => q.key === x.question)?.q ?? 'In their words'}</span><div>{answerLabel(x.question, x.answer)}</div></>)}</div></div>
@@ -132,7 +139,7 @@ if ($('keep')) $('keep').onclick = () => ask({
 });
 document.querySelectorAll<HTMLButtonElement>('[data-free]').forEach(b => b.onclick = () => ask({
   title: `Free ARN-${b.dataset.free}`,
-  warn: '<b>This can’t be undone.</b> The ARN comes off this account and its slot is empty again. They add the new ARN in the app.',
+  warn: '<b>This can’t be undone.</b> The ARN comes off this account and its slot is empty again. They add the new ARN in the software.',
   phrase: 'FREE', tick: 'Email them that the slot is free', action: 'Free the ARN', danger: true,
   run: (_v, tell) => act({ action: 'free_arn', arn: b.dataset.free, tell }),
 }));

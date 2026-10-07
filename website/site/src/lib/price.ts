@@ -20,7 +20,7 @@ export function monthsLeft(today: string, lastDay: string) {
   return 12;
 }
 
-/* One extra ARN for `months` months, in whole rupees: ceil(₹500 × months / 12). */
+/* One extra ARN for `months` months, in whole rupees: ceil(PRICE.extra × months / 12), so ₹1,167 for 7 months. */
 export const extraFor = (months = 12) => Math.ceil((PRICE.extra * months) / 12);
 
 /* months: for 'add', the months left on the plan (monthsLeft); a new plan is always a full year. */

@@ -16,7 +16,8 @@ export interface RunLive {
   steps: StepView[];
   startedAt: number;                            // when the run window began it, for the clock
   ask: Ask | null;                              // the question on screen, if any
-  waitingEmail: { since: string; ref: string } | null;
+  waitingEmail: { since: string; ref: string; skip: boolean } | null;
+  month?: { period: string; index: number };    // a download of several months: the one it is on
   submitted: Partial<Record<Registrar, number>>;
   ended: 'done' | 'stopped' | 'nothing' | null;
   stop: Stop | null;                            // why it stopped, when it did by itself
@@ -96,8 +97,11 @@ class Store {
       case 'notify':
         if (p.toast) this.toast(p.text);
         break;
+      case 'run_month':
+        if (r && r.id === p.run) { r.month = { period: p.period, index: p.index }; r.waitingEmail = null; }
+        break;
       case 'waiting_email':
-        if (r && r.id === p.run) r.waitingEmail = { since: p.since, ref: p.ref };
+        if (r && r.id === p.run) r.waitingEmail = { since: p.since, ref: p.ref, skip: !!p.skip };
         break;
       case 'submitted':
         if (r && r.id === p.run) r.submitted = { ...r.submitted, [p.registrar]: p.count };

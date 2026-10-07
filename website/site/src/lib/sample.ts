@@ -1,4 +1,4 @@
-/* The sample month the pages show: R K Mehta's 17 invoices for October 2026 (the same rows as the app's prototype).
+/* The sample month the pages show: Neil Lunavat's 17 invoices for October 2026 (the same rows as the app's prototype).
    The home page draws three of them and runs its demo on all of them; Security follows the HDFC one. */
 import { invNo } from '../consts';
 

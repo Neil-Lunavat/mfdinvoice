@@ -9,7 +9,7 @@
 
 import type {
   Answer, App, Cert, CodeRefusal, Consent, DetailsPatch, InvoiceSettings, Link, MailProvider, NextNumber, Month, Place, ProfileDraft, Push,
-  Registrar, Result, RunKind, Snapshot, VerifyRefusal, TallyAsk, TallyLook, TallySetup
+  Registrar, Result, RunKind, Snapshot, SurveyAnswers, VerifyRefusal, TallyAsk, TallyLook, TallySetup
 } from './types';
 
 interface PyApi { call(method: string, args?: unknown[]): Promise<unknown> }
@@ -79,6 +79,13 @@ export class RealApp implements App {
   openPdf(key: string) { return this.call<void>('openPdf', key); }
   showInFolder(key: string) { return this.call<void>('showInFolder', key); }
   openFolder(what: Registrar | 'files', period?: string) { return this.call<void>('openFolder', what, period ?? ''); }
+  uninstall() { return this.call<string>('uninstall'); }
+  skipCams(run: string) { return this.call<void>('skipCams', run); }
+  forwardStart(email: string) { return this.call<{ ok: boolean; said?: string }>('forwardStart', email); }
+  forwardVerify(email: string, code: string) { return this.call<{ ok: boolean; said?: string }>('forwardVerify', email, code); }
+  forwardGmailCode() { return this.call<string>('forwardGmailCode'); }
+  sendIdea(s: { text: string; picture?: { name: string; data: string } }) { return this.call<{ sent: boolean }>('sendIdea', s); }
+  answerSurvey(id: number, answers: SurveyAnswers | null) { return this.call<{ sent: boolean }>('answerSurvey', id, answers); }
   tallyLook(q: TallyAsk) { return this.call<TallyLook>('tallyLook', q); }
   tallyImport(q: TallyAsk & { adopt: string[] }) { return this.call<TallyLook>('tallyImport', q); }
   tallyLast() { return this.call<{ state: string; company: string; last: string }>('tallyLast'); }
@@ -87,7 +94,7 @@ export class RealApp implements App {
   pickFile(kind: 'zip' | 'xls') { return this.call<{ kind: string; name: string }>('pickFile', kind); }
   dropFile(f: { name: string; bytes: string }) { return this.call<{ kind: string; name: string }>('dropFile', f); }
 
-  startRun(r: { registrars: Registrar[]; period: string; what: RunKind; last?: NextNumber | null }) { return this.call<{ run: string; said?: string }>('startRun', { ...r, last: r.last ?? null }); }
+  startRun(r: { registrars: Registrar[]; period: string; what: RunKind; periods?: string[]; last?: NextNumber | null }) { return this.call<{ run: string; said?: string }>('startRun', { ...r, periods: r.periods ?? null, last: r.last ?? null }); }
   answer(id: string, a: Answer) { void this.call('answer', id, a); }
   stopRun(run: string) { void this.call('stopRun', run); }
   closeRun(run: string) { void this.call('closeRun', run); }

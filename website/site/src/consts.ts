@@ -15,9 +15,9 @@ export const SITE_URL = 'https://mfdinvoice.co.in';
    and robots.txt disallows everything. true: both go, and robots.txt points at the sitemap. */
 export const INDEXING = false;
 
-/* One yearly plan: ₹4,000 a year for the first ARN, ₹500 a year for each extra ARN, up to 6 ARNs on one account,
-   GST 18% on top (once SALES.gst is on). */
-export const PRICE = { first: 4000, extra: 500, maxArns: 6, gst: 0.18 };
+/* One yearly plan: ₹4,000 a year for the first ARN, ₹2,000 a year for each extra ARN, up to 6 ARNs on one account.
+   Prices are before GST: 18% goes on top once SALES.gst is on. */
+export const PRICE = { first: 4000, extra: 2000, maxArns: 6, gst: 0.18 };
 
 /* The free trial (lib/server/trial.ts): `days` on one ARN, once per account, starting when the app adds the account's
    first ARN. An email goes out `remind` days before it ends, and another once it has. */
@@ -68,23 +68,23 @@ export const RECEIPT_PREFIX = 'MFDI';
 export const BUSINESS = {
   legalName: 'Ayen Systems',
   entity: 'a sole proprietorship of Neil Lunavat',   /* "Ayen Systems, <entity>" */
-  address: '[Address]',
-  courts: '[City]',                       /* the courts that hear a dispute (the Terms) */
+  address: 'M-16 Kumar Park, Bibwewadi Kondhwa Road, Pune 411037',
+  courts: 'Pune',                       /* the courts that hear a dispute (the Terms) */
   state: 'Maharashtra',
   stateCode: '27',
-  phone: '+91 75179 11229',              /* on the Terms, Privacy and Refunds pages only, nowhere else */
+  phone: '+91 75179 11229',              /* on the Terms, Privacy and Refunds pages only */
   email: 'ayensystems@gmail.com',          /* the company's own address; buyers write to EMAIL.support */
   gstin: '[GSTIN]',                       /* once registered for GST (SALES.gst) */
   sac: '[SAC]',                           /* the service's SAC code, printed on each invoice line */
-  grievanceOfficer: '[Name, email]',
+  grievanceOfficer: 'Neil Lunavat',     /* the Privacy page puts EMAIL.support and the phone beside the name */
 };
 
 /* The date the Terms, the Privacy policy or the Refund policy last changed. The three pages show it as "Last
    updated", and every payment records the version it was made under. Change it whenever any of them changes. */
-export const TERMS_VERSION = '2026-10-04';
+export const TERMS_VERSION = '2026-10-06';
 
 /* How long the record of a run (its steps, the portals' words, the pictures of the portals' pages) is kept on the
-   software's server before it is deleted. Not decided yet, and nothing deletes them yet. */
+   software's server before it is deleted. The server's daily job deletes them (server/src/index.ts, KEEP_DAYS). */
 export const KEEP = { runs: '90 days' };
 
 /* Every release of the app, newest first. `ops/release.py` writes each one, after uploading its installer: the

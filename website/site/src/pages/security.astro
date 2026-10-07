@@ -9,11 +9,11 @@ import { invoice, fm } from '../lib/sample';
 
 /* the invoice's month, one step at a time. reach: what has reached us by then. */
 const STEPS = [
-  { h: 'It arrives in your mailbox.', p: 'CAMS emails the invoice. The app opens only the registrar’s invoice mails. It never sends, moves or deletes anything.', reach: 'Nothing' },
+  { h: 'It arrives in your mailbox.', p: 'CAMS emails the invoice. The software opens only the registrar’s invoice mails. It never sends, moves or deletes anything.', reach: 'Nothing' },
   { h: 'Your signature goes on.', p: 'Your signature is kept encrypted on your PC, and placed on each invoice there.', reach: 'Nothing' },
   { h: 'Every figure is checked.', p: 'The amounts are read and matched on your PC.', reach: 'Nothing' },
   { h: 'Uploads directly to CAMS<br />(and KFintech).', p: 'From your PC, with your own login. The invoice file never comes to us.', reach: 'Nothing' },
-  { h: 'It’s filed in your folder.', p: 'The signed invoice and the month’s record stay in a folder on your PC, for as long as you keep them. When the run ends, the app sends us a record of how it went.', reach: 'How the run went' },
+  { h: 'It’s filed in your folder.', p: 'The signed invoice and the month’s record stay in a folder on your PC, for as long as you keep them. When the run ends, the software sends us a record of how it went.', reach: 'How the run went' },
 ];
 const pcHead = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Your PC <span class="mail">Mail from CAMS <span class="tag">Read-only</span></span>';
 const folder = (count: string, id = '') => `<div class="folder"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><div><b>October 2026</b><span${id ? ` id="${id}"` : ''}>${count} invoices · in your folder</span></div></div>`;
@@ -48,7 +48,7 @@ const ok = '<svg class="ok" viewBox="0 0 24 24"><use href="#tk"/></svg>';
           <span class="node" aria-hidden="true">{i + 1}</span>
           <div class="mini" aria-hidden="true">
             {i === 0 && <div class="m-mail"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Mail from CAMS</span><span class="tag">Read-only</span></div>}
-            {i === 1 && <div class="m-sign"><span>For R K Mehta</span><Signature class="sig" /><span class="line">Authorised signatory</span></div>}
+            {i === 1 && <div class="m-sign"><span>For Neil Lunavat</span><Signature class="sig" /><span class="line">Authorised signatory</span></div>}
             {i === 2 && <div class="m-figs">
               <div><span>Brokerage, September 2026</span><b>{fm(hdfc.taxable)}<Fragment set:html={ok} /></b></div>
               <div><span>CGST 9%</span><b>{fm(hdfc.half)}<Fragment set:html={ok} /></b></div>
@@ -68,13 +68,11 @@ const ok = '<svg class="ok" viewBox="0 0 24 24"><use href="#tk"/></svg>';
     <div class="wrap chk">
       <div>
         <h2 class="h2 rv">What leaves, and what is taken out first.</h2>
-        <p class="rv">When a run ends, the app sends us a record of how it went: each step it took on the portals, how long it took, what the portals said, and pictures of the portals’ pages as the run saw them. Those pages show that month’s invoices and their amounts. It is how we see a portal change and fix it before your next run.</p>
-        <p class="rv">Before anything is sent, the software looks for your passwords in it, in every form they could take, and removes them.</p>
+        <p class="rv">When a run ends, the software sends us a record of how it went: each step it took on the portals, how long it took, what the portals said, and pictures of the portals’ pages as the run saw them. Those pages do show that month’s invoices and their amounts but it allows us to see if a portal changed and fix it before your next run.</p>
+        <p class="rv">Before anything is sent, the software blanks your passwords out of its logs. What you type on the portals isn’t logged at all.</p>
       </div>
       <div class="scrub rv" id="scrub">
-        <div class="sr"><span>As typed</span><code style="--i:0">Mehta@1987</code></div>
-        <div class="sr"><span>Inside a web address</span><code style="--i:1">Mehta%401987</code></div>
-        <div class="sr"><span>Encoded</span><code style="--i:2">TWVodGFAMTk4Nw==</code></div>
+        <div class="sr"><span>As typed</span><code style="--i:0">Lunavat@1987</code></div>
       </div>
     </div>
   </section>
@@ -85,10 +83,9 @@ const ok = '<svg class="ok" viewBox="0 0 24 24"><use href="#tk"/></svg>';
       <div class="keep-l">
         <div class="rv"><b>Your email and plan</b><p>To sign you in and bill you.</p></div>
         <div class="rv"><b>Your ARNs</b><p>Each ARN on your account is billed.</p></div>
-        <div class="rv"><b>A record of each run</b><p>Its steps, the portals’ words and the pages it saw. Never your passwords, your signature, your mailbox or your invoice files.</p></div>
         <div class="rv"><b>Support reports</b><p>The ones you choose to send.</p></div>
       </div>
-      <p class="end rv">Questions about security? <a class="tlink" href="/support">Write to us.</a></p>
+      <p class="end rv">Questions about <a class="tlink" href="/privacy">privacy</a> or security? <a class="tlink" href="/support">Write to us.</a></p>
     </div>
   </section>
 </main>

@@ -32,7 +32,7 @@ h1,h2,h3,h4,p{margin:0}
 .btn.lg{height:50px;padding:0 24px;font-size:15.5px;border-radius:10px}
 .btn[disabled]{opacity:.42;cursor:not-allowed;transform:none}
 .mark{width:24px;height:24px;border-radius:7px;background:var(--blue);display:grid;place-items:center;flex-shrink:0;color:#fff}
-.mark svg{width:14px;height:14px}
+.mark svg{width:20px;height:11px}
 /* a checkbox */
 .check{display:flex;gap:10px;align-items:center;cursor:pointer;user-select:none}
 .check input{appearance:none;width:18px;height:18px;margin:0;border:1.5px solid #c3cad5;border-radius:5px;background:var(--surface);display:grid;place-items:center;flex-shrink:0;cursor:pointer;transition:background 120ms,border-color 120ms}

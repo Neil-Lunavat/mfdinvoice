@@ -1,26 +1,35 @@
 ---
-/* Overview: what needs the owner, and the money. */
+/* Overview: what needs the owner, and the money. From the software's server (counted there, every report kept):
+   the runs today (India time) and what is ours to fix and not yet marked Fixed. The rest of the software's numbers
+   are on the Software tab's dashboard. */
 import Panel from '../../layouts/Panel.astro';
 import { accessUser } from '../../lib/server/access';
 import { overview, tabCounts } from '../../lib/server/admin';
 import { rupees } from '../../lib/price';
-import { istShort } from '../../lib/server/util';
+import { softwareStats } from '../../lib/server/software';
 export const prerender = false;
 
 const me = await accessUser(Astro.request, 'control');
 if (!me) return new Response('Forbidden', { status: 403 });
-const [o, counts] = await Promise.all([overview(), tabCounts()]);
+const [o, counts, st] = await Promise.all([overview(), tabCounts(), softwareStats()]);
+const runsToday = st ? st.days.filter(d => d.day === st.today).reduce((n, d) => n + d.n, 0) : null;
+/* ours not marked Fixed: reports of kind ours, and runs that ended ours */
+const toFix = st ? st.open.filter(x => x.kind === 'ours' || x.kind === 'run').reduce((n, x) => n + x.n, 0) : null;
 ---
 <Panel title="Overview" app="control" on="/" me={me.email} counts={counts}>
   <div class="ph1"><h1>Overview</h1></div>
   <div class="stats">
+    <a class:list={['stat', { hot: !!toFix }]} href="/software?view=db&kind=ours"><span>Ours to fix</span><b>{toFix ?? '—'}</b><small>{toFix == null ? 'The software’s server gave no answer' : 'Not marked Fixed yet'}</small></a>
+    <a class="stat" href="/software"><span>Runs today</span><b>{runsToday ?? '—'}</b><small>Runs, checks and downloads</small></a>
     <a class:list={['stat', { hot: o.payments > 0 }]} href="/payments"><span>Payments to check</span><b>{o.payments}</b><small>UPI screenshots waiting</small></a>
     <a class:list={['stat', { hot: o.requests > 0 }]} href="/support"><span>Open support requests</span><b>{o.requests}</b><small>Answered by email</small></a>
     <a class="stat" href="/sales"><span>Sales this month</span><b>{rupees(o.month.t)}</b><small>{o.month.n} paid order{o.month.n === 1 ? '' : 's'}</small></a>
     <a class="stat" href="/sales"><span>Sales this financial year</span><b>{rupees(o.year.t)}</b><small>{o.year.n} paid order{o.year.n === 1 ? '' : 's'}</small></a>
     <a class="stat" href="/accounts"><span>Accounts</span><b>{o.accounts}</b></a>
     <a class="stat" href="/accounts?f=active"><span>Active plans</span><b>{o.plans.paid + o.plans.gift}</b><small>{o.plans.paid} paid · {o.plans.gift} gift</small></a>
-    <a class="stat" href="/accounts?f=trial"><span>Free trials running</span><b>{o.plans.trial}</b></a>
+    <a class="stat" href="/accounts?f=trial"><span>Free trials running</span><b>{o.plans.trial}</b><small>{o.trialsEnding} ending in the next 7 days</small></a>
+    <a class="stat" href="/accounts?f=active"><span>Plans ending soon</span><b>{o.plansEnding}</b><small>Paid or gift, in the next 30 days</small></a>
+    <a class="stat" href="/accounts"><span>Sign-ups, last 7 days</span><b>{o.signups}</b></a>
     <a class="stat" href="/gifts?status=waiting"><span>Gifts not yet used</span><b>{o.gifts}</b></a>
     <a class:list={['stat', { hot: o.deletions > 0 }]} href="/accounts?f=deleting"><span>Deletions pending</span><b>{o.deletions}</b><small>Deleted at 2:00 am</small></a>
   </div>

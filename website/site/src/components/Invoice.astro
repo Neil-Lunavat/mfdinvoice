@@ -12,7 +12,7 @@ const tax: [string, number][] = x.igst ? [['IGST 18%', x.igst]] : [['CGST 9%', x
 ---
 <div class:list={['paper', cls]} style={style}>
   <div class="pp-top">
-    <div><div class="pp-title">Tax invoice</div><div class="pp-from">R K Mehta</div><div class="pp-id mono">ARN-123456 · GSTIN 27ABCPM1234F1Z3</div></div>
+    <div><div class="pp-title">Tax invoice</div><div class="pp-from">Neil Lunavat</div><div class="pp-id mono">ARN-123456 · GSTIN 27ABCPL1234F1Z3</div></div>
     <div class="pp-no"><span>Invoice</span><b class="mono">{x.no}</b><span>1 Oct 2026</span></div>
   </div>
   <div class="pp-to"><span>Bill to</span><b>{x.amc} Mutual Fund</b></div>
@@ -21,6 +21,6 @@ const tax: [string, number][] = x.igst ? [['IGST 18%', x.igst]] : [['CGST 9%', x
     {tax.map(([label, amount]) => <tr><td>{label}</td><td>{fm(amount)}<Fragment set:html={ok} /></td></tr>)}
     <tr class="tot"><td>Total</td><td>₹{fm(x.total)}</td></tr>
   </table>
-  <div class="pp-sign"><span>For R K Mehta</span><Signature class="sig" /><span class="line">Authorised signatory</span></div>
+  <div class="pp-sign"><span>For Neil Lunavat</span><Signature class="sig" /><span class="line">Authorised signatory</span></div>
   <div class="stamp">SUBMITTED<small>{x.reg.toUpperCase()} · 1 OCT 2026</small></div>
 </div>

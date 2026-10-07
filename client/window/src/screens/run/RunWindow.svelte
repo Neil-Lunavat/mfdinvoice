@@ -17,12 +17,15 @@
   import Working from './Working.svelte';
   import YourCheck from './YourCheck.svelte';
 
-  let { registrars, period, what }: { registrars: Registrar[]; period: string; what: RunKind } = $props();
+  let { registrars, period, what, periods }: { registrars: Registrar[]; period: string; what: RunKind; periods?: string[] } = $props();
 
   const run = $derived(store.run);
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const month = $derived(`${NAMES[MON.indexOf(period.split('-')[0])] ?? ''} ${period.split('-')[1] ?? ''}`.trim());
+  const nameOf = (of: string) => `${NAMES[MON.indexOf(of.split('-')[0])] ?? ''} ${of.split('-')[1] ?? ''}`.trim();
+  // a download of several months says which one it is on
+  const month = $derived(periods && periods.length > 1
+    ? (run?.month ? `${nameOf(run.month.period)} (${run.month.index + 1} of ${periods.length})` : `${periods.length} months`) : nameOf(period));
   const all = $derived((store.snap?.profile ? [store.snap.profile.camsUsed && 'CAMS', store.snap.profile.kfintech.used && 'KFINTECH'].filter(Boolean).length : 2));
   const title = $derived(what === 'check' ? 'Check status' : what === 'download' ? 'Download invoices' : 'Run');
   const asked = $derived(run?.ask?.type === 'captcha' || run?.ask?.type === 'pick_files' || run?.ask?.type === 'your_check' || run?.ask?.type === 'signature');
@@ -46,7 +49,7 @@
     ui.runWith = null;
   }
   function again() {
-    const same = { registrars, period, what };
+    const same = { registrars, period, what, periods };
     close();
     setTimeout(() => (ui.runWith = same), 0);
   }
@@ -88,7 +91,7 @@
     <div class="prog-meta"><span>{run ? v.meta : 'Before it starts'}</span><span class="mono">{clock(elapsed)}</span></div>
 
     {#if !run}
-      <BeforeRun {registrars} {period} {what} onclose={close} />
+      <BeforeRun {registrars} {period} {what} {periods} onclose={close} />
     {:else if stop}
       <StopScreen {stop} onclose={close} onagain={again} />
     {:else if run.ended === 'done'}
@@ -106,8 +109,8 @@
         {/if}
       </div>
       <div class="rm-foot">
-        <button class="btn secondary" onclick={() => { close(); ui.go('invoices'); ui.invoicesMonth = period; }}>See invoices</button>
-        <button class="btn secondary" onclick={() => { close(); ui.tallyMonth = period; ui.go('tally'); }}>Import into Tally</button>
+        <button class="btn secondary" onclick={() => { ui.go('invoices'); ui.invoicesMonth = periods && periods.length > 1 ? null : period; close(); }}>See invoices</button>
+        <button class="btn secondary" onclick={() => { ui.tallyMonth = period; ui.go('tally'); close(); }}>Import into Tally</button>
         <button class="btn primary" data-primary style="margin-left:auto" onclick={() => { close(); ui.go('overview'); }}>Close</button>
       </div>
     {:else if run.ask?.type === 'your_check'}

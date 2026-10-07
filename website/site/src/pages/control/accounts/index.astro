@@ -7,18 +7,23 @@ import { searchAccounts, tabCounts, PLAN_TAG } from '../../../lib/server/admin';
 import { PLAN_NAME } from '../../../lib/server/account';
 import { longDate } from '../../../lib/date';
 import { istShort, todayIST } from '../../../lib/server/util';
+import { softwareStats } from '../../../lib/server/software';
+import { RESULT } from '../../../lib/software';
+import { APP } from '../../../consts';
 export const prerender = false;
 
 const me = await accessUser(Astro.request, 'control');
 if (!me) return new Response('Forbidden', { status: 403 });
 const q = (Astro.url.searchParams.get('q') || '').trim().slice(0, 100);
 const f = Astro.url.searchParams.get('f') || '';
-const [rows, counts] = await Promise.all([searchAccounts(q, f), tabCounts()]);
+const [rows, counts, st] = await Promise.all([searchAccounts(q, f), tabCounts(), softwareStats()]);
+/* from the software's server: each account's last run and how it ended, how many runs, its version */
+const usage = st ? new Map(st.people.map(p => [p.email, p])) : null;
 const today = todayIST();
 const FILTERS = [['', 'All'], ['active', 'Active plan'], ['gift', 'Gift'], ['trial', 'Free trial'], ['none', 'No plan'], ['deleting', 'Deletion pending']];
 ---
 <Panel title="Accounts" app="control" on="/accounts" me={me.email} counts={counts}>
-  <div class="ph1"><h1>Accounts</h1><p>{rows.length === 100 ? 'The newest 100' : `${rows.length} account${rows.length === 1 ? '' : 's'}`}{q ? ` for “${q}”` : ''}</p>
+  <div class="ph1"><h1>Accounts</h1><p>{rows.length === 100 ? 'The newest 100' : `${rows.length} account${rows.length === 1 ? '' : 's'}`}{q ? ` for “${q}”` : ''}. {st ? `Runs are every run of the last ${st.keep_days} days.` : 'The software’s server gave no answer, so runs aren’t shown.'}</p>
     <div class="act"><button class="btn danger sm" type="button" id="del" disabled>Delete accounts</button></div></div>
   <section class="pc"><div class="pc-b">
     <form class="search" method="get" action="/accounts">
@@ -29,7 +34,7 @@ const FILTERS = [['', 'All'], ['active', 'Active plan'], ['gift', 'Gift'], ['tri
   </div></section>
   <section class="pc">
     {rows.length === 0 ? <p class="empty">No accounts.</p> :
-    <table class="t cards"><thead><tr><th></th><th>Email</th><th>Name</th><th>Plan</th><th>ARNs</th><th>Since</th></tr></thead><tbody>
+    <table class="t cards"><thead><tr><th></th><th>Email</th><th>Name</th><th>Plan</th><th>ARNs</th><th>Last run</th><th>Runs</th><th>Software</th><th>Since</th></tr></thead><tbody>
       {rows.map(a => <tr>
         <td class="pick"><input type="checkbox" class="pk" data-id={a.id} data-email={a.email} aria-label={`Select ${a.email}`}></td>
         <td data-l="Email"><a href={`/accounts/${a.uid}`}>{a.email}</a>{a.delete_after && <> <span class="tag red">Deleting</span></>}</td>
@@ -38,6 +43,11 @@ const FILTERS = [['', 'All'], ['active', 'Active plan'], ['gift', 'Gift'], ['tri
           ? <span class:list={['tag', PLAN_TAG[a.source!]]}>{PLAN_NAME[a.source!]} · to {longDate(a.ends_on)}</span>
           : <span class="tag">{PLAN_NAME[a.source!]} · ended {longDate(a.ends_on)}</span>}</td>
         <td data-l="ARNs" class="mono">{a.arns ?? <span class="muted">—</span>}</td>
+        {(() => { const u = usage?.get(a.email.toLowerCase()), none = <span class="muted">—</span>; return <>
+        <td data-l="Last run" class="nw">{u?.last ? <>{istShort(u.last)}<div><span class:list={['tag', RESULT({ kind: u.kind ?? 'run', ended: u.ended })[1]]}>{RESULT({ kind: u.kind ?? 'run', ended: u.ended })[0]}</span></div></> : none}</td>
+        <td data-l="Runs">{u?.runs || none}</td>
+        <td data-l="Software" class="mono">{u?.version ? (u.version === APP.version ? u.version : <span class="tag amber" title="An old version">{u.version}</span>) : none}</td>
+        </>; })()}
         <td data-l="Since">{istShort(a.created_at).split(',')[0]}</td>
       </tr>)}
     </tbody></table>}

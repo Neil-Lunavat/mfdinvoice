@@ -18,4 +18,5 @@ _BRAND = json.loads(Path(__file__).with_name("brand.json").read_text(encoding="u
 NAME: str = _BRAND["name"]
 SITE: str = _BRAND["site"].rstrip("/")          # the website: accounts and plans
 SERVER: str = _BRAND["server"].rstrip("/")      # the software's own server: the portal steps, and what is sent to support
+FORWARD: str = _BRAND.get("forward", "")        # where a person's Gmail forwards CAMS's mailbacks (hands/forward.py)
 DATA: Path = Path(os.environ.get("LOCALAPPDATA", Path.home())) / NAME

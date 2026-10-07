@@ -4,7 +4,7 @@
    asks whether to keep it (POST /api/account/keep) or sign out; until then the session opens nothing else. */
 import { route, checkOrigin, body, json } from '../../../lib/server/http';
 import { normEmail, verifyCode, newSession, sessionCookies, withCookies, setupCookie, planCookie, WEB_KEEP, WEB_SHORT } from '../../../lib/server/auth';
-import { getAccount, getPlan } from '../../../lib/server/account';
+import { getAccount, getPlan, hadPlan } from '../../../lib/server/account';
 import { event } from '../../../lib/server/events';
 import { istWhen } from '../../../lib/server/util';
 import { longDate } from '../../../lib/invoice';
@@ -22,5 +22,5 @@ export const POST = route(async req => {
   const gift = a.gift_until ? { gift_until: a.gift_until, gift_until_text: longDate(a.gift_until) } : a.gift_revoked ? { gift_revoked: true } : {};
   const gone = a.deleted_by ? { was_deleted: a.deleted_by === 'buyer' ? 'self' : 'admin' } : {};
   const [acct, plan] = await Promise.all([getAccount(a.id), getPlan(a.id)]);
-  return withCookies(json({ ok: true, email, ...pending, ...gift, ...gone }), [...sessionCookies(t, keep), setupCookie(!acct?.bill_name || !acct?.bill_address), planCookie(!!plan)]);
+  return withCookies(json({ ok: true, email, ...pending, ...gift, ...gone }), [...sessionCookies(t, keep), setupCookie(!acct?.bill_name || !acct?.bill_address), planCookie(await hadPlan(a.id, plan))]);
 });

@@ -25,7 +25,7 @@ const ROWS: { q: string; a: string[]; best?: boolean }[] = [
   { q: 'Works at 11pm before the deadline', a: ["If you're awake", "If they're in", 'If they pick up', 'Yes'], best: true },
 ];
 const us = (i: number) => i === WAYS.length - 1;
-/* the app's icons, as the demo draws them */
+/* the software's icons, as the demo draws them */
 const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 ---
 <Layout title={`${NAME} · GST commission invoices, done for you`} description={description} path="/" home reveal={0.15} schema={schema}>
@@ -35,12 +35,15 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
     <div class="wrap hero-grid">
       <div class="hero-copy">
         <h1>Give your time to clients, <span>not to invoices.</span></h1>
-        <p class="sub">Set it up once and get your full commission, GST included, always on time<span class="ast" tabindex="0" aria-describedby="astTip">*<span class="ast-tip" id="astTip" role="tooltip">It doesn’t run by itself. Once a month, you open the app and press one button.</span></span>. Your invoices on CAMS and KFintech, signed, submitted and imported into your bookkeeping software automatically.</p>
-        <div class="ctas"><a class="btn secondary lg" href="/downloads">Downloads</a><Cta buy="/pricing" /></div>
+        <p class="sub">Set it up once and get your full commission, GST included, always on time<span class="ast" tabindex="0" aria-describedby="astTip">*<span class="ast-tip" id="astTip" role="tooltip">It doesn’t run by itself. Once a month, you open the software and press one button.</span></span>. Your invoices on CAMS and KFintech, signed, submitted and imported into your bookkeeping software automatically.</p>
+        <div class="ctas"><a class="btn secondary lg" href="#how">Demo</a><Cta buy="/pricing" /></div>
         <div class="micro">
           <span><svg><use href="#tk"/></svg>CAMS and KFintech</span>
-          <span><svg><use href="#tk"/></svg>Tally, and Zoho Books soon</span>
+          <span><svg><use href="#tk"/></svg>Tally and Zoho Books</span>
+          <span><svg><use href="#tk"/></svg>Image and DSC signing</span>
           <span><svg><use href="#tk"/></svg>Passwords stay with you</span>
+          <span><svg><use href="#tk"/></svg>Up to {PRICE.maxArns} ARNs</span>
+          <span><svg><use href="#tk"/></svg>Free trial, nothing locked</span>
         </div>
       </div>
       <div class="stage" id="stage" aria-hidden="true">
@@ -97,22 +100,22 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
         </div>
         <div class="app">
           <aside class="side">
-            <div class="who"><span class="av">RK</span><div><b>R K Mehta</b><span>ARN-123456</span></div></div>
-            <a class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Overview</a>
+            <div class="side-brand"><span class="mark"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span>{NAME}</div>
+            <div class="arnpick"><div><b>ARN-123456</b><span>Neil Lunavat</span></div><svg class="ic" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg></div>
+            <a class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Overview</a>
             <a><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Invoices</a>
             <a><svg class="ic" viewBox="0 0 24 24"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19"/></svg>Tally</a>
-            <a><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Settings</a>
-            <div class="side-foot"><span>6 days to the 15th</span><span><i class="dot"></i>Ready</span></div>
+            <a><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>Settings</a>
+            <div class="side-foot"><span class="av">N</span><div><b>neil.lunavat@gmail.com</b><span>Plan · until 26 Sep 2027</span></div></div>
           </aside>
           <div class="main">
-            <div class="ov-h">
-              <h4>October 2026</h4>
-              <div class="stepper"><i><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></i><i><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></i></div>
-              <span class="chk" id="chk"></span>
+            <div class="mhd">
+              <div><h4>October 2026</h4><p class="msub">KFintech’s trail month: September 2026</p></div>
+              <div class="mpick"><i><svg class="ic" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></i><span>October 2026<svg class="ic" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg></span><i class="off"><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></i></div>
             </div>
             <div id="banner"></div>
             <div class="card month">
-              <div><div class="n" id="mN"></div><div class="t" id="mT"></div></div>
+              <div class="mc-l"><span id="mChip"></span><div class="big" id="mN"></div><div class="facts" id="mT"></div></div>
               <div class="go" id="mGo"></div>
             </div>
             <div class="regs" id="regs"></div>
@@ -120,7 +123,7 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
         </div>
       </div>
       <div class="under">
-        <span id="hint">This is the app. Press Run October.</span>
+        <span id="hint">This is the software. Press Run October.</span>
       </div>
 
       <div class="promises">
@@ -177,7 +180,7 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
           <div class="box-r">Your account<span class="v">Yearly plan</span></div>
           <div class="never">Never sees <span class="x" style="--i:0">passwords</span> · <span class="x" style="--i:1">signature</span> · <span class="x" style="--i:2">mailbox</span> · <span class="x" style="--i:3">invoice files</span></div>
         </div>
-        <p class="cap capL">Before anything is sent to us, the software checks for any passwords in the data and removes them. <a class="more" href="/security">Learn more</a></p>
+        <p class="cap capL">Before anything is sent to us, the software blanks your passwords out of its logs. <a class="more" href="/security">Learn more</a></p>
         <p class="cap capR">When CAMS or KFintech change their workflow, we adapt fast so our service stays reliable at all times. Especially during the peak hours!</p>
       </div>
     </div>
@@ -186,7 +189,7 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
   <!-- FINAL -->
   <section class="final">
     <div class="wrap">
-      <h2 class="h2 rv">Spare 10 minutes for setup, and you won't need any portals again.</h2>
+      <h2 class="h2 rv">Spare 10 minutes for setup, and you would never need to go through portals again.</h2>
       <div class="ctas rv"><Cta buy="/pricing" /></div>
     </div>
   </section>
@@ -274,7 +277,7 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
   .e.seen{opacity:1;transform:none}
 }
 
-/* ---------- the app window: a real run, cut short ---------- */
+/* ---------- the software window: a real run, cut short ---------- */
 .win{position:relative;margin-top:64px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sheet);box-shadow:var(--e-sheet);overflow:hidden;font-size:14px;line-height:1.55;text-align:left}
 .win-bar{height:36px;display:flex;align-items:center;gap:8px;padding-left:12px;border-bottom:1px solid var(--line-2);background:var(--subtle);font-size:12.5px;font-weight:500;color:var(--ink-2)}
 .win-bar .mark{width:16px;height:16px;border-radius:5px}
@@ -282,47 +285,59 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
 .win-ctl{margin-left:auto;display:flex}
 .win-ctl i{width:44px;height:36px;display:grid;place-items:center;color:var(--muted)}
 .win .spin{width:18px;height:18px;border:2px solid var(--blue-line);border-top-color:var(--blue);flex-shrink:0}
-.app{display:grid;grid-template-columns:212px 1fr;height:480px}
-.side{border-right:1px solid var(--line);background:var(--subtle);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
-.who{display:flex;align-items:center;gap:10px;padding:8px 10px 14px;margin-bottom:6px;border-bottom:1px solid var(--line-2)}
-.who .av{width:28px;height:28px;border-radius:8px;background:var(--blue-wash);color:var(--blue);display:grid;place-items:center;font-size:11.5px;font-weight:600}
-.who b{display:block;font-size:13px;font-weight:600;line-height:1.2}
-.who span{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+.app{display:grid;grid-template-columns:212px minmax(0,1fr);height:480px}
+.side{border-right:1px solid var(--line);background:var(--surface);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.side-brand{display:flex;align-items:center;gap:9px;padding:2px 8px 12px;font-size:14px;font-weight:600}
+.side-brand .mark{width:22px;height:22px;border-radius:6px}
+.side-brand .mark svg{width:13px;height:13px}
+.arnpick{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;background:var(--subtle)}
+.arnpick b{display:block;font-family:var(--mono);font-size:12px;font-weight:600}
+.arnpick span{font-size:11.5px;color:var(--muted)}
+.arnpick .ic{width:14px;height:14px;color:var(--faint)}
 .side a{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--ink-2)}
-.side a.on{background:var(--surface);color:var(--ink);box-shadow:var(--e-card),inset 0 0 0 1px var(--line)}
+.side a.on{background:var(--blue-wash);color:var(--blue)}
 .side a .ic{width:17px;height:17px;color:var(--muted)}
 .side a.on .ic{color:var(--blue)}
-.side-foot{margin-top:auto;padding:10px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
-.side-foot span{display:flex;align-items:center;gap:7px}
-.side-foot .dot{width:7px;height:7px;border-radius:9px;background:var(--green)}
-.main{padding:28px 32px;overflow:hidden}
-.ov-h{display:flex;align-items:center;gap:10px}
-.ov-h h4{font-size:21px;font-weight:600;letter-spacing:-.02em}
-.stepper{display:flex;gap:2px;margin-left:4px}
-.stepper i{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--muted)}
-.ov-h .chk{margin-left:auto;font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
-.ov-h .chk button{border:0;background:none;padding:2px 4px;margin:-2px -4px;border-radius:5px;color:var(--blue);font-size:12.5px;font-weight:500}
-.ov-h .chk button:hover{text-decoration:underline}
-.ov-h .chk button.nudge{animation:nudge 2.2s var(--ease) infinite}
-@keyframes nudge{0%,100%{background:transparent}50%{background:var(--blue-wash)}}
-.ov-h .chk .spin{width:12px;height:12px;border-width:1.5px}
-.banner{margin-top:18px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r-card);background:var(--red-wash);border:1px solid var(--red-line);color:var(--red);font-size:13px;animation:rise 280ms var(--ease)}
-.banner .ic{width:18px;height:18px}
-.banner b{display:block;font-weight:600}
-.banner p{color:var(--ink-2)}
-.banner .btn{margin-left:auto}
+.side-foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 8px 2px;border-top:1px solid var(--line-2);font-size:12px;color:var(--muted);min-width:0}
+.side-foot .av{width:26px;height:26px;flex-shrink:0;border-radius:99px;background:var(--sunken);color:var(--ink-2);display:grid;place-items:center;font-size:11px;font-weight:600}
+.side-foot b{display:block;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-foot div{min-width:0}
+.main{padding:24px 28px;overflow:hidden;background:var(--subtle)}
+.mhd{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.mhd h4{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+.msub{margin-top:3px;font-size:12.5px;color:var(--muted)}
+.mpick{display:inline-flex;align-items:center;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:13px;font-weight:500;flex-shrink:0}
+.mpick i{width:30px;height:32px;display:grid;place-items:center;color:var(--ink-2)}
+.mpick i.off{color:var(--ghost)}
+.mpick .ic{width:14px;height:14px}
+.mpick span{display:inline-flex;align-items:center;gap:6px;padding:0 10px;min-width:124px;justify-content:center}
+.mpick span .ic{width:12px;height:12px;color:var(--muted)}
+.banner{margin-top:16px;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--r-card);background:var(--red-wash);border:1px solid var(--red-line);color:var(--ink-2);font-size:13px;animation:rise 280ms var(--ease)}
+.banner b{font-weight:600;color:var(--red)}
 .banner + .month{margin-top:12px}
 .bq{padding:12px 14px;border-radius:10px;background:var(--subtle);border:1px solid var(--line-2);font-size:13.5px;color:var(--ink-2)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--e-card)}
-.month{margin-top:20px;padding:24px;display:flex;align-items:center;gap:20px}
-.month .n{font-size:26px;font-weight:600;letter-spacing:-.03em;line-height:1.2}
-.month .t{margin-top:4px;color:var(--muted);font-size:13.5px}
-.month .go{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
-.btn.run{position:relative;height:56px;padding:0 30px;border-radius:12px;font-size:16px;font-weight:600;background:var(--blue);color:#fff;box-shadow:0 1px 2px rgba(29,78,216,.3),0 8px 24px -8px rgba(29,78,216,.45)}
+.month{margin-top:16px;padding:20px 22px;display:flex;align-items:center;gap:20px}
+.mc-l{display:flex;flex-direction:column;gap:9px;align-items:flex-start;min-width:0}
+.month .big{font-size:21px;font-weight:600;letter-spacing:-.02em;line-height:1.25}
+.facts{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:12px;color:var(--muted)}
+.facts i{font-style:normal;color:var(--line)}
+.facts button{border:0;background:none;padding:2px 4px;margin:-2px -4px;border-radius:5px;color:var(--blue);font-size:12px;font-weight:500}
+.facts button:hover{text-decoration:underline}
+.facts button.nudge{animation:nudge 2.2s var(--ease) infinite}
+@keyframes nudge{0%,100%{background:transparent}50%{background:var(--blue-wash)}}
+.facts .spin{width:11px;height:11px;border-width:1.5px}
+.month .go{margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--muted);flex-shrink:0}
+.btn.run{position:relative;height:52px;padding:0 26px;border-radius:12px;font-size:15.5px;font-weight:600;background:var(--blue);color:#fff;gap:10px;box-shadow:0 1px 2px rgba(29,78,216,.3),0 8px 24px -8px rgba(29,78,216,.45)}
 .btn.run:hover{background:var(--blue-hover)}
+.btn.run svg{width:11px;height:11px;fill:currentColor}
 .btn.run.call::after{content:"";position:absolute;inset:-1px;border-radius:13px;box-shadow:0 0 0 0 rgba(29,78,216,.35);animation:call 2.2s var(--ease) infinite}
 @keyframes call{0%{box-shadow:0 0 0 0 rgba(29,78,216,.32)}70%,100%{box-shadow:0 0 0 14px rgba(29,78,216,0)}}
-.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--sunken);color:var(--ink-2)}
+.splitrun{position:relative;display:flex}
+.splitrun .btn.run:first-child{border-top-right-radius:0;border-bottom-right-radius:0}
+.splitrun .btn.run.caret{padding:0 14px;border-top-left-radius:0;border-bottom-left-radius:0;border-left:1px solid rgba(255,255,255,.25)}
+.splitrun .btn.run.call::after{border-radius:13px 0 0 13px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:500;white-space:nowrap;background:var(--sunken);color:var(--ink-2)}
 .chip::before{content:"";width:6px;height:6px;border-radius:9px;background:var(--faint)}
 .chip.ok{background:var(--green-wash);color:var(--green)}
 .chip.ok::before{background:var(--green)}
@@ -331,18 +346,23 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
 .chip.bad{background:var(--red-wash);color:var(--red)}
 .chip.bad::before{background:var(--red)}
 .regs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
-.reg{padding:20px}
-.reg .k{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600}
-.reg .k .ic{width:16px;height:16px;color:var(--faint)}
-.reg .c{margin-top:14px;font-size:17px;font-weight:600;letter-spacing:-.01em}
-.reg .c .chip{margin-left:6px;vertical-align:2px}
-.reg .a{font-size:13px;color:var(--muted)}
-.dots{display:flex;gap:4px;margin-top:16px}
-.dots i{flex:1;height:4px;border-radius:4px;background:var(--line);transition:background 420ms var(--ease)}
-.dots i.f{background:var(--green)}
-.dots i.r{background:var(--red)}
-.dots-l{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--faint)}
-/* the run, over the app */
+.reg{overflow:hidden}
+.rc-hd{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line-2);font-size:13.5px}
+.rc-hd b{margin-right:auto;font-weight:600}
+.rc-hd .ic{width:16px;height:16px;color:var(--faint)}
+.rc-bd{padding:14px 16px 16px}
+.figs{display:flex;gap:26px}
+.figs b{display:block;font-size:18px;font-weight:600;letter-spacing:-.02em}
+.figs span{font-size:11.5px;color:var(--muted)}
+.stages{display:flex;align-items:center;flex-wrap:wrap;row-gap:6px;margin-top:14px;font-size:11px;color:var(--muted)}
+.stages .stg{display:flex;align-items:center;gap:5px}
+.stages .d{width:9px;height:9px;border-radius:999px;border:1.5px solid #c3cad5;background:var(--surface);transition:background 420ms var(--ease),border-color 420ms var(--ease)}
+.stages .stg.done .d{background:var(--green);border-color:var(--green)}
+.stages .stg.bad{color:var(--red)}
+.stages .stg.bad .d{background:var(--red);border-color:var(--red)}
+.stages .bar{width:12px;height:1.5px;background:var(--line);margin:0 5px}
+.stages .bar.done{background:var(--green)}
+/* the run, over the software */
 .runov{position:absolute;inset:36px 0 0;z-index:5;display:grid;place-items:center;padding:20px;background:rgba(15,23,42,.42);animation:fade 200ms var(--ease)}
 .runov.out{animation:fadeOut 200ms forwards}
 @keyframes fadeOut{to{opacity:0}}
@@ -377,13 +397,14 @@ table.inv .num{text-align:right}
 .under{margin-top:22px;display:flex;justify-content:center;gap:24px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
 .under a,.under button{display:inline-flex;align-items:center;gap:8px;color:var(--blue);font-weight:500;background:none;border:0;padding:0;font-size:14px}
 @media (max-width:880px){
-  .app{grid-template-columns:1fr;height:auto;min-height:520px}
+  .app{grid-template-columns:minmax(0,1fr);height:auto;min-height:520px}
   .side{display:none}
-  .main{padding:20px}
+  .main{padding:20px 16px}
+  .mhd{flex-direction:column;align-items:flex-start}
   .month{flex-direction:column;align-items:stretch;padding:20px}
   .month .go{margin-left:0;align-items:stretch}
+  .splitrun .btn.run:first-child{flex:1}
   .regs{grid-template-columns:1fr}
-  .ov-h .chk .when{display:none}
   .runov{padding:10px}
   table.inv .no{display:none}
   table.inv th,table.inv td{padding-left:16px;padding-right:16px}
@@ -411,7 +432,11 @@ table.inv .num{text-align:right}
 .cmp .us.hd{color:var(--blue);gap:9px;font-weight:600}
 .cmp .us.hd .mark{width:20px;height:20px;border-radius:6px}
 .cmp .us.hd .mark svg{width:12px;height:12px}
-.cmp > .bg{position:absolute;top:-20px;bottom:-20px;right:0;width:21.1%;z-index:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--e-sheet)}
+.cmp > .bg{position:absolute;top:-20px;bottom:-20px;right:0;width:21.1%;z-index:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--e-sheet);transition:box-shadow 600ms var(--ease) 900ms}
+/* ours: a blue line sweeps round it the first time the table comes into view, and it lifts (as .way.us on a phone) */
+.cmp > .bg::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;background:conic-gradient(from 200deg,var(--blue) var(--sweep),transparent 0);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;transition:--sweep 1100ms var(--ease) 300ms}
+.cmp-wrap.in .bg::after{--sweep:360deg}
+.cmp-wrap.in .bg{box-shadow:var(--e-sheet),0 0 0 5px rgba(29,78,216,.08)}
 .cmp .best{font-size:21px;letter-spacing:-.02em;padding-top:32px;padding-bottom:32px;border-bottom:0;color:var(--ink-2)}
 .cmp .best.rl{color:var(--ink);font-weight:600}
 .cmp .best.us{color:var(--blue);font-weight:600}
@@ -526,7 +551,7 @@ const seen = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecti
 ents.forEach(e => seen.observe(e));
 setEntry(ents[0]);
 
-/* ---- the app: a real run, cut short ---- */
+/* ---- the software: a real run, cut short ---- */
 const steps = [
   ["Checking what's already submitted", 'Nothing yet for October'],
   ['Getting the invoices', '11 from CAMS · 6 from KFintech'],
@@ -538,50 +563,63 @@ const steps = [
 type State = 'ready' | 'sent' | 'checked' | 'fixed' | 'done';
 let state: State = 'ready';
 let checkedAt = 'today 09:12';
-const warn = '<svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17h.01"/></svg>';
-function regCard(name: string, list: typeof INVOICES, filled: number, chip: string, bad = false) {
-  return `<div class="card reg"><div class="k">${name}<svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
-    <div class="c">${list.length} invoices${chip}</div><div class="a">${rs(sum(list))} with GST</div>
-    <div class="dots">${[0, 1, 2, 3].map(i => `<i class="${i < filled ? 'f' : i === 3 && bad ? 'r' : ''}"></i>`).join('')}</div>
-    <div class="dots-l"><span>Get</span><span>Sign</span><span>Submit</span><span>Approved</span></div></div>`;
+const play = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg>';
+const caret = '<svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M7 10l5 5 5-5"/></svg>';
+const folder = '<svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+const STAGES = ['Fetched', 'Signed', 'Checked', 'Submitted'];
+/* a registrar's card, as the software draws it: its chip, the fund houses and the total, and the five stages (on: how many
+   are done; bad: the last one is Rejected) */
+function regCard(name: string, list: typeof INVOICES, chip: [string, string], on: number, bad = false) {
+  const names = [...STAGES, bad ? 'Rejected' : 'Approved'];
+  return `<div class="card reg"><div class="rc-hd"><b>${name}</b><span class="chip ${chip[1]}">${chip[0]}</span>${folder}</div>
+    <div class="rc-bd"><div class="figs"><div><b>${list.length}</b><span>fund houses</span></div><div><b>${rs(sum(list))}</b><span>with GST</span></div></div>
+    <div class="stages">${names.map((t, i) => `${i ? `<i class="bar${i < on ? ' done' : ''}"></i>` : ''}<span class="stg${i < on ? ' done' : ''}${bad && i === 4 ? ' bad' : ''}"><i class="d"></i>${t}</span>`).join('')}</div></div></div>`;
 }
+/* the month's card, as the software's Overview words it for each state */
 function overview() {
   const n = INVOICES.length;
-  const view = {
-    ready: [`${n} invoices to do`, `${rs(total)} with GST · due 15 October`, ''],
-    sent: [`${n} invoices submitted`, `0 of ${n} approved so far`, `<span class="chip wait">${n} waiting</span>`],
-    checked: [`15 of ${n} approved`, '1 waiting · 1 rejected', '<span class="chip bad">1 rejected</span>'],
-    fixed: [`15 of ${n} approved`, '2 waiting', '<span class="chip wait">2 waiting</span>'],
-    done: [`All ${n} approved`, `${rs(total)} with GST · October is done`, '<span class="chip ok">Approved</span>'],
-  }[state];
-  $('mN').textContent = view[0];
-  $('mT').textContent = view[1];
+  const sep = '<i>·</i>';
+  const check = (nudge: boolean) => `Checked ${checkedAt} <button type="button" id="chkBtn" class="${nudge ? 'nudge' : ''}">Check now</button>`;
+  const view: Record<State, [[string, string], string, string]> = {
+    ready: [['Not submitted', ''], `${n} invoices to do · ${rs(total)}`, `CAMS ${cams.length} · KFintech ${kf.length}${sep}${check(false)}`],
+    sent: [['Submitted', 'wait'], `0 approved · ${n} waiting`, `Submitted 1 Oct${sep}${check(true)}`],
+    checked: [['Submitted', 'wait'], `${n - 2} approved · 1 waiting · 1 rejected`, `Submitted 1 Oct${sep}${check(false)}`],
+    fixed: [['Submitted', 'wait'], `${n - 2} approved · 2 waiting`, `Submitted 1 Oct${sep}${check(true)}`],
+    done: [['Approved', 'ok'], `${n} approved`, `Submitted 1 Oct${sep}${check(false)}`],
+  };
+  const [chip, big, facts] = view[state];
+  $('mChip').innerHTML = `<span class="chip ${chip[1]}">${chip[0]}</span>`;
+  $('mN').textContent = big;
+  $('mT').innerHTML = facts;
   $('mGo').innerHTML = state === 'ready'
-    ? '<button class="btn run call" type="button" id="runBtn">Run October</button><span>About 5 min</span>'
-    : view[2];
-  const camsChip = ({ checked: ' <span class="chip wait">1 waiting</span>', fixed: ' <span class="chip wait">1 waiting</span>' } as Record<string, string>)[state] || '';
-  const kfChip = ({ checked: ' <span class="chip bad">1 rejected</span>', fixed: ' <span class="chip wait">1 waiting</span>' } as Record<string, string>)[state] || '';
-  const fill = { ready: 0, sent: 3, checked: 3, fixed: 3, done: 4 }[state];
-  $('regs').innerHTML = regCard('CAMS', cams, fill, camsChip) + regCard('KFintech', kf, fill, kfChip, state === 'checked');
+    ? `<div class="splitrun"><button class="btn run call" type="button" id="runBtn">${play}Run October</button><button class="btn run caret" type="button" id="caret" aria-label="More ways to run">${caret}</button></div>`
+    : state === 'checked'
+      ? `<button class="btn run call" type="button" id="fixBtn">${play}Run the 1 rejected again</button><span>One run, one sign-in, all of them</span>`
+      : '<button class="btn secondary lg" type="button">See invoices</button>';
+  const wait: [string, string] = ['Waiting approval', 'wait'], none: [string, string] = ['Not submitted', ''], ok: [string, string] = ['Approved', 'ok'];
+  const reg = {
+    ready: [[none, 0], [none, 0]], sent: [[wait, 4], [wait, 4]], checked: [[wait, 4], [['1 rejected', 'bad'], 4]],
+    fixed: [[wait, 4], [wait, 4]], done: [[ok, 5], [ok, 5]],
+  }[state] as [[string, string], number][];
+  $('regs').innerHTML = regCard('CAMS', cams, reg[0][0], reg[0][1]) + regCard('KFintech', kf, reg[1][0], reg[1][1], state === 'checked');
+  const axis = INVOICES[1];
   $('banner').innerHTML = state === 'checked'
-    ? `<div class="banner">${warn}<div><b>Axis rejected an invoice.</b><p>KFintech says: “Signature not clear. Please upload again.”</p></div><button class="btn primary sm" type="button" id="fixBtn">Send again</button></div>`
+    ? `<div class="banner" role="alert"><div><b>${axis.amc} rejected ${axis.no}.</b> KFintech says: “Signature not clear. Please upload again.”</div></div>`
     : '';
   if (state === 'checked') $('fixBtn').onclick = fix;
-  const nudge = state === 'sent' || state === 'fixed';
-  $('chk').innerHTML = `<span class="when">Checked ${checkedAt} · </span><button type="button" id="chkBtn" class="${nudge ? 'nudge' : ''}">Check now</button>`;
   $('chkBtn').onclick = checkNow;
   if (state === 'ready') $('runBtn').onclick = run;
   $('hint').innerHTML = {
-    ready: 'This is the app. Press Run October.',
-    sent: 'Submitted. Now press Check now, at the top.',
-    checked: 'One came back rejected. Send it again.',
+    ready: 'This is the software. Press Run October.',
+    sent: 'Submitted. Now press Check now.',
+    checked: 'One came back rejected. Run it again.',
     fixed: 'Sent again. Press Check now.',
     done: 'That\'s October, done. <button type="button" id="again">Run it again</button>',
   }[state];
   if (state === 'done') $('again').onclick = () => { state = 'ready'; checkedAt = 'today 09:12'; overview(); };
 }
 function checkNow() {
-  $('chk').innerHTML = '<span class="spin"></span>Checking<span class="when"> for approvals</span>';
+  $('chkBtn').outerHTML = '<span class="spin"></span>Checking';
   setTimeout(() => {
     state = ({ sent: 'checked', fixed: 'done' } as Record<string, State>)[state] || state;
     checkedAt = 'just now';
@@ -596,14 +634,14 @@ function overlay(html: string) {
 }
 function fix() {
   const axis = INVOICES[1];
-  overlay(`<div class="rm" id="rm"><div class="rm-h"><div class="m">Send again</div><h5>Axis · ${rs(axis.total)}</h5></div>
+  overlay(`<div class="rm" id="rm"><div class="rm-h"><div class="m">Run the 1 rejected again</div><h5>Axis · ${rs(axis.total)}</h5></div>
     <div class="rm-b" style="min-height:0"><div class="bq">KFintech says: “Signature not clear. Please upload again.”</div></div>
     <div class="ck-f"><span style="font-size:13px;color:var(--muted)">Not sure what to do? <a style="color:var(--blue);font-weight:500">Send to support</a></span>
       <div class="b"><button class="btn ghost" type="button" id="fxNo">Cancel</button><button class="btn primary" type="button" id="fxGo">Submit 1 invoice</button></div></div></div>`);
   $('fxNo').onclick = close;
   $('fxGo').onclick = () => {
     $('rm').innerHTML = `<div class="done-v"><span class="stamp">SUBMITTED<small>KFINTECH · 2 OCT 2026</small></span>
-      <div><b>Axis · ${rs(axis.total)}</b><p>We'll notify you once approved.</p></div>
+      <div><b>Axis · ${rs(axis.total)}</b><p>You can click the Check now button to know when it’s approved.</p></div>
       <button class="btn secondary" type="button" id="closeBtn">Close</button></div>`;
     state = 'fixed';
     $('closeBtn').onclick = close;
@@ -640,7 +678,7 @@ function check() {
   $('sub').onclick = () => {
     rm.classList.remove('wide');
     rm.innerHTML = `<div class="done-v"><span class="stamp">SUBMITTED<small>CAMS · KFINTECH · 1 OCT 2026</small></span>
-      <div><b>${INVOICES.length} invoices for October · ${rs(total)}</b><p>We'll notify you once approved.</p></div>
+      <div><b>${INVOICES.length} invoices for October · ${rs(total)}</b><p>You can click the Check now button to know when it’s approved.</p></div>
       <button class="btn secondary" type="button" id="closeBtn">Close</button></div>`;
     state = 'sent';
     $('closeBtn').onclick = close;

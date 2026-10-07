@@ -23,7 +23,8 @@ export interface Scenario {
   stop: string;                 // the next run stops this way, once
   slowEmail: boolean;           // CAMS's email takes a while
   byHand: boolean;              // no mailbox: CAMS's files are asked for
-  plan: 'paid' | 'trial' | 'none' | 'ended' | 'unknown';   // what the plan says
+  plan: 'paid' | 'trial' | 'none' | 'used' | 'ended' | 'unknown';   // what the plan says ('used': none, trial already had)
+  survey: boolean;              // a survey is live and not answered yet
 }
 
 interface ArnData {
@@ -45,7 +46,7 @@ type NoId<T> = T extends unknown ? Omit<T, 'id'> : never;
 export class FakeApp implements App {
   scenario: Scenario = {
     signedIn: false, hasArn: false, condition: 'normal', update: false, month: 'to_do', secondArn: true, stop: '', slowEmail: false, byHand: false,
-    plan: 'none'
+    plan: 'none', survey: false
   };
   private listeners = new Set<(p: Push) => void>();
   protected arns: ArnData[] = [];
@@ -87,6 +88,7 @@ export class FakeApp implements App {
       case 'trial': return { ...base, state: 'active', source: 'trial', until: '2026-10-18', slots: 1, arns: arns.slice(0, 1) };
       case 'ended': return { ...base, state: 'ended', source: 'trial', until: '2026-09-30', slots: 1 };
       case 'none': return { ...base, state: 'none', source: '', until: '', slots: 0, arns: [] };
+      case 'used': return { ...base, state: 'none', source: '', until: '', slots: 0, arns: [], trialUsed: true };
       case 'unknown': return { ...base, state: 'unknown', source: '', until: '', slots: 0, arns: [] };
     }
   }
@@ -100,6 +102,7 @@ export class FakeApp implements App {
       update: s.update ? { version: '0.9.3', why: 'CAMS changed its upload page. This version handles it.', failed: false } : null,
       account: s.signedIn ? { email: this.email, maxArns: 6 } : null,
       plan: s.signedIn ? this.plan() : null,
+      survey: s.signedIn && s.survey ? D.SURVEY : null,
       arns: this.arns.map(a => {
         const rej = a.month.invoices.filter(x => x.status === 'Rejected').length;
         const sent = a.month.invoices.some(x => x.status !== 'Not submitted');
@@ -282,11 +285,13 @@ export class FakeApp implements App {
         party: `${x.amc} Mutual Fund`, partyNew: false, sales: `${x.amc} MF Commission`, action,
         note: number ? `Already in your books as ${number}` : later ? 'Not submitted yet' : '' };
     });
-    return { state: 'ready', said: '', companies: ['R K Mehta & Co'], company: 'R K Mehta & Co', period: q.period, label: m.label, own,
+    return { state: 'ready', said: '', companies: ['Lunavat & Co'], company: 'Lunavat & Co', period: q.period, label: m.label, own,
       which: q.which, vtype: 'Sales', method: 'Automatic', tallyNumbers: true, last: `${150 + this.inTally.size}/26-27`, askLast: false,
       rows, creates: [...new Set(rows.filter(r => r.action === 'import' || r.action === 'ask').map(r => r.party))].map(name => ({ kind: 'party' as const, name, gstin: '27AAATB0102C1ZR' })),
       asks: [...new Set(rows.filter(r => r.action === 'ask').map(r => r.amc))].map(a => ({ id: `sales:${a}`,
-        question: `Which sales ledger does ${a}'s commission go under?`, options: ['Commission Income', 'Brokerage Received'] })), warn: [],
+        question: `Which sales ledger does ${a}'s commission go under?`, options: ['Commission Income', 'Brokerage Received'] })).concat(
+        q.answers.gstin === 'yes' ? [] : [{ id: 'gstin', options: ['yes'],
+          question: `Lunavat & Co's GSTIN in Tally is 27AAAPL9999F1Z1. Yours here is ${this.cur?.profile.gstin ?? ''}. Is this the right company?` }]), warn: [],
       counts: { submitted: m.invoices.filter(sent).length, all: rows.length, going: rows.filter(r => r.action === 'import').length,
         byHand: 0, inBooks: rows.filter(r => r.action === 'in_books').length } };
   }
@@ -299,14 +304,19 @@ export class FakeApp implements App {
   }
   async tallySetup(gstin: string) {
     await sleep(500);
-    return { state: 'ready' as const, companies: [{ name: 'R K Mehta & Co', guid: 'g1', gstin, same: true },
+    return { state: 'ready' as const, companies: [{ name: 'Lunavat & Co', guid: 'g1', gstin, same: true },
       { name: 'Mehta Family Trust', guid: 'g2', gstin: '27AAATM1234C1Z5', same: false }] };
   }
-  async tallyLast() { return { state: 'ready', company: 'R K Mehta & Co', last: this.cur?.profile.invoices.last ?? '' }; }
+  async tallyLast() { return { state: 'ready', company: 'Lunavat & Co', last: this.cur?.profile.invoices.last ?? '' }; }
   async tallyForget() { return { ok: true }; }
   async openPdf() {}
   async showInFolder() {}
   async openFolder() {}
+  async uninstall() { return 'not_installed'; }
+  async skipCams() {}
+  async forwardStart() { await sleep(700); return { ok: true }; }
+  async forwardVerify(_: string, code: string) { await sleep(700); return code === '123456' ? { ok: true } : { ok: false, said: "That code isn't right." }; }
+  async forwardGmailCode() { await sleep(400); return '815504211'; }
   async pickFile(kind: 'zip' | 'xls') { return { kind, name: kind === 'zip' ? 'GST_REPORT_224793670R106_1.zip' : 'GST_REPORT_224793670R106_1.xls' }; }
   async dropFile(f: { name: string }) { const kind = /\.zip$/i.test(f.name) ? 'zip' : /\.xlsx?$/i.test(f.name) ? 'xls' : ''; return { kind, name: kind ? f.name : '' }; }
 
@@ -348,7 +358,7 @@ export class FakeApp implements App {
     this.push({ type: 'steps', run: r.id, steps: r.views });
   }
 
-  async startRun(a: { registrars: Registrar[]; period: string; what: RunKind; last?: NextNumber | null }) {
+  async startRun(a: { registrars: Registrar[]; period: string; what: RunKind; periods?: string[]; last?: NextNumber | null }) {
     const id = 'run-' + Date.now().toString(36);
     const names = a.what === 'run' ? ['Check', 'Get', 'Read', 'Sign', 'Your check', ...a.registrars.map(r => (r === 'CAMS' ? 'CAMS' : 'KFintech'))]
       : a.what === 'download' ? ['Check', 'Get', 'Read'] : ['Check'];
@@ -392,7 +402,8 @@ export class FakeApp implements App {
     portal_validation: { title: "CAMS didn't accept 1 of 11 invoices", lines: ['Nothing was submitted. Run again and untick them at Your check; the rest can go.'], said: 'HDFC: Invoice amount does not match the brokerage paid.', reg: 'CAMS' },
     unknown_submit: { title: "CAMS didn't answer the Submit", lines: ["It may or may not have gone through. Nothing is sent twice: the next run reads CAMS's status first and sends only what CAMS doesn't have."], reg: 'CAMS' },
     not_submitting: { title: 'Stopped just before Submit', lines: ['Everything up to here was real, and the registrars have checked the uploads. Submit is switched off on this PC.'] },
-    ours: { title: `Something on CAMS's side isn't what ${NAME} expects`, lines: ['This one is ours to fix, and it has been sent to us. Nothing is sent twice: run again once the app says it is fixed.'], reg: 'CAMS' },
+    ours: { title: `Something on CAMS's side isn't what ${NAME} expects`, lines: ['This one is ours to fix, and it has been sent to us. Nothing is sent twice: run again once the software says it is fixed.'], reg: 'CAMS' },
+    arn_unbound: { title: "This ARN couldn't be added to your account", lines: ["Nothing was submitted. CAMS's files for this month are on this PC, so the next run starts from them."], said: "Another account has this ARN. Send it to support and we'll sort it out.", reg: 'CAMS' },
     unreachable: { title: `${NAME} can't reach its server`, lines: [`${NAME} can't reach its server right now, so it can't be sure it is up to date with the portals.`, 'Nothing was done. Try again in a few minutes.'] }
   };
 
@@ -507,6 +518,8 @@ export class FakeApp implements App {
 
   async markNotesRead() { this.cur?.notes.forEach(n => (n.read = true)); this.publish(); }
   async sendSupport(_: { text: string }) { await sleep(600); return { sent: true }; }
+  async sendIdea(_: { text: string }) { await sleep(600); return { sent: true }; }
+  async answerSurvey() { await sleep(700); this.scenario.survey = false; this.publish(); return { sent: true }; }
   async open(_: Link) {}
   async checkForUpdates() { await sleep(700); return { upToDate: true }; }
 

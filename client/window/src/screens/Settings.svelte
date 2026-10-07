@@ -61,6 +61,27 @@
     updating = false;
     store.toast(r.upToDate ? 'Up to date' : 'An update is on its way');
   }
+  // Windows' own uninstaller asks to confirm; the software closes so it can be removed
+  async function uninstall() { const why = await app.uninstall(); if (why) store.toast('Uninstall works in the installed software, not in a checkout.'); }
+  // Send an idea: the words and a picture they chose, to us; nothing comes back but the thanks
+  let idea = $state(''), picture = $state<{ name: string; data: string } | null>(null), ideaFile = $state<HTMLInputElement | null>(null);
+  let sendingIdea = $state(false), ideaSaid = $state('');
+  function takePicture(f?: File) {
+    ideaSaid = '';
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { ideaSaid = 'That picture is over 5 MB. Choose a smaller one.'; return; }
+    const r = new FileReader();
+    r.onload = () => (picture = { name: f.name, data: String(r.result) });
+    r.readAsDataURL(f);
+  }
+  async function sendIdea() {
+    sendingIdea = true; ideaSaid = '';
+    const r = await app.sendIdea({ text: idea.trim(), picture: picture ?? undefined });
+    sendingIdea = false;
+    if (!r.sent) { ideaSaid = "It didn't send. Check the internet connection and try again."; return; }
+    idea = ''; picture = null;
+    store.toast('Sent. Thank you!');
+  }
 </script>
 
 {#snippet row(k: string, v: string, mono = false)}<span class="k">{k}</span><span class="v" class:mono>{v}</span>{/snippet}
@@ -85,8 +106,8 @@
         </div>
         {#if p.camsUsed}
         <div class="sgroup"><div class="sg-h"><b>Mailbox</b><span class="chip {p.mailbox.connected ? 'good' : 'bad'}">{p.mailbox.connected ? 'Connected' : 'Not connected'}</span></div>
-          <div class="srow">{@render row(p.mailbox.provider === 'folder' ? 'No mailbox' : 'Gmail', mailboxLine(p.mailbox).replace(/^Gmail · /, ''))}
-            {#if p.mailbox.provider !== 'folder'}<button class="btn ghost sm" disabled={testing} onclick={testMailbox}>{testing ? 'Verifying…' : 'Verify connection'}</button>{/if}
+          <div class="srow">{@render row(p.mailbox.provider === 'folder' ? 'No mailbox' : p.mailbox.provider === 'forward' ? 'Forwarded' : 'Gmail', mailboxLine(p.mailbox).replace(/^Gmail · /, ''))}
+            {#if p.mailbox.provider === 'gmail'}<button class="btn ghost sm" disabled={testing} onclick={testMailbox}>{testing ? 'Verifying…' : 'Verify connection'}</button>{/if}
             <button class="btn ghost sm" onclick={() => edit('mb')}>Change</button></div>
           {#if p.mailbox.provider === 'gmail'}<div class="srow"><span class="k">App password</span><span class="v">•••• •••• •••• •••• <span class="lock">{@html icons.lock}This PC only</span></span></div>{/if}
         </div>
@@ -102,7 +123,9 @@
         <div class="sgroup"><div class="sg-h"><b>Tally</b>{#if p.tally.company}<span class="chip good">In use</span>{/if}</div>
           {#if p.tally.company}
             <div class="srow"><span class="k">Company</span><span class="v">{p.tally.company} <span class="line">· {p.tally.ledgers} fund {p.tally.ledgers === 1 ? 'house' : 'houses'} matched to its ledgers</span></span>
-              <button class="btn ghost sm" onclick={async () => { await app.tallyForget(); store.toast('Forgotten. The next import asks again.'); }}>Forget</button></div>
+              <button class="btn ghost sm" onclick={async () => { await app.tallyForget(); store.toast('Forgotten. The Tally tab asks which company next time.'); }}>Change</button></div>
+            <div class="srow"><span class="k">GSTIN</span><span class="v"><span class="mono">{p.tally.gstin || 'Not read yet'}</span> <span class="line">in Tally · yours: <span class="mono">{p.gstin}</span></span>
+              {#if p.tally.gstin && p.tally.gstin !== p.gstin}<span class="chip wait">Not the same</span>{/if}</span></div>
           {:else}
             <p class="line" style="padding-bottom:12px">Each month's invoices go into the TallyPrime open on this PC. <a href="#tally" onclick={e => { e.preventDefault(); ui.go('tally'); }}>Open the Tally tab</a></p>
           {/if}</div>
@@ -151,16 +174,39 @@
             {:else}<button class="btn secondary sm" onclick={() => ui.startSetup(true)}>Add ARN</button>{/if}</div>
         </div>
       {:else if ui.section === 'This PC'}
-        <div class="sgroup"><div class="srow">{@render row('Files', "Every month's invoices, signed, kept on this PC")}<button class="btn ghost sm" onclick={() => app.openFolder('files')}>Open folder</button></div></div>
+        <div class="sgroup"><div class="srow">{@render row('Files', "Every month's invoices, signed, kept on this PC")}<button class="btn ghost sm" onclick={() => app.openFolder('files')}>Open folder</button></div>
+          <div class="srow">{@render row(`Uninstall ${NAME}`, "Removes the software from this PC. Your invoices, settings and saved passwords stay here, so a new install picks up where you left off.")}
+            <button class="btn ghost sm" disabled={!!s.run} onclick={uninstall}>Uninstall</button></div></div>
       {:else if ui.section === 'Support'}
         <div class="sgroup">
-          <div class="srow">{@render row('Something went wrong?', "We see what the app was doing and where it stopped. Never your passwords, signature or mailbox.")}
+          <div class="srow">{@render row('Something went wrong?', "We see what the software was doing and where it stopped. Never your passwords, signature or mailbox.")}
             <button class="btn secondary sm" onclick={() => ui.open({ type: 'support', where: 'Settings › Support' })}>Send to support</button></div>
           <div class="srow">{@render row('Help', 'How a month works · Connect Gmail · KFintech captcha · When a fund house rejects')}<button class="btn ghost sm" onclick={() => app.open('help')}>Open help</button></div>
           <div class="srow"><span class="k">Version</span><span class="v"><span class="mono">v{s.version}</span> · Up to date</span>
             <button class="btn ghost sm" disabled={updating} onclick={checkUpdates}>{updating ? 'Checking…' : 'Check for updates'}</button></div>
         </div>
+      {:else if ui.section === 'Send an idea'}
+        <div class="sgroup idea">
+          <p class="line">Something that would make {NAME} better for you? Write it here. We read every idea ourselves.</p>
+          <textarea class="input" rows="7" maxlength="4000" placeholder="Your idea" bind:value={idea}></textarea>
+          <div class="idea-row">
+            <input bind:this={ideaFile} type="file" accept="image/png,image/jpeg,image/webp" hidden onchange={() => takePicture(ideaFile?.files?.[0])} />
+            {#if picture}
+              <span class="line">{picture.name}</span><button class="btn ghost sm" onclick={() => (picture = null)}>Remove</button>
+            {:else}
+              <button class="btn ghost sm" onclick={() => ideaFile?.click()}>Add a picture</button><span class="line">optional, a screenshot helps</span>
+            {/if}
+            <button class="btn primary sm" style="margin-left:auto" disabled={sendingIdea || !idea.trim()} onclick={sendIdea}>{sendingIdea ? 'Sending…' : 'Send idea'}</button>
+          </div>
+          {#if ideaSaid}<p class="err">{ideaSaid}</p>{/if}
+        </div>
       {/if}
     </div>
   </div>
 </div>
+
+<style>
+  .idea { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; padding-bottom: 14px; }
+  .idea textarea { width: 100%; height: auto; padding: 10px 12px; resize: vertical; }
+  .idea-row { display: flex; align-items: center; gap: 10px; }
+</style>

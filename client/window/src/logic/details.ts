@@ -1,3 +1,4 @@
+import { NAME } from '../brand';
 /* The details a run uses, and when each setup step is complete (Continue unlocks only when the step is valid). */
 
 import type { ProfileDraft } from '../bridge/types';
@@ -58,6 +59,7 @@ export const stepValid = [...STEPS_VALID, allValid] as const;
 
 export function mailboxLine(m: ProfileDraft['mailbox']): string {
   if (m.provider === 'folder') return "You choose CAMS's files yourself";
+  if (m.provider === 'forward') return `Forwarded to ${NAME} · ${m.address}${m.connected ? '' : ' · not set up'}`;
   return `Gmail · ${m.address}${m.connected ? '' : ' · not connected'}`;
 }
 

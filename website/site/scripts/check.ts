@@ -5,8 +5,9 @@
    and read back from the logs. Cloudflare Access is played by a local key server: the check makes its own RSA key,
    serves it as the team's certs, and signs test JWTs with it. The live verification is the same code, pointed at
    the real team's certs. Prints PASS or FAIL for each check; exits 1 if any failed.
-   --keep: afterwards, leave the three running (with the check's data) to look around; the Access JWTs for the panel
-   and the editor are written to .check/tokens.json (send one as the Cf-Access-Jwt-Assertion header). */
+   --keep: afterwards, leave the three running (with the check's data) to look around in a browser: the panel on
+   http://localhost:8800 and the blog editor on http://localhost:8801, each through a small proxy that adds the
+   Access JWT a browser can't (also written to .check/tokens.json). */
 import { spawn, spawnSync, type Subprocess } from 'bun';
 import { rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -61,22 +62,68 @@ const teamKey = await crypto.subtle.generateKey(alg, true, ['sign', 'verify']) a
 const forgedKey = await crypto.subtle.generateKey(alg, true, ['sign', 'verify']) as CryptoKeyPair;
 const jwk = await crypto.subtle.exportKey('jwk', teamKey.publicKey);
 const certs = Bun.serve({ port: 8799, hostname: '127.0.0.1', fetch: () => Response.json({ keys: [{ ...jwk, kid: 'check', alg: 'RS256', use: 'sig' }] }) });
-/* The software's own server, played here: two things the app sent, one with a record of two files. */
+/* The software's own server, played here: three things the app sent, one with a record of two files, and a person's
+   message about the first run. */
 const SOFT = 'http://127.0.0.1:8798', SOFT_KEY = 'check-admin-key';
-const sent = [
+const sent: Record<string, any>[] = [
+  { id: 3, kind: 'problem', email: 'buyer@check.test', arn: 'ARN-111111', message: 'Axis looks wrong to me', place: 'Overview',
+    version: '1.0.0', steps: '2026.10.04.0233', pc: 'DESKTOP-4K2P', record: 0, created_at: '2026-10-04T04:06:51.983Z', run: 'r1', ended: null, seconds: null, state: '' },
   { id: 2, kind: 'ours', email: 'buyer@check.test', arn: 'ARN-111111', message: 'A page isn’t what the app expects', place: 'run · OCT-2026',
-    version: '1.0.0', steps: '2026.10.04.0233', pc: 'DESKTOP-4K2P', record: 2048, created_at: '2026-10-04T03:06:51.983Z' },
+    version: '1.0.0', steps: '2026.10.04.0233', pc: 'DESKTOP-4K2P', record: 2048, created_at: '2026-10-04T03:06:51.983Z', run: 'r2', ended: 'ours', seconds: 95, state: '' },
   { id: 1, kind: 'run', email: 'buyer@check.test', arn: 'ARN-111111', message: '17 invoices submitted for October.', place: 'run · OCT-2026',
-    version: '1.0.0', steps: '2026.10.04.0233', pc: 'DESKTOP-4K2P', record: 0, created_at: '2026-10-04T02:06:51.983Z' },
+    version: '1.0.0', steps: '2026.10.04.0233', pc: 'DESKTOP-4K2P', record: 0, created_at: '2026-10-04T02:06:51.983Z', run: 'r1', ended: 'well', seconds: 312, state: '' },
+  /* the rest: only to look at (--keep) */
+  { id: 9, kind: 'idea', email: 'gift1@check.test', arn: 'ARN-333333', message: 'Could it also do the TDS certificates?', place: 'Settings',
+    version: '1.0.0', steps: '2026.10.04.0233', pc: 'OFFICE-PC · Windows 11 · 8 GB · 120 GB free', record: 0, created_at: '2026-10-03T09:10:00.000Z', run: null, ended: null, seconds: null, state: 'seen' },
+  { id: 8, kind: 'run', email: 'gift1@check.test', arn: 'ARN-333333', message: 'CAMS says the figures differ for Axis', place: 'run · OCT-2026',
+    version: '1.0.0', steps: '2026.10.04.0233', pc: 'OFFICE-PC · Windows 11 · 8 GB · 120 GB free', record: 0, created_at: '2026-10-03T08:40:00.000Z', run: 'r8', ended: 'mismatch', seconds: 141, state: '' },
+  { id: 7, kind: 'run', email: 'gift1@check.test', arn: 'ARN-333333', message: 'stopped', place: 'check · OCT-2026',
+    version: '1.0.0', steps: '2026.10.04.0233', pc: 'OFFICE-PC · Windows 11 · 8 GB · 120 GB free', record: 0, created_at: '2026-10-03T08:20:00.000Z', run: 'r7', ended: 'stopped', seconds: 22, state: '' },
+  { id: 6, kind: 'run', email: 'trial@check.test', arn: 'ARN-222222', message: 'October isn’t listed yet', place: 'run · OCT-2026',
+    version: '1.0.0', steps: '2026.10.04.0233', pc: 'LAPTOP-RM · Windows 11 · 16 GB · 300 GB free', record: 0, created_at: '2026-10-02T11:00:00.000Z', run: 'r6', ended: 'not_listed', seconds: 48, state: '' },
+  { id: 5, kind: 'ours', email: 'trial@check.test', arn: 'ARN-222222', message: 'Something in MFDInvoice went wrong', place: 'download · SEP-2026',
+    version: '1.0.0', steps: '2026.10.02.1010', pc: 'LAPTOP-RM · Windows 11 · 16 GB · 300 GB free', record: 0, created_at: '2026-10-02T10:00:00.000Z', run: 'r5', ended: 'ours', seconds: 63, state: 'fixed' },
+  { id: 4, kind: 'run', email: 'trial@check.test', arn: 'ARN-222222', message: '6 invoices read for September.', place: 'download · SEP-2026',
+    version: '1.0.3', steps: '2026.10.01.0900', pc: 'LAPTOP-RM', record: 0, created_at: '2026-10-01T10:00:00.000Z', run: null, ended: null, seconds: null, state: '' },
 ];
-Bun.serve({ port: 8798, hostname: '127.0.0.1', fetch: req => {
+Bun.serve({ port: 8798, hostname: '127.0.0.1', fetch: async req => {
   const u = new URL(req.url);
   if (req.headers.get('x-admin-key') !== SOFT_KEY) return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
-  if (u.pathname === '/admin/reports') { const k = u.searchParams.get('kind'); return Response.json({ ok: true, reports: sent.filter(r => !k || r.kind === k) }); }
+  if (u.pathname === '/admin/reports') {
+    const k = u.searchParams.get('kind'), e = u.searchParams.get('email'), before = Number(u.searchParams.get('before')) || 0;
+    return Response.json({ ok: true, reports: sent.filter(r => (!k || r.kind === k) && (!e || r.email === e) && (!before || r.id < before)) });
+  }
+  /* the counts, as the real server makes them in SQL (server/src/index.ts, stats) */
+  if (u.pathname === '/admin/stats') {
+    const ist = (t: string) => new Date(Date.parse(t) + 330 * 60_000).toISOString().slice(0, 10);
+    const today = ist(new Date().toISOString()), ago = (n: number) => new Date(Date.parse(today) - n * 864e5).toISOString().slice(0, 10);
+    const res = (r: any) => r.kind === 'ours' || r.ended === 'ours' ? 'ours' : ['well', 'nothing_to_do', 'not_listed'].includes(r.ended) ? 'well' : !r.ended ? 'none' : 'theirs';
+    const count = (xs: any[], key: (x: any) => string) => Object.entries(xs.reduce((m, x) => (m[key(x)] = (m[key(x)] ?? 0) + 1, m), {} as Record<string, number>));
+    const runs = sent.filter(r => r.kind === 'run' || r.kind === 'ours');
+    const days = count(runs.filter(r => ist(r.created_at) >= ago(13)), r => `${ist(r.created_at)}|${res(r)}`).map(([k, n]) => ({ day: k.split('|')[0], result: k.split('|')[1], n }));
+    const open = count(sent.filter(r => r.state !== 'fixed' && (['ours', 'problem', 'idea'].includes(r.kind) || r.ended === 'ours')), r => r.kind).map(([kind, n]) => ({ kind, n }));
+    const stops = count(runs.filter(r => res(r) === 'theirs' && ist(r.created_at) >= ago(29)), r => r.ended).map(([ended, n]) => ({ ended, n }));
+    const oursRows = sent.filter(r => (r.kind === 'ours' || r.ended === 'ours') && ist(r.created_at) >= ago(29));
+    const ours = count(oursRows, r => r.message).map(([message, n]) => {
+      const g = oursRows.filter(r => r.message === message);
+      return { message, place: g[0].place, n, latest: Math.max(...g.map(r => r.id)), open: g.filter(r => r.state !== 'fixed').length };
+    });
+    const people = [...new Set(sent.map(r => r.email))].map(email => {
+      const mine = sent.filter(r => r.email === email).sort((a, b) => b.id - a.id), rr = mine.filter(r => r.kind === 'run' || r.kind === 'ours');
+      return { email, runs: rr.length, last: rr[0]?.created_at ?? null, kind: rr[0]?.kind ?? null, ended: rr[0]?.ended ?? null, version: mine[0].version };
+    });
+    return Response.json({ ok: true, today, keep_days: 90, days, open, stops, ours, people });
+  }
+  const st = u.pathname.match(/^\/admin\/reports\/(\d+)\/state$/);
+  if (st && req.method === 'POST') {
+    const r = sent.find(x => x.id === +st[1]), b = await req.json() as { state: string };
+    if (!r) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+    r.state = b.state; return Response.json({ ok: true });
+  }
   const m = u.pathname.match(/^\/admin\/reports\/(\d+)(\/files|\/file|\/record)?$/);
   const one = m && sent.find(r => r.id === +m[1]);
   if (!m || !one) return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
-  if (!m[2]) return Response.json({ ok: true, report: { ...one, log: 'the app’s last log lines' } });
+  if (!m[2]) return Response.json({ ok: true, report: { ...one, log: 'the app’s last log lines' }, same: sent.filter(r => r.run === one.run && r.id !== one.id) });
   if (m[2] === '/files') return Response.json({ ok: true, files: [{ name: '01-cams-status.png', size: PNG.length }, { name: 'log.txt', size: 9 }] });
   if (m[2] === '/file') return u.searchParams.get('name') === '01-cams-status.png' ? new Response(PNG, { headers: { 'content-type': 'image/png' } }) : new Response('log lines');
   return new Response('zip', { headers: { 'content-type': 'application/zip' } });
@@ -118,10 +165,10 @@ class Client {
 }
 
 /* ---- emails, read back from the logs ---- */
-type Email = { to: string; replyTo: string; subject: string; text: string };
+type Email = { to: string; from: string; replyTo: string; subject: string; text: string };
 function emailsSince(mark: number): Email[] {
-  return [...LOG.slice(mark).matchAll(/--- email to (\S+) ---\r?\nReply-To: (\S+)\r?\nSubject: (.*)\r?\n([\s\S]*?)--- end ---/g)]
-    .map(m => ({ to: m[1], replyTo: m[2], subject: m[3].trim(), text: m[4] }));
+  return [...LOG.slice(mark).matchAll(/--- email to (\S+) ---\r?\nFrom: (\S+)\r?\nReply-To: (\S+)\r?\nSubject: (.*)\r?\n([\s\S]*?)--- end ---/g)]
+    .map(m => ({ to: m[1], from: m[2], replyTo: m[3], subject: m[4].trim(), text: m[5] }));
 }
 const settle = () => Bun.sleep(250);
 async function mailTo(addr: string, mark: number, match?: RegExp) {
@@ -259,7 +306,7 @@ async function main() {
   let buyerId = 0, buyer: Client;
   await check('UPI: order → screenshot → the owner is emailed a link to the panel', async () => {
     ({ c: buyer } = await signIn('buyer@check.test'));
-    const o = await buyer.post('/api/checkout/order', { kind: 'new', arns: 1, name: 'R K Mehta', address: '1 Main Road, Pune' });
+    const o = await buyer.post('/api/checkout/order', { kind: 'new', arns: 1, name: 'Neil Lunavat', address: '1 Main Road, Pune' });
     expect(o.status === 200 && o.json.provider === 'upi' && /^MFD-[A-Z0-9]{6}$/.test(o.json.order_id), `order: ${o.text}`);
     expect(o.json.amount === 400000, `amount ${o.json.amount}`);
     const fd = new FormData(); fd.append('order_id', o.json.order_id); fd.append('screenshot', png()); fd.append('utr', '123456789012');
@@ -362,7 +409,7 @@ async function main() {
     expect(!(await admin.get('/sales?kind=add')).text.includes(ref), 'kind didn’t filter');
     const num = all.text.match(/MFDI\/\d{2}-\d{2}\/0001/)![0];
     const rc = await admin.get(`/receipts/${num}`);
-    expect(rc.status === 200 && rc.text.includes(num) && rc.text.includes('R K Mehta'), `the receipt in the panel: ${rc.status}`);
+    expect(rc.status === 200 && rc.text.includes(num) && rc.text.includes('Neil Lunavat'), `the receipt in the panel: ${rc.status}`);
     return (await admin.get(`/accounts/${buyerId}`)).status === 404 ? true : 'the number still opens an account';
   });
   await check('the Terms version is saved with the order, and Checkout says so', async () => {
@@ -436,7 +483,7 @@ async function main() {
     return (await c.get('/api/me')).json.active === false ? true : 'a revoked gift started';
   });
 
-  /* ---- the free trial: started by the app adding the first ARN, once per ARN ---- */
+  /* ---- the free trial: started by the app adding the first ARN, once per email ---- */
   const istToday = () => new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
   const dayPlus = (d: string, n: number) => new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10);
   const yearOn = (d: string) => `${+d.slice(0, 4) + 1}${d.slice(4)}`;
@@ -472,6 +519,17 @@ async function main() {
     expect(/"n":\s*2/.test(sql(`SELECT COUNT(*) AS n FROM trials WHERE arn = '444444'`)), 'the record doesn’t hold both trials');
     const second = await appBind(id2, 'ARN-555555', 'B');
     return second.status === 409 && second.json.error === 'no_free_slot' ? true : `a second ARN on a trial: ${second.text}`;
+  });
+  await check('trial: once per email; the account deleted above, made again with its email, gets none and is shown Buy now', async () => {
+    const { c } = await signIn('trial3@check.test');
+    const id = (await accountId('trial3@check.test'))!;
+    const b = await appBind(id, 'ARN-888888', 'A');
+    expect(b.status === 403 && b.json.error === 'no_active_plan' && b.json.trial_used === true, `bind: ${b.text}`);
+    expect((await licence(id)).json.trial_used === true, 'the licence doesn’t say trial_used');
+    const me = await c.get('/api/me');
+    expect(me.json.had_plan === true && c.cookies.get('hp') === '1', `had_plan: ${me.text}`);
+    const acct = await c.get('/account');
+    return acct.text.includes('This email has had its free trial') && acct.text.includes('>Buy now</a>') ? true : 'Account doesn’t say so, with Buy now';
   });
   await check('trial: “ends on” then “has ended”, once each (hourly job); after it, the app and the download are refused', async () => {
     const id = (await accountId('trial2@check.test'))!;
@@ -667,6 +725,46 @@ async function main() {
     expect(m && m.text.includes('-data.json') && m.text.includes('MFDI/'), 'no data email with the JSON and the receipt');
     return /"status":\s*"solved"/.test(sql(`SELECT status FROM requests WHERE id = ${r.json.id}`)) ? true : 'not solved';
   });
+  await check('survey: written in the panel, sent live, asked by /api/app/me, answered once, closed with the X, results in the panel', async () => {
+    await signIn('survey1@check.test'); await signIn('survey2@check.test');
+    const a = await accountId('survey1@check.test'), b = await accountId('survey2@check.test');
+    const bad = await admin.post('/api/admin/surveys', { action: 'save', title: 'x', questions: [{ q: 'Pick', type: 'one', options: ['only'] }] });
+    expect(bad.status === 400 && bad.json.error === 'few_options', `one option saved: ${bad.text}`);
+    const s = await admin.post('/api/admin/surveys', { action: 'save', title: 'First month', questions: [
+      { q: 'How was it?', type: 'one', options: ['Good', 'Bad'], other: true }, { q: 'What should change?', type: 'text', options: [] }] });
+    expect(s.status === 200 && s.json.id, `save: ${s.text}`);
+    const id = s.json.id;
+    expect((await licence(a)).json.survey === null, 'a draft is asked');
+    expect((await admin.post('/api/admin/surveys', { action: 'live', id })).status === 200, 'not sent live');
+    const asked = (await licence(a)).json.survey;
+    expect(asked?.id === id && asked.questions.length === 2, `not asked: ${JSON.stringify(asked)}`);
+    const r = await asApp(a, 'POST', '/api/app/survey', { id, answers: { q1: { picked: ['Good', 'Nope'], text: 'great' }, q2: { picked: [], text: 'More months at once' } } });
+    expect(r.status === 200, `answer: ${r.text}`);
+    expect((await asApp(a, 'POST', '/api/app/survey', { id, answers: { q1: { picked: ['Bad'] } } })).status === 409, 'answered twice');
+    expect((await licence(a)).json.survey === null, 'asked again after answering');
+    expect((await asApp(b, 'POST', '/api/app/survey', { id, closed: true })).status === 200, 'the X refused');
+    expect((await licence(b)).json.survey === null, 'asked again after the X');
+    expect((await admin.post('/api/admin/surveys', { action: 'save', id, title: 'Changed', questions: [{ q: 'x', type: 'text' }] })).status === 409, 'a live survey changed');
+    const page = await admin.get(`/survey/${id}`);
+    expect(page.status === 200 && page.text.includes('More months at once') && page.text.includes('survey1@check.test') && page.text.includes('1 closed it'), `results page: ${page.status}`);
+    expect((await admin.get('/survey?view=software')).text.includes('First month'), 'no card');
+    expect((await admin.get('/survey/new')).status === 200, 'the builder');
+    expect((await admin.post('/api/admin/surveys', { action: 'close', id })).status === 200, 'not closed');
+    return (await asApp(b, 'POST', '/api/app/survey', { id, closed: true })).status === 409 ? true : 'a closed survey took a reply';
+  });
+  await check('support: Reply in the panel goes from support@ to them, a copy to support@ that answers them, and is logged', async () => {
+    const mark = LOG.length;
+    const fd = new FormData(); fd.append('id', String(reqId)); fd.append('subject', `Your support request #${reqId}: Setting up`);
+    fd.append('message', 'Hello,\n\nTry the mailbox step again.\n\nBest regards,\nMFDInvoice Support'); fd.append('photo', png());
+    const r = await admin.post('/api/admin/support/reply', fd);
+    expect(r.status === 200 && r.json.ok, `reply: ${r.text}`);
+    const to = await mailTo('help@check.test', mark, /Try the mailbox step again/);
+    expect(to && to.from === 'support@mfdinvoice.co.in' && to.replyTo === 'support@mfdinvoice.co.in' && /attached: \S+-1\.png/.test(to.text), `to them: ${JSON.stringify(to)}`);
+    const copy = await mailTo('support@mfdinvoice.co.in', mark, /Try the mailbox step again/);
+    expect(copy && copy.replyTo === 'help@check.test', `the copy: ${JSON.stringify(copy)}`);
+    const page = await admin.get('/support');
+    return page.text.includes('Replied ') ? true : 'the table doesn’t say it was answered';
+  });
   await check('support: marked solved in the panel, and logged', async () => {
     const r = await admin.post('/api/admin/support', { id: reqId, status: 'solved' });
     expect(r.status === 200, r.text);
@@ -702,7 +800,7 @@ async function main() {
 
   /* ---- changing an ARN: asked in Support, freed in the panel, the new one comes in through the app ---- */
   await check('ARN change: only their own ARN can be asked about; the owner is copied; Free logs it and Support shows the history', async () => {
-    const b1 = await appBind(buyerId, 'ARN-111111', 'R K Mehta');
+    const b1 = await appBind(buyerId, 'ARN-111111', 'Neil Lunavat');
     expect(b1.status === 200, `bind: ${b1.text}`);
     const { c } = await signIn('buyer@check.test', buyer);
     const mineList = await c.get('/api/support');
@@ -727,25 +825,25 @@ async function main() {
   });
   await check('receipt: a billing change is logged; Resend carries the new details to the email of now', async () => {
     const { c } = await signIn('buyer@check.test', buyer);
-    expect((await c.post('/api/account/billing', { name: 'Mehta Wealth LLP', address: '2 New Road, Pune' })).status === 200, 'billing not saved');
+    expect((await c.post('/api/account/billing', { name: 'Lunavat Wealth LLP', address: '2 New Road, Pune' })).status === 200, 'billing not saved');
     const page = await admin.get(`/accounts/${await uidOf(buyerId)}`);
-    expect(page.text.includes('Billing details changed') && page.text.includes('Mehta Wealth LLP'), 'change not in the activity');
+    expect(page.text.includes('Billing details changed') && page.text.includes('Lunavat Wealth LLP'), 'change not in the activity');
     const num = (page.text.match(/MFDI\/\d{2}-\d{2}\/0001/) ?? [])[0];
     const mark = LOG.length;
     const r = await admin.post('/api/admin/accounts', { account: buyerId, action: 'resend', number: num });
     expect(r.status === 200, `resend: ${r.text}`);
     const m = await mailTo('buyer@check.test', mark);
-    expect(m && m.text.includes('Mehta Wealth LLP'), 'the resent receipt has the old name');
+    expect(m && m.text.includes('Lunavat Wealth LLP'), 'the resent receipt has the old name');
     expect(!m!.text.includes('/downloads'), 'Resend carried the download button');
     const rc = await admin.get(`/receipts/${num}`);
-    return rc.text.includes('Mehta Wealth LLP') && rc.text.includes('2 New Road') ? true : 'the receipt page still has the old details';
+    return rc.text.includes('Lunavat Wealth LLP') && rc.text.includes('2 New Road') ? true : 'the receipt page still has the old details';
   });
 
   /* ---- part-year price ---- */
-  await check('part-year price: 15 Mar 2027 → 30 Sep 2027 is 7 months, ₹292 per ARN, ₹876 for 3', async () => {
+  await check('part-year price: 15 Mar 2027 → 30 Sep 2027 is 7 months, ₹1,167 per ARN, ₹3,501 for 3', async () => {
     const m = monthsLeft('2027-03-15', '2027-09-30');
     const q = quote('add', 3, m);
-    return m === 7 && extraFor(m) === 292 && q.subtotal === 87600 && monthsLeft('2026-10-01', '2027-09-30') === 12 ? true : `${m} ${extraFor(m)} ${q.subtotal}`;
+    return m === 7 && extraFor(m) === 1167 && q.subtotal === 350100 && monthsLeft('2026-10-01', '2027-09-30') === 12 ? true : `${m} ${extraFor(m)} ${q.subtotal}`;
   });
 
   /* ---- the blog ---- */
@@ -806,9 +904,9 @@ async function main() {
   });
 
   /* ---- the activity log, deleting, signing out everywhere ---- */
-  await check('activity: created, signed in, payment sent, ARN added by the app, support sent and reopened', async () => {
+  await check('activity: created, signed in, payment sent, ARN added by the software, support sent and reopened', async () => {
     const page = (await admin.get(`/accounts/${await uidOf(buyerId)}`)).text;
-    const want = ['Account created', 'Signed in on the website', 'Payment sent for checking', 'ARN added by the app', 'Support request sent'];
+    const want = ['Account created', 'Signed in on the website', 'Payment sent for checking', 'ARN added by the software', 'Support request sent'];
     const missing = want.filter(w => !page.includes(w));
     expect(!missing.length, `missing: ${missing.join(', ')}`);
     const help = (await admin.get(`/accounts/${await uidOf(await accountId('help@check.test'))}`)).text;
@@ -828,7 +926,7 @@ async function main() {
     const code = (await mailTo('waiting@check.test', mark, /is your/))!.subject.slice(0, 6);
     const tok = (await app.post('/api/app/verify', { email: 'waiting@check.test', code, version: '1.0.0', device: 'DESKTOP-4K2P' })).json.token;
     const page = (await admin.get(`/accounts/${await uidOf(await accountId('waiting@check.test'))}`)).text;
-    expect(page.includes('Signed in to the app') && page.includes('v1.0.0 · DESKTOP-4K2P'), 'app sign-in not logged');
+    expect(page.includes('Signed in to the software') && page.includes('v1.0.0 · DESKTOP-4K2P'), 'app sign-in not logged');
     expect((await c.post('/api/account/signout-all', {})).status === 200, 'sign out everywhere failed');
     const me = await new Client('site', freshIp()).get('/api/app/me', { authorization: `Bearer ${tok}` });
     expect(me.status === 401, `the app is still signed in: ${me.status}`);
@@ -862,14 +960,28 @@ async function main() {
     return none.status === 403 && w.status === 200 && cross.status === 404 ? true : `${none.status} ${w.status} ${cross.status}`;
   });
   await check('the panel’s Software tab: what the app sent, one in full with its picture; the public site gets nothing', async () => {
-    const page = await admin.get('/software');
+    expect((await admin.get('/fonts/Geist-Variable.woff2')).status === 200, 'the panel’s fonts');
+    const page = await admin.get('/software?view=db');
     expect(page.status === 200 && page.text.includes('Ours to fix') && page.text.includes('17 invoices submitted for October.'), `the tab: ${page.status}`);
-    const ours = await admin.get('/software?kind=ours');
+    expect(page.text.includes('>Ended well<') && page.text.includes('5m 12s') && page.text.includes('1m 35s'), 'the result’s colour or how long it took');
+    expect(/Axis looks wrong to me.{0,300}about.{0,200}data-view="1"/s.test(page.text), 'a person’s message doesn’t say which run it is about');
+    const same = await admin.get('/api/admin/software?id=3');
+    expect(same.json.same?.length === 1 && same.json.same[0].id === 1, `the same run: ${same.text}`);
+    const seen = await admin.post('/api/admin/software', { id: 2, state: 'seen' });
+    expect(seen.status === 200 && (await admin.get('/software?view=db')).text.includes('>Seen<'), `Seen: ${seen.text}`);
+    expect((await admin.post('/api/admin/software', { id: 2, state: 'gone' })).status === 400, 'a state that isn’t one');
+    const acct = await admin.get(`/accounts/${await uidOf((await accountId('buyer@check.test'))!)}`);
+    expect(acct.text.includes('id="runs"') && acct.text.includes('17 invoices submitted for October.'), 'the account’s page doesn’t list its runs');
+    const ours = await admin.get('/software?view=db&kind=ours');
     expect(ours.text.includes('buyer@check.test') && !ours.text.includes('17 invoices submitted'), 'the filter by kind');
     const one = await admin.get('/api/admin/software?id=2');
     expect(one.status === 200 && one.json.report.log && one.json.files.length === 2, `one in full: ${one.text}`);
     const pic = await admin.get('/api/admin/software?id=2&file=01-cams-status.png');
     expect(pic.status === 200 && pic.headers.get('content-type') === 'image/png', `a picture: ${pic.status}`);
+    const dash = await admin.get('/software');
+    expect(dash.status === 200 && dash.text.includes('Ours, last 30 days') && dash.text.includes('A page isn’t what the app expects') && dash.text.includes('Versions in use'), `the dashboard: ${dash.status}`);
+    const accts = await admin.get('/accounts?q=buyer%40check.test');
+    expect(accts.text.includes('Last run') && accts.text.includes('Ours to fix') && accts.text.includes('1.0.0'), 'Accounts doesn’t show the last run or the version');
     const out = await new Client('site', freshIp()).get('/api/admin/software?id=2');
     return out.status === 403 || out.status === 404 ? true : `from the public site: ${out.status}`;
   });
@@ -894,8 +1006,22 @@ try {
     const long = { exp: Math.floor(Date.now() / 1000) + 8 * 3600 };
     const t = { control: await jwt(ADMIN, AUD.control, long), write: await jwt(ADMIN, AUD.write, long), writer: await jwt(WRITER, AUD.write, long) };
     await Bun.write(`${PERSIST}/tokens.json`, JSON.stringify(t, null, 2));
+    /* a browser can't send the Access JWT: these add it, and make Origin and redirects match the host the Worker sees */
+    const proxy = (port: number, to: keyof typeof PORTS, token: string) => Bun.serve({ port, hostname: '127.0.0.1', async fetch(req) {
+      const u = new URL(req.url), headers = new Headers(req.headers);
+      headers.set('cf-access-jwt-assertion', token);
+      if (headers.has('origin')) headers.set('origin', `https://${HOSTS[to]}`);
+      const r = await fetch(`http://127.0.0.1:${PORTS[to]}${u.pathname}${u.search}`, { method: req.method, headers,
+        body: ['GET', 'HEAD'].includes(req.method) ? undefined : await req.arrayBuffer(), redirect: 'manual' });
+      const out = new Headers(r.headers);
+      const loc = out.get('location'); if (loc) out.set('location', loc.replace(`https://${HOSTS[to]}`, `http://localhost:${port}`));
+      /* fetch has already unpacked the body: its old length and encoding no longer hold */
+      out.delete('strict-transport-security'); out.delete('content-encoding'); out.delete('content-length');
+      return new Response(r.body, { status: r.status, headers: out });
+    } });
+    proxy(8800, 'control', t.control); proxy(8801, 'write', t.writer);
     console.log(`
-${passed} passed, ${failed} failed. Still running: site http://127.0.0.1:${PORTS.site}, control :${PORTS.control}, write :${PORTS.write} (JWTs in ${PERSIST}/tokens.json, valid 8 hours). Ctrl+C to stop.`);
+${passed} passed, ${failed} failed. Still running, with the check's data: the panel on http://localhost:8800, the blog editor on http://localhost:8801, the site on http://127.0.0.1:${PORTS.site}. Ctrl+C to stop.`);
     await new Promise(() => {});
   }
   stopAll();

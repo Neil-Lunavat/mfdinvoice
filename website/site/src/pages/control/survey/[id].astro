@@ -1,0 +1,58 @@
+---
+/* One software survey: its state, Send live / Close, and its results. Per question: how many picked each option,
+   and what people typed (a short answer, or "Other"), each with their email. */
+import Panel from '../../../layouts/Panel.astro';
+import { accessUser } from '../../../lib/server/access';
+import { tabCounts } from '../../../lib/server/admin';
+import { survey, replies, closedWithX } from '../../../lib/server/surveys';
+import { TYPES } from '../../../lib/surveys';
+import { istShort } from '../../../lib/server/util';
+export const prerender = false;
+
+const me = await accessUser(Astro.request, 'control');
+if (!me) return new Response('Forbidden', { status: 403 });
+const id = Number(Astro.params.id) || 0;
+const [sv, got, xs, tabs] = await Promise.all([survey(id), replies(id), closedWithX(id), tabCounts()]);
+if (!sv) return Astro.redirect('/survey?view=software');
+const STATE = { draft: ['amber', 'Draft: not asked yet'], live: ['green', 'Live: the software asks it'], closed: ['', 'Closed'] } as const;
+const picks = (key: string, o: string) => got.filter(r => r.answers[key]?.picked.includes(o)).length;
+const answeredQ = (key: string) => got.filter(r => r.answers[key]).length;
+const typed = (key: string) => got.filter(r => r.answers[key]?.text);
+---
+<Panel title={sv.title} app="control" on="/survey" me={me.email} counts={tabs}>
+  <div class="ph1"><div><h1>{sv.title}</h1>
+      <p><span class={`tag ${STATE[sv.state][0]}`}>{STATE[sv.state][1]}</span> · {got.length} answered · {xs} closed it with the X · made {istShort(sv.created_at)} by {sv.created_by}{sv.live_at ? ` · live ${istShort(sv.live_at)}` : ''}{sv.closed_at ? ` · closed ${istShort(sv.closed_at)}` : ''}</p></div>
+    <div style="display:flex;gap:8px;align-self:center;margin-left:auto">
+      <a class="btn secondary sm" href="/survey?view=software">All surveys</a>
+      {sv.state === 'draft' && <a class="btn secondary sm" href={`/survey/new?id=${sv.id}`}>Edit</a>}
+      {sv.state === 'draft' && <button class="btn primary sm" type="button" data-state="live" data-id={sv.id}>Send to the software</button>}
+      {sv.state === 'live' && <button class="btn secondary sm" type="button" data-state="close" data-id={sv.id}>Close it</button>}
+    </div>
+  </div>
+  {sv.questions.map((q, i) => { const n = answeredQ(q.key), t = typed(q.key); return <section class="pc">
+    <div class="pc-h"><h2>{i + 1}. {q.q}</h2><span class="note" style="margin-left:auto">{TYPES[q.type]} · {n} answered</span></div>
+    {q.type !== 'text' && <table class="t"><tbody>{q.options.map(o => { const c = picks(q.key, o); return <tr>
+      <td>{o}</td>
+      <td style="width:45%"><div class="bar"><i style={`width:${n ? Math.round((c / n) * 100) : 0}%`}></i></div></td>
+      <td class="num">{c}{n ? <span class="note"> · {Math.round((c / n) * 100)}%</span> : null}</td></tr>; })}
+      {q.other && <tr><td>Other</td><td></td><td class="num">{t.length}</td></tr>}
+    </tbody></table>}
+    {(q.type === 'text' || q.other) && (t.length === 0 ? <p class="empty">{q.type === 'text' ? 'No answers yet.' : 'Nobody typed “Other”.'}</p> :
+      <table class="t cards"><thead><tr><th>When</th><th>{q.type === 'text' ? 'Answer' : '“Other”'}</th><th>Email</th></tr></thead><tbody>
+        {t.map(r => <tr><td data-l="When">{istShort(r.at)}</td><td data-l="Answer">{r.answers[q.key].text}</td><td data-l="Email"><a href={`/accounts/${r.uid}`}>{r.email}</a></td></tr>)}
+      </tbody></table>)}
+  </section>; })}
+</Panel>
+
+<script>
+import { post } from '../../../scripts/client';
+import { ask } from '../../../scripts/panel';
+document.querySelectorAll<HTMLButtonElement>('[data-state]').forEach(b => b.onclick = () => {
+  const live = b.dataset.state === 'live';
+  ask({ title: live ? 'Send this survey to the software?' : 'Close this survey?',
+    text: live ? 'Everyone sees it on Overview, as a toast, until they answer it or close it. Its questions can’t be changed after this.'
+               : 'The software stops asking it. The answers stay.',
+    action: live ? 'Send' : 'Close it',
+    run: () => post('/api/admin/surveys', { action: b.dataset.state, id: Number(b.dataset.id) }) });
+});
+</script>

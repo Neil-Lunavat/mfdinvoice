@@ -43,6 +43,18 @@ def _post(path: str, body: dict, token: str = "") -> tuple[int, dict]:
         return e.code, _json(e.read())
 
 
+def survey_reply(token: str, survey_id: int, answers: dict | None) -> bool:
+    """A survey's answers, or its X (`answers` None: never asked again). True when the website took it, or the survey
+    is no longer open (nothing more to do either way)."""
+    body = {"id": survey_id, **({"answers": answers} if answers is not None else {"closed": True})}
+    try:
+        status, b = _post("/api/app/survey", body, token)
+    except Exception as e:
+        log.info("the survey: the website could not be reached: %s", e)
+        return False
+    return status == 200 or b.get("error") == "not_open"
+
+
 def _json(raw: bytes) -> dict:
     try:
         got = json.loads(raw or b"{}")
@@ -119,7 +131,8 @@ def bind(token: str, arn: str, holder: str) -> dict:
     if status == 200 and b.get("ok") is True:
         return {"ok": True, "already": bool(b.get("already")), "trial_until": str(b.get("trial_until") or "")}
     if b.get("error") in BIND_CODES:
-        return {"ok": False, "reason": b["error"]}
+        used = b["error"] == "no_active_plan" and b.get("trial_used") is True   # one free trial per email
+        return {"ok": False, "reason": "trial_used" if used else b["error"]}
     log.info("binding %s: the website answered %s %s", arn, status, b.get("error") or "")
     return {"ok": False, "reason": "unreachable"}
 

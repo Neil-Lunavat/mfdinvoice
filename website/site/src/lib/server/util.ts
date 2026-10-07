@@ -83,7 +83,7 @@ export function istWhen(iso: string) {
   return `${d.getUTCDate()} ${M[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${h % 12 || 12}:${m} ${h < 12 ? 'am' : 'pm'}`;
 }
 
-/* The public site's address for links in emails (SITE_ORIGIN: workers.dev until launch, then the domain),
+/* The public site's address for links in emails (SITE_ORIGIN in wrangler.jsonc),
    and the admin panel's. */
 export const siteOrigin = () => ((env.SITE_ORIGIN as string) || 'https://mfdinvoice.co.in').replace(/\/$/, '');
 export const controlOrigin = () => `https://${(env.CONTROL_HOST as string) || 'control.mfdinvoice.co.in'}`;

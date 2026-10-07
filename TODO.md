@@ -1,7 +1,7 @@
-# Everything that is left (5 Oct 2026)
+# Everything that is left (7 Oct 2026)
 
 One list for the software, the two servers and the website. `CLAUDE.md` says how we work and where the code is.
-Website detail that predates this list is in `website/todo/` (`launch.md`, `design.md`, `after-*.md`).
+The website's own list is `website/todo/WEBSITE-TODO.md`; ideas parked for later are in `IDEAS.md`.
 
 **Where each kind of change ships from.** Only Neil's PC holds the keys, so every one of these happens there:
 
@@ -58,12 +58,77 @@ branch; Neil pulls, and the shipping is done on his PC.
 - [ ] Then the ten: what each is given, what is read from `control.mfdinvoice.co.in/software` after each run, how
       a report becomes a fix (see B, "From a report to a fix"), and when the one update ships.
 
+### Built 7 Oct, for the next build (none of it seen by Neil yet)
+Checked by me: the window's type-check, the Python imports, and pictures of the month picker, the Tally tab, Settings ›
+This PC and the trial-used screen on the made-up backend. Nothing here has run in the real software.
+- [ ] Month picker: April 2026 to this month, month names only. "App" is "software" in every word a person reads.
+- [ ] Sign up opens `/signin?from=app`. "Free trial used" screen, and a refused bind says it (`trial_used`). **Neil
+      rewrites the words once he sees them.**
+- [ ] Settings › This PC › Uninstall: starts Windows' uninstaller and closes; the data stays.
+- [ ] Tally tab: a GSTIN that differs is a question that holds Import ("This is the right company"), remembered for
+      that company's GSTIN; setup's tick is remembered too. Settings › Tally shows the company's GSTIN beside yours,
+      and Change (it forgets the company; the Tally tab asks again). "Look again" is "Refresh" there.
+- [ ] `arn_unbound` has its own lines; the website's words show as the quote. Fill setup fills the Tally step.
+- [ ] The USB token (DSC) is offered at setup's signature step (Neil, 7 Oct: the proof of concept signed).
+- [ ] The new logo: the window's mark; the .exe and installer icon (`client/packaging/icon.ico`).
+- [ ] `brand.json` points at `https://mfdinvoice.co.in` and `https://software.mfdinvoice.co.in`. **Deploy both servers
+      on their new names before building**, and keep the workers.dev addresses answering for copies already out.
+- [ ] Tally: the voucher type is Sales when it is the only sales type, asked once when there are more (no more
+      guessing from the last voucher entered). MFD Test still remembers the lab's type: Settings › Tally › Change.
+- [ ] CAMS's email: any email of CAMS's in the mailbox for this ARN and month will do, whichever request it answered
+      (checked by the Excel's month, BROKER CODE and listing); a Download looks there before asking CAMS. Checked on
+      two saved real mailbacks only.
+- [ ] Settings › Send an idea (the last tab): the words and a picture they choose, to the software's server as an idea.
+- [ ] Surveys: the panel's Survey tab has Website | Software; Software lists surveys as cards, writes one (questions
+      one by one: one choice, several, short answer, "Other"), sends it live, closes it, shows the results with each
+      email. The software shows the live one on Overview as a toast (X: never again for that survey), asks one
+      question at a time, then the heart and "We read every answer ourselves. Every bit of feedback counts!" (Neil
+      may reword). Website checks: 54 of 54, one for the survey end to end.
+
+### Built 7 Oct, second round (type-checked; nothing run for real)
+- [ ] Skip CAMS while its email is awaited; Overview's Run then says "Run CAMS" (Run both, Run KFintech only in its
+      menu). A late CAMS email is read in by itself (a look every 90 s while the software is open; no portal, no run).
+- [ ] Downloads tab: pick any months (April 2026 on) and download them in one go; Download left Overview's menu.
+- [ ] Tally: an own invoice already in Tally (typed by hand) takes Tally's number as its own, for good.
+- [ ] CAMS's email, three ways: forwarded to us (setup: a code to the CAMS email, then Gmail's forwarding code shown,
+      then the filter), Gmail app password, by hand. Forwarding or Gmail failing, or 10 minutes without the email,
+      falls back to by hand. **Neil, in Cloudflare:** Email Routing on the subdomain `mailback.mfdinvoice.co.in`
+      (check it changes no record of the apex, where Hostinger's MX is), then the address
+      `cams@mailback.mfdinvoice.co.in` → Send to a Worker → `software`.
+- [x] Deployed 7 Oct: the software's server (software.mfdinvoice.co.in, forwarding, the 90-day delete, /admin/stats)
+      and the website (mfdinvoice.co.in, control., write.; migrations 0012, 0013). workers.dev still answers.
+- [ ] The steps (`automation/`) are not published: `uv run app` uses them from the folder. Publish after Neil's pass.
+
+### To talk through before building (Neil, 7 Oct)
+- [ ] **Setup without typing the ARN:** read the ARN (and the name and GSTIN, if the portals show them) from CAMS's
+      and KFintech's sign-ins. CAMS's ARN and KFintech's must still be the same.
+      Neil, 7 Oct night: setup goes CAMS → KFintech → a "name and GSTIN" step → the rest. KFintech verified: that
+      step shows the name (Distributor Profile) and GSTIN (View Uploaded, filled once a month is picked) and asks "Is
+      this correct?", editable. KFintech skipped: the person types both. (CAMS shows the name, never the GSTIN.)
+- [ ] **Own invoice numbers for months already submitted, and Tally:** a past month downloaded today got fresh numbers
+      (May in one format, September in another). The voucher type picked was the lab's ("labs RID").
+- [ ] **CAMS's email that arrives after the run stopped** comes in without another run (a look every few minutes while
+      the software is open). Agreed; its design waits on the three ways below. And a "Skip CAMS" while waiting for
+      the email (today only the files screen has it; the wait itself only has Stop).
+- [ ] **Download separate from Run, for several months at once.** Run stays one month. Download takes a pick of
+      months and fetches them all in one go. A Run of a month not yet downloaded still downloads it; one already
+      downloaded is not fetched again (already so). Lab: does CAMS take mailback requests back to back?
+- [ ] **CAMS's email, three ways, in this order:** (1) the person's Gmail forwards CAMS's mailbacks to one address of
+      ours (Cloudflare Email Routing to a Worker, the mail kept encrypted for their PC only, deleted once fetched);
+      (2) Gmail with an app password (today's); (3) by hand (today's). Each mailback names the CAMS email it was asked
+      from and its request number, so one address can serve everyone. DKIM passes for camsonline.com (Neil, 7 Oct).
+      support@ is Hostinger's mailbox (the apex MX), so this address must not take over the apex: a subdomain or the
+      spare domain. CAMS itself takes minutes to send (asked 17:07, sent 17:09, in Gmail 17:10 on 6 Oct).
+- [ ] **Zoho Books:** `LAB-ZOHO.md` is the brief. **The portals' last lab:** `LAB-PORTALS.md`.
+
+### Pre-launch testing (before the 1.0.0 below)
+- [ ] Everything under "To look at in 1.0.3" and "Built 7 Oct" above, in the real software.
+- [ ] One last lab on October's real invoices (KFintech lists 3, CAMS 3 on 7 Oct): the screens never seen, with Submit
+      off until each guess holds. Then the run after Read against signed-in portals.
+
 ### After Tuesday 6 Oct (Neil's word, 4 Oct night)
 - [ ] **Launch again as 1.0.0, tidy:** clean the live databases (the website's and the software's server's), remove
       Neil's own test account and its ARN, empty the release notes back to one first release, then release 1.0.0.
-- [ ] **Uninstall from the app.** The installer already makes an uninstaller (Windows Settings › Apps › MFDInvoice ›
-      Uninstall); it removes the program and leaves the person's data. Wanted: a button in Settings that starts it,
-      and words that say what stays on the PC.
 - [ ] Left untested on purpose: the ARN set up without KFintech (bound by its first run). Fix it if support hears
       of it.
 - [ ] The ten-distributor plan, written as numbered items with a lean, after Neil's own ARN has gone through October.
@@ -81,48 +146,19 @@ branch; Neil pulls, and the shipping is done on his PC.
 ## B. Can be done in a cloud session (then shipped from the PC)
 
 ### The software's server (`server/`)
-- [ ] Delete a run's record 90 days after the run (rows and R2 files). The Privacy page already promises it.
-- [ ] Pictures with every run: stop after October, keep them for a run that stopped on our side. Neil has not
-      said yes yet.
-
-### The admin panel's Software tab (`website/site/src/pages/control/software.astro`), waiting on Neil's yes/no
-- [ ] 1. A run's result as a colour: ended well, stopped on the person's side, ours.
-- [ ] 2. A person's message tied to the run it is about.
-- [ ] 3. Seen / fixed on "Ours to fix" and "From a person".
-- [ ] 4. A Reply button: an email from support@ with the run number in the subject.
-- [ ] 5. How long the run took.
-- [ ] 6. An account's runs on its own page.
-- [ ] 7. Overview: runs today, "Ours to fix" open.
-- [ ] The table and the View box were changed blind on 4 Oct (fit the screen, scroll sideways): look at them.
+- [ ] Deploy it: the 90-day delete (built, a daily cron), `/admin/stats`, and its new name `software.mfdinvoice.co.in`.
+- Pictures go with every run, for good (Neil, 7 Oct).
 
 ### From a report to a fix
-- [ ] `ops/reports.py` lists and unpacks what the app sent. Wanted: one command that pulls every open "ours" and
-      "from a person" report into a folder a session can read (log, pictures, page HTML), grouped by stop kind and
-      page, so "fix what came in" is one sitting. Reading needs `~/.mfdinvoice/server-admin.key`, so the pull runs
-      on the PC. The folder holds real invoices: it is never committed, so the fixing of a real report is done on
-      the PC, or from a description of it with the real data taken out.
-
-### The website, page by page (`website/site/`)
-- [ ] Read every page as a visitor against the app as it is now: home, pricing, downloads, release notes, setup,
-      security, privacy, terms, refunds, FAQ, support, account, checkout, sign-in, blog.
-- [ ] Home page: the app drawn there against the real window (seven setup steps, the Tally tab, the month picker).
-- [ ] Claims to check: "the app opens only the registrar's invoice mails", "it never sends, moves or deletes
-      anything" (FAQ, Security); "Windows 11" (Downloads, FAQ); Zoho Books says "soon" everywhere.
-- [ ] `/setup`: pictures of each step; the videos when they exist.
-- [ ] More than one ARN: Pricing, Checkout, FAQ and Account read again now that the stepper shows.
-- [ ] Logo and favicon; the look (`website/todo/design.md`).
-- [ ] The facts sheet for the lawyer: everything the website and the software's server store, and for how long.
-- [ ] A place for a signed-in person to send an idea (Neil is thinking about it).
-- [ ] `website/todo/launch.md`, `after-meeting.md`, `after-proprietorship.md`, `after-pvt-ltd.md`: read, and fold
-      what still stands into this list.
+- `uv run --project client python ops/reports.py pull` puts every open "ours" and "from a person" report, with its log
+  and record, into `~/.mfdinvoice/reports/pull-<when>/`, grouped by its words, with an INDEX.md (tried on the live
+  server, 7 Oct: 2 open). It holds real invoices: never in the repo.
 
 ### The app's window (`client/window/`; seen on the made-up backend, shipped as an app update)
+- [ ] A place to send an idea, inside the software (ideas come while using it). Neil designs it with us.
+- [ ] The month picker gets a year once there is a second financial year.
 - [ ] The words on every screen, read once through (Neil rewrites; take his wording).
-- [ ] Tally tab: a GSTIN that differs is only a warning there; make it a question that holds Import, as in setup.
-- [ ] Settings › Connections › Tally: show the company's GSTIN beside this ARN's, and let it be changed.
-- [ ] Settings: an ARN set up before 4 Oct with CAMS never verified now reads "Needs a change". Check the words.
-- [ ] `arn_unbound` is a new stop: add it to `logic/stops.ts` and the dev panel's list if it needs its own words.
-- [ ] The dev panel's "Fill setup" knows nothing of the Tally step.
+- [ ] Settings: an ARN set up before 4 Oct with CAMS never verified now reads "Needs a change". Neil reads the words.
 - [ ] Stale words in comments and docstrings ("brain", "contract", "SOFTWARE.md"): clean them in a file when
       touching it.
 
@@ -131,6 +167,4 @@ branch; Neil pulls, and the shipping is done on his PC.
       API client on api-console.zoho.in, as a real person would), try everything broadly, write the results, go
       deep on the paths we need, then build. Setup's Tally step is where its connection would sit.
 - [ ] **IGST on own invoices**, after launch. Set aside at Your check today.
-- [ ] **The USB signing token**: hidden, code kept (`DSC_OFFERED`), `client/packaging/dsc_check.py` tests one.
-      Neil has no token now.
 - Decided against: updates that download only what changed (87 MB each time; the steps update by themselves).

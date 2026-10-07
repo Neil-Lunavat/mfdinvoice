@@ -67,13 +67,16 @@ h1{font-size:24px;font-weight:600;letter-spacing:-.025em}
 @media (max-width:480px){main .card{padding:28px 22px}.otp{gap:6px}}
 </style>
 <script>
-import { PRICE } from '../consts';
-/* One door: a new email gets its account the moment its code is entered. Same as the app's sign-in.
-   The server sends the code, checks it (3 tries, 10 minutes), and sets the session cookie. */
-import { $, esc, post, tick, toast, me, validEmail } from '../scripts/client';
+import { PRICE, NAME } from '../consts';
+/* One door: a new email gets its account the moment its code is entered (the software only signs in to an account made
+   here). The server sends the code, checks it (3 tries, 10 minutes), and sets the session cookie. The code is never
+   sent by itself at six digits: the person presses Continue, or Enter, as in the software.
+   ?from=app: the software's Sign up link. The person already has the software, so the page ends by sending them back to it. */
+import { $, esc, post, tick, toastNext, me, validEmail } from '../scripts/client';
 const card = $('card');
 const q = new URLSearchParams(location.search);
 const next = q.get('next');
+const fromApp = q.get('from') === 'app';
 const mask = a => { const [u, d] = a.split('@'); return u[0] + '•••@' + d; };
 let timer;
 
@@ -133,7 +136,6 @@ function codeStep(addr, wait = 45) {
       el.value = el.value.replace(/\D/g, '').slice(-1); el.classList.toggle('filled', !!el.value);
       if (el.value && boxes[i + 1]) boxes[i + 1].focus();
       hint('Six digits, from the email.'); upd();
-      if (code().length === 6) go.click();
     });
     el.addEventListener('keydown', e => {
       if (e.key === 'Backspace' && !el.value && boxes[i - 1]) boxes[i - 1].focus();
@@ -143,7 +145,6 @@ function codeStep(addr, wait = 45) {
       const t = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6); if (!t) return;
       e.preventDefault(); t.split('').forEach((c, k) => { boxes[k].value = c; boxes[k].classList.add('filled'); });
       (boxes[t.length] || boxes[5]).focus(); upd();
-      if (t.length === 6) go.click();
     });
   });
   const reset = () => { boxes.forEach(b => { b.value = ''; b.classList.remove('filled'); b.disabled = false; }); boxes[0].focus(); upd(); };
@@ -154,8 +155,9 @@ function codeStep(addr, wait = 45) {
     delete go.dataset.busy; go.textContent = 'Continue';
     if (r.ok) {
       clearTimeout(timer);
-      if (r.was_deleted) toast(r.was_deleted === 'self' ? 'Your account was deleted. Please set it up again.' : 'Your account was deleted.', 'warn');
-      else if (r.gift_revoked) toast('Unfortunately, your gift has expired.', 'warn');
+      if (r.was_deleted) toastNext(r.was_deleted === 'self' ? 'Your account was deleted. Please set it up again.' : 'Your account was deleted.', 'warn');
+      else if (r.gift_revoked) toastNext('Unfortunately, your gift has expired.', 'warn');
+      else if (!r.delete_after) toastNext('Signed in successfully');
       return r.delete_after ? keepStep(addr, r.delete_on) : signedIn(addr, r.gift_until_text);
     }
     const box = $('otp'); box.classList.add('shake'); setTimeout(() => box.classList.remove('shake'), 320);
@@ -196,20 +198,23 @@ function destination() {
   try { const r = new URL(document.referrer); if (r.origin === location.origin && !r.pathname.endsWith('/signin')) return r.pathname + r.hash; } catch (e) {}
   return '/';
 }
+/* Signed in: straight on to where they were going, where the toast left above shows. Two cases stay on this page
+   instead: a gift started with this sign-in (its card says so, like Checkout's "We're checking your payment"), and
+   the software's Sign up link, which sends them back to the software. */
 function signedIn(addr, giftUntil?: string) {
-  /* a gift started with this sign-in: the card says so, like Checkout's "We're checking your payment" */
-  card.innerHTML = giftUntil
-    ? `<div class="done enter">
-        ${tick()}
-        <h1>Your free plan is active</h1>
-        <p>A year on 1 ARN has been activated for <b>${esc(addr)}</b>. It runs until <b>${esc(giftUntil)}</b>.</p>
-        <a class="btn primary" href="${destination()}">Continue</a>
-      </div>`
-    : `<div class="done enter">
-        ${tick()}
-        <h1>You're signed in</h1><p>as <b>${esc(addr)}</b></p>
-        <a class="btn primary" href="${destination()}">Continue</a>
-      </div>`;
+  const gift = giftUntil ? `<p>A year on 1 ARN has been activated for <b>${esc(addr)}</b>. It runs until <b>${esc(giftUntil)}</b>.</p>` : '';
+  if (fromApp) {
+    try { sessionStorage.removeItem('toast'); } catch (e) {}
+    card.innerHTML = `<div class="done enter">${tick()}<h1>You're set</h1>${gift}<p>Go back to ${NAME} and sign in with <b>${esc(addr)}</b>.</p></div>`;
+    return;
+  }
+  if (!giftUntil) { location.href = destination(); return; }
+  try { sessionStorage.removeItem('toast'); } catch (e) {}
+  card.innerHTML = `<div class="done enter">
+      ${tick()}
+      <h1>Your free plan is active</h1>${gift}
+      <a class="btn primary" href="${destination()}">Continue</a>
+    </div>`;
 }
 
 /* the account's deletion is pending (it waits a day): keep it, or sign out and let it go */
@@ -223,7 +228,7 @@ function keepStep(addr, when) {
   $('keep').onclick = async () => {
     $('keep').disabled = true; $('keep').innerHTML = '<span class="spin"></span>Keeping';
     const r = await post('/api/account/keep', {});
-    if (r.ok) return signedIn(addr, r.gift_until_text);
+    if (r.ok) { toastNext('Signed in successfully'); return signedIn(addr, r.gift_until_text); }
     $('keep').disabled = false; $('keep').textContent = 'Keep my account';
     $('kerr').textContent = r.error === 'offline' ? sendError(r) : 'That didn’t work. Try again.'; $('kerr').hidden = false;
   };
@@ -239,7 +244,7 @@ function keepStep(addr, when) {
    so an empty card never flashes (html.si hides <main> in the CSS above). */
 const show = () => { document.documentElement.classList.remove('si'); emailStep(); };
 if (document.documentElement.classList.contains('si'))
-  me().then(m => m.signed_in ? location.replace(destination()) : show()).catch(show);
+  me().then(m => !m.signed_in ? show() : fromApp ? (document.documentElement.classList.remove('si'), signedIn(m.email!)) : location.replace(destination())).catch(show);
 else emailStep();
 
 </script>

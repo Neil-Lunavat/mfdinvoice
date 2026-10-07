@@ -35,7 +35,7 @@
 {:else if look.state !== 'ready'}
   <div class="detected enter"><div><b>{look.state === 'closed' ? 'No company is open in TallyPrime' : "Tally isn't open"}</b>
     <span>{look.state === 'closed' ? 'Open your company in TallyPrime, then look again.' : 'To connect it, open TallyPrime and your company, then look again. Or continue without it.'}</span></div>
-    <button class="btn secondary sm" disabled={busy} onclick={read}>{#if busy}<span class="spin"></span>{:else}{@html icons.sync}{/if}Look again</button></div>
+    <button class="btn secondary sm" disabled={busy} onclick={read}>{#if busy}<span class="spin"></span>{:else}{@html icons.sync}{/if}Refresh</button></div>
   {#if look.state === 'off'}
     <p class="line">The first time: in TallyPrime press F1 (Help) › Settings › Connectivity › Client/Server configuration. Set "TallyPrime acts as" to Both and the port to 9000, then close TallyPrime and open it again.</p>
   {/if}
@@ -58,7 +58,7 @@
     {/if}
     <a href="#notally" class="small-link" onclick={e => { e.preventDefault(); d.tally = undefined; }}>Don't connect Tally now</a>
   {/if}
-  <div class="testrow"><button class="btn ghost sm" disabled={busy} onclick={read}>{#if busy}<span class="spin"></span>{:else}{@html icons.sync}{/if}Look again</button></div>
+  <div class="testrow"><button class="btn ghost sm" disabled={busy} onclick={read}>{#if busy}<span class="spin"></span>{:else}{@html icons.sync}{/if}Refresh</button></div>
 {/if}
 
 <style>

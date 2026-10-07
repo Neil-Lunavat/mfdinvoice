@@ -31,6 +31,7 @@ OutputBaseFilename={#AppName}-Setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=icon.ico
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppName}.exe
 VersionInfoVersion={#AppVersion}
@@ -93,7 +94,7 @@ var
 begin
   if (CurStep <> ssPostInstall) or HasWebView2 then
     Exit;
-  WizardForm.StatusLabel.Caption := 'Getting a Windows component the app needs (Microsoft Edge WebView2)...';
+  WizardForm.StatusLabel.Caption := 'Getting a Windows component the software needs (Microsoft Edge WebView2)...';
   try
     DownloadTemporaryFile(WebView2Url, 'MicrosoftEdgeWebview2Setup.exe', '', nil);
     Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE,

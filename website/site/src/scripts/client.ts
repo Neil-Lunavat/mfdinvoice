@@ -34,6 +34,19 @@ export function toast(text: string, tone: '' | 'warn' = '', ms = 5000) {
   setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, ms);
 }
 
+/* A toast for the next page, when this one is about to leave (Sign in → where they were going). Layout shows it on
+   the next page's load. */
+export function toastNext(text: string, tone: '' | 'warn' = '') {
+  try { sessionStorage.setItem('toast', JSON.stringify([text, tone])); } catch (e) {}
+}
+export function toastWaiting() {
+  try {
+    const t = sessionStorage.getItem('toast'); if (!t) return;
+    sessionStorage.removeItem('toast');
+    const [text, tone] = JSON.parse(t); toast(text, tone);
+  } catch (e) {}
+}
+
 /* One dialog at a time, over a scrim. closable: ×, Cancel, Escape and a click outside close it; focus goes back. */
 export function dialog(html: string, closable = true) {
   let scrim = $('scrim');

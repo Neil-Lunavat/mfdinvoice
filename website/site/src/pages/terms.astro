@@ -3,53 +3,53 @@ import Layout from '../layouts/Layout.astro';
 import Legal, { type Section } from '../components/Legal.astro';
 import '../styles/base.css';
 import '../styles/kit.css';
-import { NAME, BUSINESS, TRIAL, SALES, EMAIL } from '../consts';
-import { shown, companyLine } from '../lib/format';
+import { NAME, BUSINESS, TRIAL, SALES, EMAIL, PRICE } from '../consts';
+import { shown, companyLine, word } from '../lib/format';
 
 const B = BUSINESS;
 const sections: Section[] = [
   { h: 'Who we are', p: [
     `${NAME} is made by ${B.legalName}, ${shown(B.entity)}, of ${shown(B.address)}, ${B.state}, India. In these terms, “we” and “us” mean ${B.legalName}, and “you” means the person or firm whose account it is.`,
-    `By creating an account, using the app or paying for a plan, you agree to these terms, the <a href="/privacy">Privacy policy</a> and the <a href="/refunds">Refund policy</a>.`,
+    `By creating an account, using the software or paying for a plan, you agree to these terms, the <a href="/privacy">Privacy policy</a> and the <a href="/refunds">Refund policy</a>.`,
   ] },
   { h: 'What the service is', p: [
-    `${NAME} is a Windows app and the servers it works with. Once a month, it prepares your GST commission invoices on CAMS and KFintech: it signs in to the portals as you, gets the month’s invoices, places your signature on them, uploads them, and shows you a summary. It submits only after you say yes. After that it reads their status from the portals whenever you ask.`,
+    `${NAME} is a Windows software and the servers it works with. Once a month, it prepares your GST commission invoices on CAMS and KFintech: it signs in as you, gets the month’s invoices, places your signature on them, uploads them, and shows you a summary. It submits only after you say yes. After that it reads their status from the portals whenever you ask.`,
     'It signs in with your own logins, from your own PC and your own internet connection. You type the KFintech captcha yourself.',
   ] },
   { h: 'Your account', p: [
     'You sign in with your email and a code we send to it. Anyone who can read that mailbox can sign in to your account, so keep it secure.',
-    'Keep your details right: your email, and the name and address for your receipts. You are responsible for what is done with your account, including by your staff.',
+    'Please keep your details up to date: your email, and the name and address on your receipts. Your account is yours to look after: what is done with it, including by your staff, is taken as done by you, so share it only with people you trust.',
   ] },
   { h: 'The free trial', p: [
-    `Each account can have one free trial of ${TRIAL.days} days, on one ARN. It starts when you add the ARN in the app and ends by itself. It costs nothing, and we don’t ask for payment details.`,
+    `Each email gets one free trial of ${TRIAL.days} days, on one ARN. It starts when you add the ARN in the software and ends by itself. It costs nothing, and we don’t ask for payment details. Deleting your account and signing up again with the same email doesn’t give a second trial.`,
   ] },
   { h: 'Plans and payment', p: [
-    'A plan covers one ARN for a year, at the price on our <a href="/pricing">Pricing page</a> on the day you pay. It is paid for in advance.',
+    `A plan covers one or more ARNs, up to ${word(PRICE.maxArns)}, for a year, at the price on our <a href="/pricing">Pricing page</a> on the day you pay. It is paid for in advance. An ARN you add later costs only the months left on your plan, and the ARN added later ends with the ongoing plan.`,
     `You pay by UPI and send us the payment’s screenshot. We check it by hand, usually within a few hours, and your plan starts once we confirm it. If you pay during your free trial, the year starts when the trial ends. We email you a ${SALES.gst ? 'tax invoice' : 'receipt'}${SALES.gst ? '' : ': we are not registered for GST yet, so no GST is charged'}.`,
-    'A plan doesn’t renew by itself. When the year ends, the app stops running until you buy again.',
+    'A plan doesn’t renew by itself. When the year ends, the software stops running until you renew your plan through the website.',
     'We don’t give refunds. The <a href="/refunds">Refund policy</a> has the two cases where we return a payment.',
   ] },
-  { h: 'Your ARN', p: [
-    'Your plan is tied to the ARN you add in the app. An ARN can be on one account at a time. Once your plan or trial has ended, another account that adds the same ARN in the app takes it over. To move a plan to a different ARN, write to support. We may refuse if a plan keeps moving between ARNs.',
-    'The app checks that the ARN the portal shows is the one on your plan, and stops if it isn’t.',
+  { h: 'Your ARNs', p: [
+    'Your plan is tied to the ARNs you add in the software. An ARN can only be on one account at a time (i.e. two emails can not share one ARN). Once your plan or trial has ended, another account that adds the same ARN in the software takes it over. To move a plan to a different ARN, write to support. We may refuse if a plan keeps moving between ARNs.',
+    'The software checks that the ARN the portals show is one on your plan, and will refuse to run if it isn’t.',
   ] },
   { h: 'What you’re responsible for', p: [
-    '<ul><li>The invoices are yours. You are the supplier under GST, and you are responsible for your returns and for checking the summary before you say yes.</li><li>You have the right to use the CAMS, KFintech and mailbox accounts you connect, and the signature you add.</li><li>You follow CAMS’s and KFintech’s own terms when you use their portals through the app.</li></ul>',
+    '<ul><li>The invoices are yours. You are the supplier under GST, and you are responsible for your returns and for checking the summary before you say press upload ("submit" in the software).</li><li>You have the right to use the CAMS, KFintech and mailbox accounts you connect, and the signature you add.</li><li>You follow CAMS’s and KFintech’s own terms when you use their portals through the software.</li></ul>',
   ] },
   { h: 'What you may not do', p: [
-    '<ul><li>Copy, resell or rent out the app, or take it apart to learn how it works.</li><li>Use it on accounts or ARNs that aren’t yours to use.</li><li>Get around the plan, the trial or any limit, or interfere with our servers.</li></ul>',
+    '<ul><li>Copy, resell or rent out the software, or take it apart to learn how it works.</li><li>Use it on accounts or ARNs that aren’t yours to use.</li><li>Get around the plan, the trial or any limit, or interfere with our servers.</li></ul>',
     'If you do, we may suspend or close your account.',
   ] },
   { h: 'CAMS and KFintech', p: [
-    `CAMS and KFintech are not part of ${NAME}, and we have no arrangement with either. Their portals can change, go down or refuse an upload. We adapt to their changes as fast as we can, but we can’t promise that a portal will work on a given day. A late upload moves a payout to the next cycle; we are not responsible for a registrar’s or a fund house’s decisions.`,
+    `CAMS and KFintech are not part of ${NAME}, and we have no arrangement with either. Their portals can change, go down or refuse an upload. We adapt to their changes as fast as we can, but we can’t promise that a portal itself will work on a given day. A late upload moves a payout to the next cycle; we are not responsible for a registrar’s or a fund house’s decisions.`,
   ] },
   { h: 'Our responsibility', p: [
     'We work to keep the service running and correct, and we fix what is ours to fix. Beyond that, the service is provided as it is.',
-    'We are not responsible for indirect losses, such as a delayed payout or lost time. If we are responsible for a loss, the most we pay is what you paid us in the 12 months before it.',
+    'We are not responsible for indirect losses, such as a delayed payout or lost time.',
   ] },
   { h: 'Ending', p: [
-    'You can delete your account at any time from your <a href="/account">Account page</a>. The app then stops working, and what we keep afterwards is in the <a href="/privacy">Privacy policy</a>.',
-    'We may suspend or close an account that breaks these terms. If we ever stop the service, we will tell you first.',
+    'You can delete your account at any time from your <a href="/account">Account page</a>. The software then stops working, and what we keep afterwards is in the <a href="/privacy">Privacy policy</a>.',
+    'We may suspend or close an account that breaks these terms. If we ever stop the service, we will notify you first regarding the same.',
   ] },
   { h: 'Changes to these terms', p: [
     'The date at the top says when these terms last changed. We email you before a change that matters. Each payment records the version of the terms it was made under.',
@@ -59,7 +59,7 @@ const sections: Section[] = [
   ] },
   { h: 'Contact', p: [
     companyLine(),
-    `For help with the app or your plan, write to <a href="mailto:${EMAIL.support}">${EMAIL.support}</a>.`,
+    `For help with the software or your plan, write to <a href="mailto:${EMAIL.support}">${EMAIL.support}</a>.`,
   ] },
 ];
 ---

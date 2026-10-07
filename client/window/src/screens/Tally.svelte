@@ -97,7 +97,7 @@
           {#each months as m (m.period)}<option value={m.period}>{m.label}</option>{/each}
         </select>
       {/if}
-      <button class="btn ghost" disabled={!!busy} onclick={() => read()}>{#if busy === 'look'}<span class="spin"></span>{:else}{@html icons.sync}{/if}Look again</button>
+      <button class="btn ghost" disabled={!!busy} onclick={() => read()}>{#if busy === 'look'}<span class="spin"></span>{:else}{@html icons.sync}{/if}Refresh</button>
     </div>
   </div>
 
@@ -108,8 +108,8 @@
   {:else if look.state === 'off' || look.state === 'closed'}
     <div class="empty-state">
       <b>{look.state === 'closed' ? 'No company is open in TallyPrime.' : look.said || "TallyPrime isn't answering on this PC."}</b>
-      {#if look.state === 'closed'}Open your company in TallyPrime, then look again.
-      {:else if !look.said}Open TallyPrime and your company, then look again.
+      {#if look.state === 'closed'}Open your company in TallyPrime, then press Refresh.
+      {:else if !look.said}Open TallyPrime and your company, then press Refresh.
         <p class="line tl-help">The first time: in TallyPrime press F1 (Help) › Settings › Connectivity › Client/Server configuration. Set "TallyPrime acts as" to Both and the port to 9000, then close TallyPrime and open it again.</p>{/if}
     </div>
   {:else if look.state === 'pick'}
@@ -160,7 +160,7 @@
       {#if salesAsks.length}
         <div class="tl-ask">
           <div class="tl-ask-hd"><div><b>Which sales ledger does the commission go under?</b>
-            <p>If a fund house needs a ledger of its own, make it in Tally first, then look again.</p></div>
+            <p>If a fund house needs a ledger of its own, make it in Tally first, then press Refresh.</p></div>
             {#if salesAsks.length > 1}
               <select class="input" aria-label="The same ledger for all" onchange={e => answerAll(e.currentTarget.value)}>
                 <option value="">Same for all…</option>{#each salesOptions as o (o)}<option value={o}>{o}</option>{/each}
@@ -177,11 +177,17 @@
         </div>
       {/if}
       {#each otherAsks as a (a.id)}
+        {#if a.id === 'gstin'}
+        <div class="banner wait sm" role="alert"><div><b>{a.question}</b>
+          <p>Import waits for your answer.{look.companies.length > 1 ? ' Or choose another company at the top.' : ''}</p></div>
+          <button class="btn secondary sm" onclick={() => answer('gstin', 'yes')}>This is the right company</button></div>
+        {:else}
         <div class="banner wait sm"><div><b>{a.question}</b>
-          {#if a.id.startsWith('sales:')}<p>If it needs a ledger of its own, make it in Tally first, then look again.</p>{/if}</div>
+          {#if a.id.startsWith('sales:')}<p>If it needs a ledger of its own, make it in Tally first, then press Refresh.</p>{/if}</div>
           <select class="input" style="width:auto;max-width:300px" aria-label={a.question} onchange={e => answer(a.id, e.currentTarget.value)}>
-            <option value="">Choose a ledger</option>{#each a.options as o (o)}<option value={o}>{o}</option>{/each}
+            <option value="">{a.id === 'vtype' ? 'Choose one' : 'Choose a ledger'}</option>{#each a.options as o (o)}<option value={o}>{o}</option>{/each}
           </select></div>
+        {/if}
       {/each}
     </div>
 

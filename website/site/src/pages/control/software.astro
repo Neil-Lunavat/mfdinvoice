@@ -1,75 +1,126 @@
 ---
-/* Software: what the app sends to the software's own server. Every run, check and download sends its record when it
-   ends; one that stopped on a fault of ours is marked, and what a person sends with Send to support is marked too.
-   View opens one: what it said, the pictures of the portals' pages, and the log. Nobody is answered from here. */
+/* Software: what the software sends to the software's own server, in two views.
+   Dashboard: every report kept (the last 90 days), counted on that server: what waits on someone, runs per day by
+   result, why runs stopped on the person's side, ours grouped by their words, and which versions the PCs run.
+   Database: the reports themselves, newest first, 200 a page. Every run, check and download sends its record when
+   it ends (green: well; amber: the person's side; red: ours), and what a person sends with Send to support says
+   which run it is about. Seen / Fixed is for whoever fixes things. View opens one (components/Reports.astro).
+   Nobody is answered from here: a fix is made in the code, from the run's record. */
 import Panel from '../../layouts/Panel.astro';
+import Reports from '../../components/Reports.astro';
 import { accessUser } from '../../lib/server/access';
 import { tabCounts } from '../../lib/server/admin';
-import { softwareReports, softwareReady } from '../../lib/server/software';
-import { istShort } from '../../lib/server/util';
+import { softwareReports, softwareReady, softwareStats, type Result } from '../../lib/server/software';
+import { longDate } from '../../lib/date';
+import { APP } from '../../consts';
 export const prerender = false;
 
 const me = await accessUser(Astro.request, 'control');
 if (!me) return new Response('Forbidden', { status: 403 });
-const KINDS: Record<string, [string, string]> = { ours: ['Ours to fix', 'red'], problem: ['From a person', 'amber'], idea: ['An idea', 'blue'], run: ['Run', ''] };
+const db = Astro.url.searchParams.get('view') === 'db';
+const FILTERS = [['', 'All'], ['ours', 'Ours to fix'], ['problem', 'From a person'], ['idea', 'Ideas'], ['run', 'Runs']];
 const asked = Astro.url.searchParams.get('kind') || '';
-const kind = asked in KINDS ? asked : '';
-const [rows, counts] = await Promise.all([softwareReports(kind), tabCounts()]);
-const mb = (n: number) => (n ? `${(n / 1e6).toFixed(n < 1e5 ? 2 : 1)} MB` : '');
+const kind = FILTERS.some(([k]) => k === asked) ? asked : '';
+const before = Number(Astro.url.searchParams.get('before')) || 0;
+const PAGE = 200;
+const [rows, st, counts] = await Promise.all([db ? softwareReports(kind, PAGE, '', before) : null, db ? null : softwareStats(), tabCounts()]);
+const none = softwareReady() ? 'The software’s server gave no answer just now.' : 'Not connected yet: set SOFTWARE_ADMIN_KEY on this Worker (the software’s server’s admin key).';
+
+/* the dashboard's numbers */
+const sum = (xs: { n: number }[]) => xs.reduce((n, x) => n + x.n, 0);
+const openOf = (...k: string[]) => st ? sum(st.open.filter(x => k.includes(x.kind))) : 0;
+const day = (n: number) => st ? new Date(Date.parse(st.today) - n * 864e5).toISOString().slice(0, 10) : '';
+const runsOn = (d: string, r?: Result) => st ? sum(st.days.filter(x => x.day === d && (!r || x.result === r))) : 0;
+const since = (n: number, r?: Result) => st ? sum(st.days.filter(x => x.day >= day(n - 1) && (!r || x.result === r))) : 0;
+const DAYS = Array.from({ length: 14 }, (_, i) => day(i));
+const versions = st ? [...st.people.reduce((m, p) => (p.version && m.set(p.version, (m.get(p.version) ?? 0) + 1), m), new Map<string, number>())]
+  .sort((a, b) => b[0].localeCompare(a[0], undefined, { numeric: true })) : [];
+const pcs = versions.reduce((n, [, c]) => n + c, 0), old = versions.filter(([v]) => v !== APP.version).reduce((n, [, c]) => n + c, 0);
+const busiest = st ? [...st.people].sort((a, b) => b.runs - a.runs).slice(0, 10) : [];
+const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—');
 ---
 <Panel title="Software" app="control" on="/software" me={me.email} counts={counts}>
-  <div class="ph1"><h1>Software</h1><p>{rows ? `${rows.length} shown, newest first. What the app sent when a run ended, or when someone pressed Send to support.` : ''}</p>
-    <div class="act">{[['', 'All'], ['ours', 'Ours to fix'], ['problem', 'From a person'], ['run', 'Runs']].map(([k, label]) =>
-      <a class:list={['btn', 'sm', k === kind ? 'primary' : 'secondary']} href={k ? `/software?kind=${k}` : '/software'}>{label}</a>)}</div></div>
-  <section class="pc">
-    {!rows ? <p class="empty">{softwareReady() ? 'The software’s server gave no answer just now.' : 'Not connected yet: set SOFTWARE_ADMIN_KEY on this Worker (the software’s server’s admin key).'}</p>
-    : rows.length === 0 ? <p class="empty">Nothing yet.</p> :
-    <table class="t cards" id="tbl"><thead><tr><th data-sort="num">#</th><th data-sort="text">When</th><th data-sort="cat">Kind</th><th data-sort="text">Email</th><th data-sort="text">ARN</th><th data-sort="text">Where</th><th>What it said</th><th data-sort="text">App · steps</th><th></th></tr></thead><tbody>
-      {rows.map(r => { const [label, tone] = KINDS[r.kind] ?? [r.kind, '']; return <tr class={r.kind === 'ours' || r.kind === 'problem' ? 'wait' : undefined}>
-        <td data-l="#" class="mono" data-v={r.id}>#{r.id}</td>
-        <td data-l="When" class="nw" data-v={r.created_at}>{istShort(r.created_at)}</td>
-        <td data-l="Kind"><span class:list={['tag', tone]}>{label}</span></td>
-        <td data-l="Email">{r.email ? <a href={`/accounts?q=${encodeURIComponent(r.email)}`}>{r.email}</a> : <span class="muted">—</span>}</td>
-        <td data-l="ARN" class="mono nw">{r.arn || '—'}</td>
-        <td data-l="Where">{r.place || '—'}</td>
-        <td data-l="What it said">{r.message || <span class="muted">—</span>}</td>
-        <td data-l="App · steps" class="mono nw">{r.version || '—'}<br><span class="muted">{r.steps || '—'}</span></td>
-        <td><button class="btn secondary sm" type="button" data-view={r.id} data-kind={label} data-when={istShort(r.created_at)}>View{r.record ? ` · ${mb(r.record)}` : ''}</button></td>
-      </tr>; })}
-    </tbody></table>}
-  </section>
-</Panel>
-<script>
-import { $, esc, dialog } from '../../scripts/client';
-import { sortable } from '../../scripts/panel';
-sortable($('tbl'));
+  <div class="ph1"><h1>Software</h1>
+    <nav class="seg" aria-label="View"><a href="/software" class={db ? undefined : 'on'}>Dashboard</a><a href="/software?view=db" class={db ? 'on' : undefined}>Database</a></nav>
+    {db && <p>{rows ? `${rows.length} shown, newest first${before ? `, older than #${before}` : ''}.` : ''}</p>}
+    {db && <div class="act">{FILTERS.map(([k, label]) =>
+      <a class:list={['btn', 'sm', k === kind ? 'primary' : 'secondary']} href={`/software?view=db${k ? `&kind=${k}` : ''}`}>{label}</a>)}</div>}</div>
 
-/* one in full: what it said, the PC, the pictures of the portals' pages, the other files, and the log */
-document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(b => b.onclick = async () => {
-  const id = b.dataset.view!;
-  b.disabled = true;
-  const r = await fetch(`/api/admin/software?id=${id}`, { cache: 'no-store' }).then(x => x.json()).catch(() => null);
-  b.disabled = false;
-  if (!r?.ok) { b.title = 'The software’s server gave no answer.'; b.classList.add('bad'); return; }
-  const x = r.report, file = (n: string) => `/api/admin/software?id=${id}&file=${encodeURIComponent(n)}`;
-  const files: { name: string; size: number }[] = r.files || [];
-  const pictures = files.filter(f => /\.(jpe?g|png)$/i.test(f.name)), rest = files.filter(f => !/\.(jpe?g|png)$/i.test(f.name));
-  dialog(`<div class="dlg-h"><h2 id="dlgT">#${esc(id)} · ${esc(b.dataset.kind)}</h2><button type="button" id="dlgX" aria-label="Close">×</button></div>
-    <div class="dlg-b">
-      <p>${esc(x.email || 'No email')} <span class="note">· ${esc(x.arn || 'no ARN')} · ${esc(b.dataset.when)}</span></p>
-      <p class="note">${esc(x.place || '')}${x.place ? ' · ' : ''}app ${esc(x.version || '?')} · steps ${esc(x.steps || '?')}</p>
-      <p class="note">${esc(x.pc || '')}</p>
-      <div class="why">${x.message ? esc(x.message) : '<span class="muted">It said nothing.</span>'}</div>
-      ${pictures.length ? `<div class="shots">${pictures.map(f => `<a href="${file(f.name)}" target="_blank" title="${esc(f.name)}"><img src="${file(f.name)}" alt="${esc(f.name)}" loading="lazy"></a>`).join('')}</div>` : ''}
-      ${rest.length ? `<p class="note">${rest.map(f => `<a class="blue" href="${file(f.name)}" target="_blank">${esc(f.name)}</a>`).join(' · ')}${x.record ? ` · <a class="blue" href="/api/admin/software?id=${id}&zip=1">all of it (zip)</a>` : ''}</p>` : ''}
-      ${x.log ? `<pre class="applog">${esc(x.log)}</pre>` : '<p class="note">No log lines came with it.</p>'}
-    </div>`);
-  $('dlg').classList.add('wide');
-});
-</script>
-<style is:global>
-.pc:has(#tbl){overflow-x:auto}
-.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:12px 0}
-.shots img{width:100%;border:1px solid var(--line);border-radius:8px;display:block}
-.applog{max-height:360px;overflow:auto;margin-top:12px;padding:12px;background:var(--sunken);border-radius:8px;font:11.5px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word}
+  {db ? <>
+    <section class="pc">
+      {!rows ? <p class="empty">{none}</p> : rows.length === 0 ? <p class="empty">Nothing{before ? ' older' : ' yet'}.</p> : <Reports rows={rows} />}
+    </section>
+    {(before > 0 || rows?.length === PAGE) && <div class="row-b">
+      {before > 0 && <a class="btn secondary sm" href={`/software?view=db${kind ? `&kind=${kind}` : ''}`}>Newest</a>}
+      {rows?.length === PAGE && <a class="btn secondary sm" href={`/software?view=db${kind ? `&kind=${kind}` : ''}&before=${rows[rows.length - 1].id}`}>Older</a>}
+    </div>}
+  </> : !st ? <section class="pc"><p class="empty">{none}{softwareReady() ? ' If it was just deployed without the dashboard, deploy it again (cd server && bun run deploy).' : ''}</p></section> : <>
+    <div class="stats">
+      <a class:list={['stat', { hot: openOf('ours', 'run') > 0 }]} href="/software?view=db&kind=ours"><span>Ours to fix</span><b>{openOf('ours', 'run')}</b><small>Not marked Fixed yet</small></a>
+      <a class:list={['stat', { hot: openOf('problem') > 0 }]} href="/software?view=db&kind=problem"><span>From a person</span><b>{openOf('problem')}</b><small>Not marked Fixed yet</small></a>
+      <a class="stat" href="/software?view=db&kind=idea"><span>Ideas</span><b>{openOf('idea')}</b><small>Not marked Fixed yet</small></a>
+      <a class:list={['stat', { hot: old > 0 }]} href="#versions"><span>On an old version</span><b>{old}</b><small>of {pcs} PC{pcs === 1 ? '' : 's'} · current {APP.version}</small></a>
+      <div class="stat"><span>Runs today</span><b>{runsOn(st.today)}</b><small>{runsOn(st.today, 'well')} well · {runsOn(st.today, 'theirs')} their side · {runsOn(st.today, 'ours')} ours</small></div>
+      <div class="stat"><span>Runs, last 7 days</span><b>{since(7)}</b><small>{since(7, 'well')} well · {since(7, 'theirs')} their side · {since(7, 'ours')} ours</small></div>
+      <div class="stat"><span>Ended well, last 7 days</span><b>{pct(since(7, 'well'), since(7) - since(7, 'none'))}</b><small>Of the runs that said how they ended</small></div>
+      <div class="stat"><span>People running it</span><b>{st.people.filter(p => p.last && p.last.slice(0, 10) >= day(6)).length}</b><small>Ran in the last 7 days · {st.people.length} in {st.keep_days} days</small></div>
+    </div>
+
+    <section class="pc">
+      <div class="pc-h"><h2>Ours, last 30 days</h2><span class="note" style="margin-left:auto">The same words together. These are the ones to fix.</span></div>
+      {st.ours.length === 0 ? <p class="empty">Nothing of ours in 30 days.</p> :
+      <table class="t cards"><thead><tr><th>What it said</th><th>Where (latest)</th><th class="num">Times</th><th class="num">Not fixed</th><th>Latest</th></tr></thead><tbody>
+        {st.ours.map(x => <tr class:list={[{ wait: x.open > 0 }]}><td data-l="What it said">{x.message || <span class="muted">—</span>}</td><td data-l="Where">{x.place || '—'}</td>
+          <td data-l="Times" class="num">{x.n}</td><td data-l="Not fixed" class="num">{x.open}</td>
+          <td data-l="Latest"><a href={`/software?view=db&kind=ours&before=${x.latest + 1}`}>#{x.latest}</a></td></tr>)}
+      </tbody></table>}
+    </section>
+
+    <div class="cols2">
+      <section class="pc">
+        <div class="pc-h"><h2>Runs, last 14 days</h2><span class="note" style="margin-left:auto">India time</span></div>
+        <table class="t cards"><thead><tr><th>Day</th><th class="num">Runs</th><th class="num">Well</th><th class="num">Their side</th><th class="num">Ours</th><th class="num">Before 1.0.0</th></tr></thead><tbody>
+          {DAYS.map(d => <tr><td data-l="Day" class="nw">{longDate(d)}</td><td data-l="Runs" class="num">{runsOn(d) || <span class="muted">0</span>}</td>
+            <td data-l="Well" class="num">{runsOn(d, 'well') || <span class="muted">0</span>}</td><td data-l="Their side" class="num">{runsOn(d, 'theirs') || <span class="muted">0</span>}</td>
+            <td data-l="Ours" class="num">{runsOn(d, 'ours') ? <b class="red-t">{runsOn(d, 'ours')}</b> : <span class="muted">0</span>}</td><td data-l="Before 1.0.0" class="num">{runsOn(d, 'none') || <span class="muted">0</span>}</td></tr>)}
+        </tbody></table>
+      </section>
+
+      <div>
+        <section class="pc">
+          <div class="pc-h"><h2>Stopped on their side, last 30 days</h2></div>
+          {st.stops.length === 0 ? <p class="empty">None.</p> :
+          <table class="t cards"><thead><tr><th>How it ended</th><th class="num">Times</th></tr></thead><tbody>
+            {st.stops.map(x => <tr><td data-l="How it ended" class="mono">{x.ended}</td><td data-l="Times" class="num">{x.n}</td></tr>)}
+          </tbody></table>}
+        </section>
+
+        <section class="pc" id="versions">
+          <div class="pc-h"><h2>Versions in use</h2><span class="note" style="margin-left:auto">Each PC’s latest report</span></div>
+          {versions.length === 0 ? <p class="empty">None yet.</p> :
+          <table class="t cards"><thead><tr><th>Version</th><th class="num">PCs</th></tr></thead><tbody>
+            {versions.map(([v, c]) => <tr><td data-l="Version" class="mono">{v}{v === APP.version ? <span class="tag green" style="margin-left:8px">Current</span> : <span class="tag amber" style="margin-left:8px">Old</span>}</td><td data-l="PCs" class="num">{c}</td></tr>)}
+          </tbody></table>}
+        </section>
+
+        <section class="pc">
+          <div class="pc-h"><h2>Who runs it most</h2><span class="note" style="margin-left:auto">Last {st.keep_days} days</span></div>
+          {busiest.length === 0 ? <p class="empty">None yet.</p> :
+          <table class="t cards"><thead><tr><th>Email</th><th class="num">Runs</th><th>Version</th></tr></thead><tbody>
+            {busiest.map(p => <tr><td data-l="Email"><a href={`/accounts?q=${encodeURIComponent(p.email)}`}>{p.email}</a></td><td data-l="Runs" class="num">{p.runs}</td><td data-l="Version" class="mono">{p.version || '—'}</td></tr>)}
+          </tbody></table>}
+        </section>
+      </div>
+    </div>
+  </>}
+</Panel>
+<style>
+.cols2{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+.red-t{color:var(--red)}
+@media (max-width:1000px){.cols2{grid-template-columns:1fr}}
 </style>
+<script>
+import { $ } from '../../scripts/client';
+import { sortable } from '../../scripts/panel';
+if ($('tbl')) sortable($('tbl'));
+</script>

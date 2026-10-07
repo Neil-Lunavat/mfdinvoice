@@ -2,6 +2,7 @@
   import { NAME } from '../brand';
   /* In place of the month on Overview, when this ARN has no plan to run on:
        activate  the account has never had a plan: Activate free trial, for the ARN on screen
+       used      no plan, and this email has had its free trial (one per email): a plan is bought on the website
        ended     the plain plan screen: what the plan was, when it ended, one button to the website
        unbound   the plan is running, but this ARN is not on it: add it to a free slot, or get one on the website
      Nothing is sold or priced here. Invoices and Settings stay open in the sidebar. */
@@ -10,7 +11,7 @@
   import { store } from '../state/store.svelte';
   import { ui } from '../state/ui.svelte';
 
-  let { kind }: { kind: 'activate' | 'ended' | 'unbound' } = $props();
+  let { kind }: { kind: 'activate' | 'used' | 'ended' | 'unbound' } = $props();
 
   const s = $derived(store.snap!);
   const plan = $derived(s.plan!);
@@ -39,6 +40,15 @@
       <div class="mc-r">
         <button class="btn run" data-primary disabled={busy || s.condition !== 'normal'} onclick={activate}>{busy ? 'Activating…' : 'Activate free trial'}</button>
         <span class="about">Nothing to pay</span>
+      </div>
+    {:else if kind === 'used'}
+      <div class="mc-l">
+        <span class="chip neutral">Free trial used</span>
+        <div class="big">This email has had its free trial.</div>
+        <div class="facts">There is one free trial per email. Buy a plan on the website, and {s.arn} runs as soon as it's on it.</div>
+      </div>
+      <div class="mc-r">
+        <button class="btn run" data-primary onclick={() => app.open('billing')}>Open your account on the website</button>
       </div>
     {:else if kind === 'unbound'}
       <div class="mc-l">

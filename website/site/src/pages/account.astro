@@ -4,7 +4,7 @@ import '../styles/kit.css';
 import { env } from 'cloudflare:workers';
 import { NAME, PRICE, SALES, TRIAL } from '../consts';
 import { signedInOr } from '../lib/server/page';
-import { getAccount, getPlan, getArns, isActive, holdsPlan } from '../lib/server/account';
+import { getAccount, getPlan, getArns, isActive, holdsPlan, trialUsed } from '../lib/server/account';
 import { openUpiOrder } from '../lib/server/upi';
 import { rupees, forWhat, type Kind } from '../lib/price';
 import { longDate, shortDate, istDay } from '../lib/date';
@@ -13,10 +13,11 @@ export const prerender = false;
 
 const s = await signedInOr(Astro.request, '/signin?next=/account');
 if (s instanceof Response) return s;
-const [acct, plan, arns, inv] = await Promise.all([
+const [acct, plan, arns, inv, usedTrial] = await Promise.all([
   getAccount(s.account_id), getPlan(s.account_id), getArns(s.account_id),
   env.DB.prepare(`SELECT i.number, i.issued_at, i.total, o.kind, o.arns FROM invoices i JOIN orders o ON o.id = i.order_id
     WHERE i.account_id = ? ORDER BY i.issued_at DESC`).bind(s.account_id).all<{ number: string; issued_at: string; total: number; kind: Kind; arns: number }>(),
+  trialUsed(s.account_id),
 ]);
 const active = isActive(plan), trial = plan?.source === 'trial';
 /* a UPI payment sent and not checked yet: the account can't be deleted until it is */
@@ -29,7 +30,9 @@ const bill = { name: acct!.bill_name ?? '', gstin: acct!.bill_gstin ?? '', addre
 /* not set up yet (a gift skips Checkout): a dot on Change, and on the nav's Account (the "sb" cookie) */
 const unset = !bill.name || !bill.address;
 Astro.response.headers.append('set-cookie', setupCookie(unset));
-Astro.response.headers.append('set-cookie', planCookie(!!plan));
+/* had a plan, or this email a free trial: Buy now, not Try for Free (one free trial per email) */
+const had = !!plan || usedTrial;
+Astro.response.headers.append('set-cookie', planCookie(had));
 Astro.response.headers.set('cache-control', 'private, no-store');
 ---
 <Layout title={`Account · ${NAME}`} description="Your plan, your ARNs, your invoices and your billing details." path="/account">
@@ -45,17 +48,17 @@ Astro.response.headers.set('cache-control', 'private, no-store');
         {plan && <span class="cnt">{arns.length}/{plan.slots} ARNs used</span>}
         {holdsPlan(plan)
           ? SALES.moreArns && plan!.slots < PRICE.maxArns && <a class="btn secondary sm" href="/checkout?add=1">Buy more ARNs</a>
-          : !review && (plan ? <a class="btn primary sm" href="/checkout">Buy now</a> : <a class="btn primary sm" href="/downloads">Try for Free</a>)}
+          : !review && (had ? <a class="btn primary sm" href="/checkout">Buy now</a> : <a class="btn primary sm" href="/downloads">Try for Free</a>)}
       </div></div>
       {review && <p class="note">We’re checking your payment (reference <b class="mono">{review.id}</b>). You’ll get an email once it’s checked, and your plan starts then.</p>}
-      {!plan && !review && <p class="note">No plan yet. Your {TRIAL.days}-day free trial starts when you add your ARN in the app.</p>}
+      {!plan && !review && <p class="note">{usedTrial ? 'No plan yet. This email has had its free trial.' : `No plan yet. Your ${TRIAL.days}-day free trial starts when you add your ARN in the software.`}</p>}
       {plan && <div class="plan">
         <b>{trial ? 'Free trial' : 'Yearly plan'}</b>
         <span>{!active ? `Ended on ${longDate(plan.ends_on)}` : trial ? `Until ${longDate(plan.ends_on)}` : `Paid until ${longDate(plan.ends_on)}`}</span>
       </div>}
       {slots.map((a, i) => a
         ? <div class="slot"><span class="n">{i + 1}</span><div><b>ARN-{a.arn}</b><span>{a.holder}</span></div><a class="r blue" href={`/support?about=arn&arn=${a.arn}`}>Change this ARN</a></div>
-        : <div class="slot empty"><span class="n">{i + 1}</span><div><b>Empty slot</b></div><span class="addw"><button class="add" type="button" aria-label="Add an ARN" aria-describedby={`tip${i + 1}`}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><span class="tip" id={`tip${i + 1}`} role="tooltip">Add an ARN from inside the app.</span></span></div>)}
+        : <div class="slot empty"><span class="n">{i + 1}</span><div><b>Empty slot</b></div><span class="addw"><button class="add" type="button" aria-label="Add an ARN" aria-describedby={`tip${i + 1}`}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><span class="tip" id={`tip${i + 1}`} role="tooltip">Add an ARN from inside the software.</span></span></div>)}
     </div>
 
     <div class="card sect rv">
@@ -77,12 +80,12 @@ Astro.response.headers.set('cache-control', 'private, no-store');
 
     <div class="card sect rv" id="everywhere">
       <div class="sect-h"><h2>Sign out of all devices</h2><div class="act"><button class="btn secondary sm" type="button" id="allB">Sign out everywhere</button></div></div>
-      <p class="note">Signs you out here, on every other browser and in the app. Sign in again with a new code.</p>
+      <p class="note">Signs you out here, on every other browser and in the software. Sign in again with a new code.</p>
     </div>
 
     <div class="card sect rv" id="del">
       <div class="sect-h"><h2>Delete my account</h2><div class="act"><button class="btn danger sm" type="button" id="delB" disabled={!!checking}>Delete</button></div></div>
-      <p class="note">{checking ? 'You can delete your account once we’ve checked your payment.' : 'Removes your account, billing details and ARNs from our servers. The app stops working. Everything on your PC stays.'}</p>
+      <p class="note">{checking ? 'You can delete your account once we’ve checked your payment.' : 'Removes your account, billing details and ARNs from our servers. The software stops working. Everything on your PC stays.'}</p>
     </div>
 
     <p class="foot-l">Something else? <a class="tlink" href="/support">Write to us.</a></p>
@@ -198,7 +201,7 @@ $('out').onclick = async (e: Event) => {
 /* every session ends, this one too */
 $('allB').onclick = () => ask({
   title: 'Sign out of all devices?',
-  text: 'You’ll be signed out here, on every other browser and in the app.',
+  text: 'You’ll be signed out here, on every other browser and in the software.',
   action: 'Sign out everywhere',
   run: async () => { const r = await post('/api/account/signout-all', {}); signedOut(r); return r; },
   done: () => { document.documentElement.classList.remove('si', 'sb'); location.href = '/'; },
@@ -207,7 +210,7 @@ $('allB').onclick = () => ask({
 /* delete: type the phrase to confirm, like GitHub */
 $('delB').onclick = () => ask({
   title: 'Delete my account',
-  warn: '<b>This action is irreversible.</b> Your account, billing details and ARNs are removed from our servers, and the app stops working.',
+  warn: '<b>This action is irreversible.</b> Your account, billing details and ARNs are removed from our servers, and the software stops working.',
   phrase: 'DELETE MY ACCOUNT', action: 'Delete my account', danger: true,
   run: async confirm => { const r = await post('/api/account/delete', { confirm }); signedOut(r); return r; },
   done: () => {

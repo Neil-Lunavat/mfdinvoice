@@ -76,7 +76,7 @@ edits this; where it and he disagree, he wins.
 | `client/window/src/` | the window (Svelte). `bridge/types.ts` is the boundary; `bridge/fake/` is a made-up backend for `bun run dev` (mine, for looking at screens) |
 | `server/` | the software's server. `bun run first` once, then `bun run deploy` |
 | `ops/automation.py`, `ops/reports.py` | sign and publish the steps; read what was sent to support |
-| `website/site/`, `website/todo/`, `TODO.md` | the website, its older lists, and the one list of everything left. `bun run check` in `website/site` runs its own checks on a fresh local database (51 of them; nothing live) |
+| `website/site/`, `website/todo/WEBSITE-TODO.md`, `TODO.md`, `IDEAS.md` | the website, its list, the software's list, and ideas parked for later. `bun run check` in `website/site` runs its own checks on a fresh local database (52 of them; nothing live); `-- --keep` leaves the panel up on :8800 with sample data |
 | `labs/15_tally/`, `labs/tally-results.md` | the Tally lab (not in git): what Tally's XML server on port 9000 can and cannot do, found on a paid TallyPrime 7.1. `e21_import.py` is the working import; `e27_own.py`, `e28_reserve.py` are the own-number findings |
 
 The run was ported from the old server's code, which is in git history, not on disk: `git show HEAD:demo/cams.py`,
@@ -141,6 +141,10 @@ own check, Submit, status again. Your check comes before anything is prepared, s
 - **Tally lab, 4 Oct** (`labs/tally-results.md`): a password on the company is no new case (logged in, it works;
   shut, it is a company that isn't open); a missing IGST ledger is made right; Tally moved off port 9000 is found
   by asking Windows which port `tally.exe` listens on.
+- **Portals lab, 7 Oct** (`labs/portals-report.md`, not in git): what CAMS and KFintech really do, the bugs it found
+  in the software, Neil's answers (section 4), and the live run of 7 Oct night (section 5: what passed live, two
+  bugs fixed in the lab that the software also has, and what was left untested on purpose). Read it before
+  integrating.
 - **Not built:** Zoho Books (before launch; a lab first), the deleting of run records after 90 days (the Privacy
   page says 90 days), IGST on own invoices (after launch).
 - **Parked on his word:** the USB signing token (hidden, code kept; he has no token now).

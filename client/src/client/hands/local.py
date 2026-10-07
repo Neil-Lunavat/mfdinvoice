@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -87,8 +88,26 @@ def month(base: Path, period: str) -> dict:
         "notListed": [r for r in ("CAMS", "KFINTECH") if listed_now.get(r) is False],
         "everRun": any(_read(base, p, "month", {}).get("lastRun") for p in periods(base)),
         "submittedOn": m.get("submittedOn", ""), "lastRun": m.get("lastRun") or None,
+        # CAMS was asked for its email and its files aren't in yet (the run went on without it, or stopped waiting)
+        "camsWaiting": bool(m.get("asked")) and not (m.get("fetched") or {}).get("CAMS"),
         "invoices": [_invoice(i) for i in _read(base, period, "invoices", []) if isinstance(i, dict) and "key" in i],
     }
+
+
+def cams_waiting(base: Path, within_s: float = 2 * 86400) -> list[str]:
+    """The months whose CAMS email was asked for (in the last two days) and hasn't been read in yet."""
+    out = []
+    for period in periods(base):
+        m = _read(base, period, "month", {})
+        asked = m.get("asked") if isinstance(m, dict) else None
+        if not asked or (m.get("fetched") or {}).get("CAMS"):
+            continue
+        try:
+            if time.time() - datetime.fromisoformat(asked["at"]).timestamp() < within_s:
+                out.append(period)
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
 
 
 def tally_kept(base: Path) -> dict:
@@ -99,7 +118,8 @@ def tally_kept(base: Path) -> dict:
     except (OSError, ValueError):
         kept = {}
     kept = kept if isinstance(kept, dict) else {}
-    return {"company": str(kept.get("company") or ""), "ledgers": len(kept.get("party") or {})}
+    return {"company": str(kept.get("company") or ""), "gstin": str(kept.get("gstin") or ""),
+            "ledgers": len(kept.get("party") or {})}
 
 
 def file_of(base: Path, key: str) -> Path | None:

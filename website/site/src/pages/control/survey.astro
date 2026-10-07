@@ -1,10 +1,13 @@
 ---
-/* Survey: how many chose each answer to the questions asked while a payment is checked (lib/survey.ts),
-   all time or for one month, and what people typed for "Other". */
+/* Survey, two views. Website: how many chose each answer to the questions asked while a payment is checked
+   (lib/survey.ts), all time or for one month, and what people typed for "Other". Software (?view=software): the
+   surveys the software asks on Overview, one wide card each; a card opens its results (survey/[id].astro), New
+   survey writes one (survey/new.astro). */
 import Panel from '../../layouts/Panel.astro';
 import { accessUser } from '../../lib/server/access';
 import { tabCounts } from '../../lib/server/admin';
 import { surveyCounts } from '../../lib/server/survey';
+import { surveys } from '../../lib/server/surveys';
 import { QUESTIONS } from '../../lib/survey';
 import { istShort } from '../../lib/server/util';
 import { monthYear } from '../../lib/date';
@@ -14,15 +17,30 @@ const me = await accessUser(Astro.request, 'control');
 if (!me) return new Response('Forbidden', { status: 403 });
 const m = Astro.url.searchParams.get('month') || '';
 const month = /^\d{4}-\d{2}$/.test(m) ? m : '';
-const [{ counts, others, people, months }, tabs] = await Promise.all([surveyCounts(month), tabCounts()]);
+const software = Astro.url.searchParams.get('view') === 'software';
+const [{ counts, others, people, months }, tabs, list] = await Promise.all([surveyCounts(month), tabCounts(), software ? surveys() : []]);
+const STATE = { draft: ['amber', 'Draft'], live: ['green', 'Live'], closed: ['', 'Closed'] } as const;
 const n = (q: string, a: string) => counts.find(c => c.question === q && c.answer === a)?.n ?? 0;
 const answered = (q: string) => counts.filter(c => c.question === q).reduce((s, c) => s + c.n, 0);
 ---
 <Panel title="Survey" app="control" on="/survey" me={me.email} counts={tabs}>
+  {software ? <>
+  <div class="ph1"><div><h1>Survey</h1><p>Asked in the software, on Overview, as a toast. Its X means never again for that survey. One live survey is asked at a time, the oldest first.</p></div>
+    <div style="display:flex;gap:10px;align-self:center;margin-left:auto"><nav class="seg" aria-label="View"><a href="/survey">Website</a><a href="/survey?view=software" class="on">Software</a></nav>
+    <a class="btn primary sm" href="/survey/new" style="align-self:center">New survey</a></div>
+  </div>
+  {list.length === 0 ? <section class="pc"><p class="empty">No surveys yet. New survey writes one.</p></section> :
+    list.map(x => <a class="pc svcard" href={`/survey/${x.id}`}>
+      <div class="pc-h"><h2>{x.title}</h2><span class={`tag ${STATE[x.state][0]}`}>{STATE[x.state][1]}</span>
+        <span class="note" style="margin-left:auto">{x.questions.length} {x.questions.length === 1 ? 'question' : 'questions'} · {x.answered} answered · {x.closedX} closed it · made {istShort(x.created_at)}{x.live_at ? ` · live ${istShort(x.live_at)}` : ''}{x.closed_at ? ` · closed ${istShort(x.closed_at)}` : ''}</span></div>
+      <p class="svq">{x.questions.map(q => q.q).join(' · ')}</p>
+    </a>)}
+  </> : <>
   <div class="ph1"><div><h1>Survey</h1><p>Asked while a payment is checked. {people} {people === 1 ? 'person has' : 'people have'} answered{month ? ` in ${monthYear(month + '-01')}` : ''}.</p></div>
     <form class="search act" method="get" action="/survey"><select class="input sm sel" name="month" aria-label="Month">
       <option value="">All time</option>{months.map(x => <option value={x} selected={x === month}>{monthYear(x + '-01')}</option>)}
     </select><button class="btn secondary sm" type="submit">Show</button></form>
+    <nav class="seg" aria-label="View"><a href="/survey" class="on">Website</a><a href="/survey?view=software">Software</a></nav>
   </div>
   {QUESTIONS.map(q => { const total = answered(q.key); return <section class="pc">
     <div class="pc-h"><h2>{q.q}</h2><span class="note" style="margin-left:auto">{total} answered</span></div>
@@ -39,4 +57,11 @@ const answered = (q: string) => counts.filter(c => c.question === q).reduce((s, 
       {others.map(o => <tr><td data-l="When">{istShort(o.at)}</td><td data-l="Answer">{o.answer}</td><td data-l="Email"><a href={`/accounts/${o.uid}`}>{o.email}</a></td></tr>)}
     </tbody></table>}
   </section>
+  </>}
 </Panel>
+
+<style>
+.svcard{display:block;color:inherit;text-decoration:none}
+.svcard:hover{border-color:var(--blue-line)}
+.svq{padding:12px 18px 14px;color:var(--muted);font-size:13.5px;line-height:1.5}
+</style>
