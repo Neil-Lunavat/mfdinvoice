@@ -106,6 +106,11 @@ def main() -> None:
     with tarfile.open(fileobj=io.BytesIO(tar)) as t:
         t.extractall(src, filter="data")
     client = src / "client"
+    # Zoho's client id and secret ship inside the software but never in git: copied in from this PC
+    zoho = Path.home() / ".mfdinvoice" / "zoho.json"
+    if not zoho.is_file():
+        sys.exit("~/.mfdinvoice/zoho.json is missing: Zoho Books' client id and secret are copied from it into the build.")
+    shutil.copyfile(zoho, client / "src" / "client" / "zoho.json")
     brand = json.loads((client / "src" / "client" / "brand.json").read_text(encoding="utf-8"))
     name, site = brand["name"], brand["site"].rstrip("/")
     version = tomllib.loads((client / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]

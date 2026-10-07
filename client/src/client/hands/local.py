@@ -110,16 +110,24 @@ def cams_waiting(base: Path, within_s: float = 2 * 86400) -> list[str]:
     return out
 
 
-def tally_kept(base: Path) -> dict:
-    """The Tally company this ARN imports into, and how many fund houses are matched to its ledgers: what the
-    steps remembered in `tally.json`."""
-    try:
-        kept = json.loads((base / "tally.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        kept = {}
-    kept = kept if isinstance(kept, dict) else {}
-    return {"company": str(kept.get("company") or ""), "gstin": str(kept.get("gstin") or ""),
-            "ledgers": len(kept.get("party") or {})}
+def books_kept(base: Path) -> dict:
+    """The books this ARN has connected, as the steps remembered them in `tally.json` or `zoho.json`: {kind
+    (tally | zoho | ''), company (the Tally company or Zoho Books organisation), gstin there, ledgers (fund houses
+    matched to its ledgers or customers)}."""
+    for kind, name, org in (("tally", "tally.json", False), ("zoho", "zoho.json", True)):
+        try:
+            kept = json.loads((base / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(kept, dict):
+            continue
+        one = kept.get("org") if org else kept
+        one = one if isinstance(one, dict) else {}
+        company = str(one.get("name" if org else "company") or "")
+        if company:
+            return {"kind": kind, "company": company, "gstin": str(one.get("gstin") or ""),
+                    "ledgers": len(kept.get("party") or {})}
+    return {"kind": "", "company": "", "gstin": "", "ledgers": 0}
 
 
 def issued_top(base: Path) -> str:
@@ -160,10 +168,10 @@ def file_of(base: Path, key: str) -> Path | None:
 
 def _invoice(i: dict) -> dict:
     keys = ("key", "registrar", "amc", "number", "date", "taxable", "cgst", "sgst", "igst", "status", "said",
-            "rejection", "timeline", "gstin", "tally")
+            "rejection", "timeline", "gstin", "tally", "books")
     base = {"key": "", "registrar": "CAMS", "amc": "", "number": "", "date": "", "taxable": 0.0, "cgst": 0.0,
             "sgst": 0.0, "igst": 0.0, "status": "Not submitted", "said": "", "rejection": "", "timeline": [],
-            "gstin": "", "tally": ""}
+            "gstin": "", "tally": "", "books": ""}
     return {**base, **{k: i[k] for k in keys if k in i}}
 
 

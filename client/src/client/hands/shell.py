@@ -66,9 +66,9 @@ METHODS = {
     "signOut": ("sign_out", "pos"),
     "activateTrial": ("activate_trial", "pos"), "checkPlan": ("check_plan", "pos"), "agree": ("agree", "pos"),
     "here": ("here", "pos"), "pickFile": ("pick_file", "pos"), "dropFile": ("drop_file", "kw"),
-    "tallyLook": ("tally_look", "kw"), "tallyImport": ("tally_import", "kw"), "booksNext": ("books_next", "pos"), "refreshBooks": ("refresh_books", "pos"),
-    "tallySetup": ("tally_setup", "pos"),
-    "tallyForget": ("tally_forget", "pos"),
+    "booksLook": ("books_look", "kw"), "booksImport": ("books_import", "kw"), "booksNext": ("books_next", "kw"), "refreshBooks": ("refresh_books", "pos"),
+    "booksSetup": ("books_setup", "kw"), "booksUse": ("books_use", "kw"), "booksForget": ("books_forget", "pos"),
+    "zohoConnect": ("zoho_connect", "pos"), "zohoCancel": ("zoho_cancel", "pos"), "zohoDisconnect": ("zoho_disconnect", "pos"),
 }
 
 

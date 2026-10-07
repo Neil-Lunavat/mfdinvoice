@@ -1,10 +1,10 @@
 <script lang="ts">
-  /* Setup, per ARN: eight steps, one per screen (Tally is optional). Back never erases; Continue unlocks only when the step is valid.
+  /* Setup, per ARN: eight steps, one per screen (the books are optional). Back never erases; Continue unlocks only when the step is valid.
      From Check everything, Change opens a step whose button becomes Save and comes straight back. Finish setup needs
      every step to hold and a portal's sign-in to have shown the ARN: finishing binds the ARN to the account. */
   import { onMount } from 'svelte';
   import { app } from '../../bridge';
-  import { arnProven, booked, tallyLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP, STEP_TITLES, stepValid } from '../../logic/details';
+  import { arnProven, bookKind, booksLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP, STEP_TITLES, stepValid } from '../../logic/details';
   import { store } from '../../state/store.svelte';
   import { ui } from '../../state/ui.svelte';
   import { icons } from '../../ui/icons';
@@ -14,7 +14,7 @@
   import NameGstin from './NameGstin.svelte';
   import SignatureStep from './SignatureStep.svelte';
   import WhoYouAre from './WhoYouAre.svelte';
-  import TallyStep from './TallyStep.svelte';
+  import BooksStep from './BooksStep.svelte';
   import YourInvoices from './YourInvoices.svelte';
 
   const LAST = STEP_TITLES.length - 1;
@@ -78,7 +78,7 @@
           {:else if ui.step === STEP.kfintech}<Kfintech bind:d={ui.draft} />
           {:else if ui.step === STEP.name}<NameGstin bind:d={ui.draft} />
           {:else if ui.step === STEP.signature}<SignatureStep bind:d={ui.draft} />
-          {:else if ui.step === STEP.tally}<TallyStep bind:d={ui.draft} />
+          {:else if ui.step === STEP.books}<BooksStep bind:d={ui.draft} />
           {:else if ui.step === STEP.invoices}<YourInvoices bind:d={ui.draft} noSignature />
           {:else if ui.step === STEP.mailbox}
             {#if ui.draft.camsUsed}<Mailbox bind:d={ui.draft} />
@@ -98,10 +98,10 @@
               <div class="ck"><span class="k">Signature</span>{#if d.signature.way === 'dsc'}<span class="v">{signatureLine(d.signature)}</span>
                 {:else}<span class="v sigmini"><img class="sigimg" src={d.signature.image} alt="Your signature" /></span>{/if}
                 <a href="#change" onclick={e => { e.preventDefault(); change(STEP.signature); }}>Change</a></div>
-              <div class="ck"><span class="k">Tally</span><span class="v">{tallyLine(d.tally)}</span>
-                {#if !stepValid[STEP.tally](d)}<span class="err">Needs a change</span>{/if}
-                <a href="#change" onclick={e => { e.preventDefault(); change(STEP.tally); }}>Change</a></div>
-              <div class="ck"><span class="k">Invoices</span><span class="v">{invoicesLine(d.invoices, booked(d))}</span>
+              <div class="ck"><span class="k">Books</span><span class="v">{booksLine(d)}</span>
+                {#if !stepValid[STEP.books](d)}<span class="err">Needs a change</span>{/if}
+                <a href="#change" onclick={e => { e.preventDefault(); change(STEP.books); }}>Change</a></div>
+              <div class="ck"><span class="k">Invoices</span><span class="v">{invoicesLine(d.invoices, bookKind(d))}</span>
                 {#if !stepValid[STEP.invoices](d)}<span class="err">Needs a change</span>{/if}
                 <a href="#change" onclick={e => { e.preventDefault(); change(STEP.invoices); }}>Change</a></div>
             </div>

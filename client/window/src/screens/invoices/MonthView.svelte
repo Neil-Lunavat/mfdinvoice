@@ -62,7 +62,7 @@
       <span class="chkd">{checkedLine(month?.checkedAt ?? '', store.snap?.today ?? '')}</span>
       <button class="btn ghost" disabled={runOff} onclick={check}>{@html icons.sync}Check status</button>
       <button class="btn secondary" onclick={exportIt}>{@html icons.dl}Export</button>
-      {#if rows.length}<button class="btn secondary" onclick={() => { ui.tallyMonth = period; ui.go('tally'); }}>{@html icons.book}Import into Tally</button>{/if}
+      {#if rows.length}<button class="btn secondary" onclick={() => { ui.booksMonth = period; ui.go('books'); }}>{@html icons.book}Import into your books</button>{/if}
     </div>
   </div>
 

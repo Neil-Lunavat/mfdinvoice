@@ -1,6 +1,6 @@
 <script lang="ts">
-  /* Tally's questions, asked once in a run, before Your check: which kind of sales voucher the invoices go in as,
-     which ledger is a fund house, whether the company is the person's. Each answer is remembered by the app. */
+  /* The books' questions, asked once in a run, before Your check: Tally's kind of sales voucher, which ledger or
+     customer is a fund house, whether the company or organisation is the person's. Each answer is remembered. */
   import { app, type Ask } from '../../bridge';
   import { optionText } from '../../logic/books';
   import { store } from '../../state/store.svelte';
@@ -13,7 +13,7 @@
 </script>
 
 <div class="rm-stage">
-  <div class="work-hd"><div><h3>Tally needs an answer</h3>
+  <div class="work-hd"><div><h3>Your books need an answer</h3>
     <p class="sub">Asked once. Your answers are remembered for this ARN.</p></div></div>
   {#each ask.asks as a (a.id)}
     <div class="field">

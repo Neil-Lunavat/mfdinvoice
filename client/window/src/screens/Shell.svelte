@@ -2,7 +2,7 @@
   import { NAME } from '../brand';
   /* The main window: the sidebar (#10) with the bell (#21) and the ARN switcher (#22) at its top, and the
      account and version at its foot. Activity is Settings › History (#19). The books tab is named for the books
-     the person keeps: Tally. */
+     the person keeps: Books. */
   import type { Snippet } from 'svelte';
   import { app } from '../bridge';
   import { dayMon, hhmm } from '../logic/format';
@@ -14,7 +14,7 @@
   let { children }: { children: Snippet } = $props();
 
   const s = $derived(store.snap!);
-  const NAV: [Page, string, string][] = [['overview', 'Overview', icons.cal], ['invoices', 'Invoices', icons.doc], ['downloads', 'Downloads', icons.downloads], ['tally', 'Tally', icons.book], ['settings', 'Settings', icons.gear]];
+  const NAV: [Page, string, string][] = [['overview', 'Overview', icons.cal], ['invoices', 'Invoices', icons.doc], ['downloads', 'Downloads', icons.downloads], ['books', 'Books', icons.book], ['settings', 'Settings', icons.gear]];
   const unread = $derived(s.notes.filter(n => !n.read).length);
   const current = $derived(s.arns.find(a => a.arn === s.arn));
   const full = $derived(s.arns.length >= (s.account?.maxArns ?? 6));

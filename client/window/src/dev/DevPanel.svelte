@@ -36,7 +36,7 @@
     Object.assign(d, a);
     if (ui.step >= STEP.kfintech) d.camsArn = a.arn;
     if (ui.step >= STEP.name) d.kfintech = { used: true, username: 'rkmehta_dss', loggedInAs: 'R K MEHTA', arn: a.arn };
-    if (ui.step >= STEP.tally) d.signature = { way: 'image', present: true, image: signature(0), size: 100, cert: null };
+    if (ui.step >= STEP.books) d.signature = { way: 'image', present: true, image: signature(0), size: 100, cert: null };
     if (ui.step >= STEP.invoices) d.tally = { company: 'Lunavat & Co', guid: 'g1', gstin: a.gstin, same: true, sure: false };
     if (ui.step >= STEP.mailbox) d.mailbox = { provider: 'gmail', address: a.camsEmail, connected: true };
   }

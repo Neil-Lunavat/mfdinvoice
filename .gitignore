@@ -17,6 +17,8 @@ wheels/
 # config.toml holds the same on this PC.
 /samples/
 config.toml
+# Zoho's client id and secret: copied in by the build from ~/.mfdinvoice/zoho.json
+client/src/client/zoho.json
 
 # ── This PC's run artefacts ───────────────────────────────────────────
 client/workspace/

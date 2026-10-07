@@ -113,7 +113,7 @@
       </div>
       <div class="rm-foot">
         <button class="btn secondary" onclick={() => { ui.go('invoices'); ui.invoicesMonth = periods && periods.length > 1 ? null : period; close(); }}>See invoices</button>
-        <button class="btn secondary" onclick={() => { ui.tallyMonth = period; ui.go('tally'); close(); }}>Import into Tally</button>
+        <button class="btn secondary" onclick={() => { ui.booksMonth = period; ui.go('books'); close(); }}>Import into your books</button>
         <button class="btn primary" data-primary style="margin-left:auto" onclick={() => { close(); ui.go('overview'); }}>Close</button>
       </div>
     {:else if run.ask?.type === 'your_check'}

@@ -76,8 +76,8 @@ edits this; where it and he disagree, he wins.
 | `client/src/client/hands/shell.py` | `uv run app`: the launcher. In a checkout a run stops just before Submit unless `client/config.toml` has `[dev]` `submit = true`. `--show-browser` shows the browser a run drives. The log is always full (every action on a page, every portal answer, every stop with its traceback) in `workspace\logs\app.log` (I may read it; typed text is logged by length only), and each run's own part in `workspace\runs\<id>\log.txt` |
 | `client/src/client/hands/window.py` | the window's Python side: every method the window calls; `_drive` runs a run, a check or a download |
 | `client/src/client/hands/host.py` | what the steps are given: tabs, the person, files, signature, mailbox, the run's record |
-| `client/src/client/hands/loader.py`, `server.py`, `site.py`, `forward.py` | getting the steps; the software's server; the website's API; CAMS's forwarded mailbacks |
-| `client/src/client/automation/` | the steps: `flow.py` (the run, top to bottom), `cams.py`, `kfin.py` (every page), `words.py` (status words), `month.py` (the month on disk), `numbering.py`, `own.py`, `tally.py`, `files.py`, `invoices/` |
+| `client/src/client/hands/loader.py`, `server.py`, `site.py`, `forward.py`, `zoho.py` | getting the steps; the software's server; the website's API; CAMS's forwarded mailbacks; Zoho's sign-in and tokens (keys in `~/.mfdinvoice/zoho.json`, bundled by `packaging/build.py`, never in git) |
+| `client/src/client/automation/` | the steps: `flow.py` (the run, top to bottom), `cams.py`, `kfin.py` (every page), `words.py` (status words), `month.py` (the month on disk), `numbering.py`, `own.py`, `books.py` (the books seam), `tally.py`, `zoho.py`, `files.py`, `invoices/` |
 | `client/window/src/` | the window (Svelte). `bridge/types.ts` is the boundary; `bridge/fake/` is a made-up backend for `bun run dev` (mine, for looking at screens) |
 | `server/` | the software's server: `bun run deploy` |
 | `ops/automation.py`, `ops/reports.py`, `ops/release.py` | sign and publish the steps; pull what was sent to support; release the software |

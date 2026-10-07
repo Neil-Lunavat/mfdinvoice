@@ -24,7 +24,8 @@
     arn: p.arn, name: p.name, gstin: p.gstin, camsUsed: p.camsUsed, camsEmail: '', camsArn: '',
     mailbox: { ...p.mailbox }, kfintech: { ...p.kfintech, username: '' }, signature: { ...p.signature },
     invoices: structuredClone($state.snapshot(p.invoices)), consent: p.consent,
-    tally: p.books ? { company: p.tally.company, guid: '', gstin: p.tally.gstin ?? '', same: true, sure: true } : undefined
+    tally: p.books === 'tally' ? { company: p.kept.company, guid: '', gstin: p.kept.gstin ?? '', same: true, sure: true } : undefined,
+    zoho: p.books === 'zoho' ? { orgId: '', org: p.kept.company, gstin: p.kept.gstin ?? '', same: true, sure: true } : undefined
   });
   let saving = $state(false);
 

@@ -7,7 +7,7 @@
   import { stepsView } from '../../logic/steps';
   import { store, type RunLive } from '../../state/store.svelte';
   import { timing } from '../../state/timing';
-  import { waitingLine, WAITING_SUB } from '../../logic/books';
+  import { waitingLine, waitingSub } from '../../logic/books';
   import Captcha from '../../ui/Captcha.svelte';
   import { icons } from '../../ui/icons';
   import { app } from '../../bridge';
@@ -52,7 +52,7 @@
       {#if run.waitingEmail.skip}<div class="bact"><button class="btn secondary sm" disabled={skipping} onclick={() => { skipping = true; app.skipCams(run.id); }}>{skipping ? 'Skipping…' : 'Skip CAMS'}</button></div>{/if}</div>
   {/if}
   {#if run.waitingBooks}
-    <div class="banner bad" role="alert"><div><b>{waitingLine(run.waitingBooks.company)}</b><p>{run.waitingBooks.said || WAITING_SUB}</p></div>
+    <div class="banner bad" role="alert"><div><b>{waitingLine(run.waitingBooks.kind, run.waitingBooks.company, run.waitingBooks.said)}</b><p>{waitingSub(run.waitingBooks.kind, run.waitingBooks.said)}</p></div>
       <div class="bact"><button class="btn secondary sm" disabled={refreshing} onclick={refreshBooks}>{#if refreshing}<span class="spin"></span>{:else}{@html icons.sync}{/if}Refresh</button></div></div>
   {/if}
   {#if v.done.length}

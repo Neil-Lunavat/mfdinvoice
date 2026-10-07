@@ -5,7 +5,7 @@
 
 import type {
   Answer, App, Ask, Cert, Condition, Consent, DetailsPatch, Link, Month, NextNumber, Plan, Profile, ProfileDraft,
-  Push, Registrar, RunKind, Snapshot, StepView, Stop, TallyAsk, TallyLook, Invoice, Entered, Left
+  Push, Registrar, RunKind, Snapshot, StepView, Stop, BooksLookQuery, BooksLook, Invoice, Entered, Left
 } from '../types';
 import { NAME } from '../../brand';
 import { clashAfter, type Clash } from '../../logic/clash';
@@ -236,7 +236,7 @@ export class FakeApp implements App {
     await sleep(400);
     if (this.arns.some(a => a.profile.arn === p.arn)) return { ok: false as const, said: `${p.arn} is already on this account.` };
     const profile: Profile = { ...structuredClone(p), arnConfirmed: true, lastLogin: { CAMS: '', KFINTECH: '' },
-      tally: { company: '', ledgers: 0 }, books: p.tally?.company ? 'tally' as const : '' as const, usedTop: '',
+      kept: { kind: '' as const, company: '', ledgers: 0 }, books: p.zoho?.orgId ? 'zoho' as const : p.tally?.company ? 'tally' as const : '' as const, usedTop: '',
       consent: p.consent ? { ...p.consent, device: 'THIS-PC' } : null };
     const fresh: ArnData = { profile, state: 'first_run', month: D.october('first_run'), notes: [], activity: [], second: adding };
     fresh.activity = [{ at: now(), text: `Set up ${p.arn}`, registrar: null, who: 'you, on this PC', tone: 'setting' }];
@@ -279,7 +279,7 @@ export class FakeApp implements App {
   async exportMonth(period: string) { await sleep(500); return { ok: true as const, name: `${NAME} ${period}.zip` }; }
   // Tally, made up: a company that numbers its own invoices, with whatever was imported in this session
   private inTally = new Map<string, string>();
-  private async tallyOf(q: TallyAsk): Promise<TallyLook> {
+  private async tallyOf(q: BooksLookQuery): Promise<BooksLook> {
     const m = await this.month(q.period), own = this.cur!.profile.invoices.source === 'own';
     let next = 150 + this.inTally.size;
     const sent = (x: Invoice) => !['Not submitted', 'Fetched', 'Signed', 'Checked'].includes(x.status);
@@ -292,7 +292,7 @@ export class FakeApp implements App {
         party: `${x.amc} Mutual Fund`, partyNew: false, sales: `${x.amc} MF Commission`, action,
         note: number ? `Already in your books as ${number}` : later ? 'Not submitted yet' : '' };
     });
-    return { state: 'ready', said: '', companies: ['Lunavat & Co'], company: 'Lunavat & Co', period: q.period, label: m.label, own,
+    return { kind: 'tally', state: 'ready', said: '', companies: ['Lunavat & Co'], company: 'Lunavat & Co', period: q.period, label: m.label, own,
       which: q.which, vtype: 'Sales', method: 'Automatic', tallyNumbers: true, last: `${150 + this.inTally.size}/26-27`, askLast: false,
       rows, creates: [...new Set(rows.filter(r => r.action === 'import' || r.action === 'ask').map(r => r.party))].map(name => ({ kind: 'party' as const, name, gstin: '27AAATB0102C1ZR' })),
       asks: [...new Set(rows.filter(r => r.action === 'ask').map(r => r.amc))].map(a => ({ id: `sales:${a}`,
@@ -302,22 +302,34 @@ export class FakeApp implements App {
       counts: { submitted: m.invoices.filter(sent).length, all: rows.length, going: rows.filter(r => r.action === 'import').length,
         byHand: 0, inBooks: rows.filter(r => r.action === 'in_books').length } };
   }
-  async tallyLook(q: TallyAsk) { await sleep(600); return this.tallyOf(q); }
-  async tallyImport(q: TallyAsk & { adopt: string[] }) {
+  async booksLook(q: BooksLookQuery) {
+    await sleep(600);
+    const kind = q.kind || this.cur!.profile.books;
+    if (!kind) return { ...(await this.tallyOf(q)), kind: '' as const, state: 'none' as const, rows: [] };
+    return this.tallyOf(q);
+  }
+  async booksImport(q: BooksLookQuery & { adopt: string[] }) {
     await sleep(1200);
     const going = (await this.tallyOf(q)).rows.filter(r => r.action === 'import');
     for (const r of going) this.inTally.set(r.key, r.will);
     return { ...(await this.tallyOf(q)), done: { imported: going.map(r => r.key), adopted: [], numbers: going.map(r => r.will), stoppedAt: '', refused: [] } };
   }
-  async tallySetup(gstin: string) {
+  async booksSetup(q: { kind: 'tally' | 'zoho'; gstin: string }) {
     await sleep(500);
-    return { state: 'ready' as const, companies: [{ name: 'Lunavat & Co', guid: 'g1', gstin, same: true },
-      { name: 'Mehta Family Trust', guid: 'g2', gstin: '27AAATM1234C1Z5', same: false }] };
+    return { state: 'ready' as const, said: '',
+      companies: q.kind === 'tally' ? [{ name: 'Lunavat & Co', guid: 'g1', gstin: q.gstin, same: true },
+        { name: 'Mehta Family Trust', guid: 'g2', gstin: '27AAATM1234C1Z5', same: false }] : [],
+      orgs: q.kind === 'zoho' ? [{ id: 'z1', name: 'Lunavat & Co', gstin: q.gstin, same: true },
+        { id: 'z2', name: 'Mehta Family Trust', gstin: '27AAATM1234C1Z5', same: false }] : [] };
   }
+  async booksUse() { return { ok: true }; }
+  async zohoConnect() { await sleep(1500); return { ok: true as const }; }
+  async zohoCancel() {}
+  async zohoDisconnect() { return { ok: true }; }
   async booksNext() { await sleep(300); return { state: 'ready', company: 'Lunavat & Co', last: '73/26-27', next: '74/26-27', at: 0, method: 'Manual' }; }
   async refreshBooks() { this.refreshed = true; }
   private refreshed = false;
-  async tallyForget() { return { ok: true }; }
+  async booksForget() { return { ok: true }; }
   async openPdf() {}
   async showInFolder() {}
   async openFolder() {}
@@ -486,9 +498,9 @@ export class FakeApp implements App {
       if (this.scenario.tallyDown) {
         this.scenario.tallyDown = false;
         this.refreshed = false;
-        this.push({ type: 'books_waiting', run: r.id, on: true, company: 'Lunavat & Co', said: '' });
+        this.push({ type: 'books_waiting', run: r.id, on: true, company: 'Lunavat & Co', said: '', kind: 'tally' });
         for (let i = 0; i < 40 && !this.refreshed; i++) { await sleep(500); guard(); }
-        this.push({ type: 'books_waiting', run: r.id, on: false, company: '', said: '' });
+        this.push({ type: 'books_waiting', run: r.id, on: false, company: '', said: '', kind: 'tally' });
       }
       if (this.scenario.booksAsk) {
         this.scenario.booksAsk = false;
@@ -511,7 +523,7 @@ export class FakeApp implements App {
     this.scenario.renumber = this.scenario.newYear = false;
     const check = await this.ask({
       type: 'your_check', notes: [],
-      books: booked ? { company: 'Lunavat & Co', after: newYear ? '' : 'September', first: newYear ? { fy: '2027-28', proposed: '1/27-28' } : null } : null,
+      books: booked ? { kind: 'tally' as const, company: 'Lunavat & Co', after: newYear ? '' : 'September', first: newYear ? { fy: '2027-28', proposed: '1/27-28' } : null } : null,
       rows: ordered.map((x, i) => ({
         key: x.key, registrar: x.registrar, amc: x.amc,
         number: own && !booked && !x.igst ? `${first + can.indexOf(x)}/26-27` : '', ...(own && !booked && !x.igst ? { seq: can.indexOf(x), kept: false } : {}),

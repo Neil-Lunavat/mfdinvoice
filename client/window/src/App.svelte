@@ -14,7 +14,7 @@
   import Popups from './screens/popups/Popups.svelte';
   import RunWindow from './screens/run/RunWindow.svelte';
   import Settings from './screens/Settings.svelte';
-  import Tally from './screens/Tally.svelte';
+  import Books from './screens/Books.svelte';
   import Downloads from './screens/Downloads.svelte';
   import Setup from './screens/setup/Setup.svelte';
   import Shell from './screens/Shell.svelte';
@@ -61,7 +61,7 @@
     if (ui.top?.type !== 'close_ask') ui.open({ type: 'close_ask' });
   });
 
-  const NAV: Page[] = ['overview', 'invoices', 'downloads', 'tally', 'settings'];
+  const NAV: Page[] = ['overview', 'invoices', 'downloads', 'books', 'settings'];
   const inMain = $derived(NAV.includes(ui.page));
 
   function topLayer(): HTMLElement | null {
@@ -111,7 +111,7 @@
         {#if plan}<PlanScreen kind={plan} />{:else}<Overview banner={o?.banner ?? null} />{/if}
       {:else if ui.page === 'invoices'}<Invoices />
       {:else if ui.page === 'downloads'}{#key s.arn}<Downloads />{/key}
-      {:else if ui.page === 'tally'}{#key s.arn}<Tally />{/key}
+      {:else if ui.page === 'books'}{#key s.arn}<Books />{/key}
       {:else if ui.page === 'settings'}<Settings />{/if}
     </Shell>
     {#if ui.runWith}{#key ui.runWith}<RunWindow registrars={ui.runWith.registrars} period={ui.runWith.period} what={ui.runWith.what} periods={ui.runWith.periods} />{/key}{/if}

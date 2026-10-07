@@ -60,6 +60,7 @@ a = Analysis(
     [str(HERE / "app.py")],
     datas=[(str(CLIENT / "window" / "dist"), "window"),
            (str(CLIENT / "src" / "client" / "brand.json"), "client"),
+           (str(CLIENT / "src" / "client" / "zoho.json"), "client"),
            *copy_metadata("client"),
            *collect_data_files("playwright", includes=["driver/**"]),
            *collect_data_files("pdfminer"), *collect_data_files("reportlab"), *collect_data_files("openpyxl")],

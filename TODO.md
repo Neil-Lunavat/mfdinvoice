@@ -71,6 +71,10 @@ Then the fixes his pass turns up, and a last pass over the words on every screen
 
 ## In Neil's hands
 
+- [ ] Ask the partner (the CA): for invoices CAMS or KFintech made, should the voucher number in Tally be the
+      registrar's invoice number (the one the AMC holds and matches in GSTR-2B)? Today Tally's registrar import gives
+      Tally's own next numbers and keeps the registrar's as a reference; Zoho stores the registrar's number.
+
 - [ ] Cloudflare Email Routing on `mailback.mfdinvoice.co.in` (check it changes no record of the apex, where
       Hostinger's MX is), then `cams@mailback.mfdinvoice.co.in` → Send to a Worker → `software`.
 - [ ] Someone who knows Zoho Books from the inside checks what an import looks like there.

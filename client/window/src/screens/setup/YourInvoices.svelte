@@ -12,7 +12,7 @@
      own page, where Change is beside it). Setup shows both, and `noSignature`: the signature has its own step there. */
   import { app, type ProfileDraft } from '../../bridge';
   import { continuesLine, continuesLineNoNext } from '../../logic/books';
-  import { booked, nextInvoice } from '../../logic/details';
+  import { bookKind, booked, nextInvoice } from '../../logic/details';
   import { counterOf, parts, rule46 } from '../../logic/numbering';
   import InvoicePreview from '../../ui/InvoicePreview.svelte';
   import RegistrarPreview from '../../ui/RegistrarPreview.svelte';
@@ -26,13 +26,14 @@
   const refused = $derived(rule46(d.invoices.last));
   const next = $derived(nextInvoice(d.invoices));
   let addressText = $state(d.invoices.settings.address.join('\n'));
-  // with Tally connected: where the invoice numbers continue from, read from Tally (nothing is written to it)
+  // with books connected: where the invoice numbers continue from, read from them (nothing is written there)
   let continues = $state('');
+  const bookName = $derived(d.zoho?.org ? d.zoho.org : d.tally?.company ?? '');
   $effect(() => {
-    const company = d.tally?.company;
+    const company = bookName, kind = bookKind(d);
     continues = '';
-    if (!company || d.invoices.source !== 'own') return;
-    void app.booksNext(company, d.arn).then(r => { if (d.tally?.company === company && r.state === 'ready') continues = r.next; });
+    if (!company || !kind || d.invoices.source !== 'own') return;
+    void app.booksNext({ company, arn: d.arn, kind }).then(r => { if (bookName === company && r.state === 'ready') continues = r.next; });
   });
 
   function choose(source: 'registrar' | 'own') { d.invoices.source = source; }
@@ -74,7 +75,7 @@
         <select id="tpl" class="input" style="max-width:300px" bind:value={d.invoices.settings.template}>
           <option value="tally">Tally standard print</option></select></div>
       {#if booked(d)}
-        <p class="line">{continues ? continuesLine(continues) : continuesLineNoNext(d.tally!.company)}</p>
+        <p class="line">{continues ? continuesLine(continues, bookKind(d)) : continuesLineNoNext(bookName, bookKind(d))}</p>
       {:else}
       <div class="field">
         <label for="last">Your last invoice number, exactly as printed</label>

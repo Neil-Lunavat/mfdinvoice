@@ -50,11 +50,15 @@ D = Decimal
 
 
 class Off(Exception):
-    """Tally gave no answer."""
+    """The books gave no answer. `said`: the words for the person, when the books have some of their own."""
+
+    def __init__(self, text: str = "", said: str = ""):
+        super().__init__(text)
+        self.said = said
 
 
 class Refused(Exception):
-    """Tally would not take an invoice, or it cannot be numbered: the words are the person's to read."""
+    """The books would not take an invoice, or it cannot be numbered: the words are the person's to read."""
 
 
 # --- one request ------------------------------------------------------------------------------------------------
@@ -602,7 +606,7 @@ class Session:
                   "going": sum(1 for p in self.rows if p["action"] == "import"),
                   "byHand": sum(1 for p in self.rows if p["action"] == "by_hand"),
                   "inBooks": sum(1 for p in self.rows if p["action"] == "in_books")}
-        return {"state": state, "said": "", "companies": getattr(self, "open_names", []), "company": self.company,
+        return {"kind": "tally", "state": state, "said": "", "companies": getattr(self, "open_names", []), "company": self.company,
                 "period": self.period, "label": words.labels(self.period)[0], "own": self.own, "which": self.which,
                 "vtype": self.vtype, "method": self.method, "tallyNumbers": bool(self.method) and not self.sends,
                 "last": self.last, "askLast": bool(self.company) and self.sends and not self.own,

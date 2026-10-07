@@ -245,11 +245,16 @@ class Host:
         """`books`: own invoices with books connected: {company, after, first}, shown above the table."""
         return await self.w.your_check(self.run, rows, notes, books)
 
-    # --- the person's books (Tally) -----------------------------------------------------------------------------------
+    # --- the person's books (Tally or Zoho Books) -----------------------------------------------------------------------------------
 
-    def books_waiting(self, on: bool, company: str = "", said: str = "") -> None:
+    def books_waiting(self, on: bool, company: str = "", said: str = "", kind: str = "tally") -> None:
         """The books are not answering: the window shows a red line with a refresh button (on), or takes it down."""
-        self.w.books_waiting(self.run, on, company, said)
+        self.w.books_waiting(self.run, on, company, said, kind)
+
+    def books_token(self, fresh: bool = False) -> dict:
+        """Zoho Books' access token for this ARN, for the steps: {token, api}, {gone: words} or {off: words}. The
+        steps never hold the client secret or the refresh token."""
+        return self.w.zoho_token(self.profile["arn"], fresh)
 
     async def books_nap(self, seconds: float = 3.0) -> None:
         """Wait for the person's refresh, or this long, before the books are asked again."""

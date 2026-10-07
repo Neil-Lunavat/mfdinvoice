@@ -65,7 +65,7 @@ def export(month: dict, files: dict[str, Path | None], folder: Path) -> Path:
         if pdf and pdf.exists():
             names[i["key"]] = f"{folder_in_zip}/{pdf.name}"
         total = round(i["taxable"] + i["cgst"] + i["sgst"] + i["igst"], 2)
-        in_tally = i.get("tally") or ""
+        in_tally = i.get("books") or i.get("tally") or ""
         sheet.append([folder_in_zip, i["amc"], i.get("gstin") or "", i["number"] or i["key"], i["date"], i["taxable"],
                       i["cgst"], i["sgst"], i["igst"], total, i["status"], i["said"],
                       "" if in_tally == "in" else in_tally, names.get(i["key"], "")])

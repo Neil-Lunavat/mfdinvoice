@@ -112,9 +112,9 @@ export interface Profile {
   signature: Signature;           // the person's way of signing
   invoices: Invoices;              // which invoice is uploaded, and the person's own
   lastLogin: { CAMS: string; KFINTECH: string };                  // ISO dates, '' if never
-  books: '' | 'tally';             // the books connected to this ARN: its own invoices go into them during a run
+  books: '' | 'tally' | 'zoho';    // the books connected to this ARN: its own invoices go into them during a run
   usedTop: string;                 // own invoices without books: the highest invoice number used this financial year; ''
-  tally: { company: string; gstin?: string; ledgers: number };   // the Tally company this ARN imports into, its GSTIN in Tally, and how many fund houses are matched; '' before the first import
+  kept: { kind: '' | 'tally' | 'zoho'; company: string; gstin?: string; ledgers: number };   // the Tally company or Zoho Books organisation this ARN imports into, its GSTIN there, and how many fund houses are matched
   consent: Consent | null;         // what was agreed at setup step 1; null for an ARN set up before it was asked
 }
 
@@ -179,26 +179,29 @@ export interface Invoice {
   timeline: { what: string; when: string; who?: string }[];   // when: ISO date
   gstin: string;                   // the fund house's GSTIN, as its invoice prints it; '' on one read before it was kept
   tally: string;                   // its number in the person's Tally once imported ('in': there, number not known), else ''
+  books?: string;                  // ... the same in Zoho Books, or in either from 8 Oct on
 }
 
-/** One invoice against the person's Tally: what an import would do with it. `number`: the one it has in Tally;
-    `will`: the one it will get. `refused`: Tally's own words, after an import that did not take it. The person's own
+/** One invoice against the person's books: what an import would do with it. `number`: the one it has there;
+    `will`: the one it will get. `refused`: the books' own words, after an import that did not take it. The person's own
     invoices are never imported here: `run` (they go in during their run) and `past` (already sent). */
-export interface TallyRow {
+export interface BooksRow {
   key: string; registrar: Registrar; amc: string; date: string; total: number; submitted: boolean; gstin: string;
   number: string; will: string; party: string; partyNew: boolean; sales: string;
   action: 'import' | 'in_books' | 'by_hand' | 'ask' | 'stop' | 'later' | 'run' | 'past';
   note: string; refused?: string;
 }
 
-/** A look at a month against Tally. `state`: off (Tally gives no answer), closed (no company open), pick (several
-    are open and none is remembered), ready. `tallyNumbers`: Tally gives the numbers itself and ignores any sent.
+/** A look at a month against the person's books. `kind`: which. `state`: none (no books chosen yet), connect (Zoho
+    Books needs letting in), off (no answer), closed (Tally: no company open), pick (several companies or organisations
+    and none is remembered), ready. `tallyNumbers`: Tally gives the numbers itself and ignores any sent.
     `askLast`: we number them, so the person's last invoice number is asked. `done`: what an import just did. */
-export interface TallyLook {
-  state: 'off' | 'closed' | 'pick' | 'ready';
+export interface BooksLook {
+  kind: '' | 'tally' | 'zoho';
+  state: 'none' | 'connect' | 'off' | 'closed' | 'pick' | 'ready';
   said: string; companies: string[]; company: string; period: string; label: string; own: boolean;
   which: 'submitted' | 'all'; vtype: string; method: string; tallyNumbers: boolean; last: string; askLast: boolean;
-  rows: TallyRow[];
+  rows: BooksRow[];
   creates: { kind: 'party' | 'tax'; name: string; gstin: string }[];
   asks: { id: string; question: string; options: string[] }[];
   warn: string[];
@@ -207,7 +210,7 @@ export interface TallyLook {
            refused: { key: string; amc: string; said: string }[] };
 }
 
-export interface TallyAsk { period: string; company: string; which: 'submitted' | 'all'; last: string; answers: Record<string, string> }
+export interface BooksLookQuery { period: string; company: string; which: 'submitted' | 'all'; last: string; answers: Record<string, string>; kind?: '' | 'tally' | 'zoho' }
 
 export interface Month {
   period: string;                  // CAMS's payment month, e.g. "OCT-2026"
@@ -336,7 +339,7 @@ export type Ask =
 /** Own invoices with books connected: what Your check says about them. `after`: the month of a newer invoice already
     in the books ("September"). `first`: a new financial year with Manual numbering and no invoice yet, so the
     person types its first invoice number (proposed from last year's style). */
-export interface BooksNote { company: string; after: string; first: { fy: string; proposed: string } | null }
+export interface BooksNote { kind: 'tally' | 'zoho'; company: string; after: string; first: { fy: string; proposed: string } | null }
 export interface BooksQuestion { id: string; question: string; options: string[] }
 /** Own invoices without books, submitted: what the person enters in their books. */
 export interface Entered { registrar: Registrar; amc: string; key: string; number: string }
@@ -363,7 +366,7 @@ export type Push =
   | { type: 'run_month'; run: string; period: string; index: number }       // a download of several months: on this one now
   | { type: 'waiting_email'; run: string; since: string; ref: string; skip?: boolean }   // CAMS has been asked; its email is awaited (skip: Skip CAMS is offered)
   | { type: 'submitted'; run: string; registrar: Registrar; count: number } // the registrar's status shows them
-  | { type: 'books_waiting'; run: string; on: boolean; company: string; said: string }   // the run waits for Tally (on), or no longer
+  | { type: 'books_waiting'; run: string; on: boolean; company: string; said: string; kind: 'tally' | 'zoho' }   // the run waits for the books (on), or no longer
   | { type: 'run_ended'; run: string; how: 'done' | 'stopped' | 'nothing'; what: RunKind;
       used: string;                                      // own invoices: "Used 74/26-27 to 78/26-27"
       enter: Entered[];                                  // own invoices without books, submitted: to enter in their books
@@ -393,13 +396,21 @@ export interface ProfileDraft {
   signature: Signature;
   invoices: Invoices;
   consent: Consent | null;         // setup step 1's tick; required to finish setup
-  tally?: TallyPick;               // setup's Tally step: the company the invoices go into; absent or '' when skipped
+  tally?: TallyPick;               // setup's books step: the Tally company the invoices go into; absent when skipped
+  zoho?: ZohoPick;                 // ... or the Zoho Books organisation (one of the two)
 }
 
 /** The Tally company chosen at setup. `sure`: its GSTIN differs from this ARN's and the person said it is the one. */
 export interface TallyPick { company: string; guid: string; gstin: string; same: boolean; sure: boolean }
 /** What Tally says at setup: `off` (no answer), `closed` (no company open), `ready` (the companies open now). */
 export interface TallySetup { state: 'off' | 'closed' | 'ready'; companies: { name: string; guid: string; gstin: string; same: boolean }[] }
+/** The Zoho Books organisation chosen at setup (`sure`: as for Tally). */
+export interface ZohoPick { orgId: string; org: string; gstin: string; same: boolean; sure: boolean }
+export interface ZohoOrg { id: string; name: string; gstin: string; same: boolean }
+/** What the books say at setup, either kind: Tally fills `companies`, Zoho Books `orgs`. `said`: why not, in Zoho's words. */
+export interface BooksSetup { state: 'off' | 'closed' | 'ready'; said: string; companies: TallySetup['companies']; orgs: ZohoOrg[] }
+/** Letting Zoho Books in, in the person's own browser: `state` says why not (cancelled, denied, timeout, off). */
+export type ZohoConnect = { ok: true } | { ok: false; state: 'cancelled' | 'denied' | 'timeout' | 'off'; said: string }
 
 export type DetailsPatch = Partial<Omit<ProfileDraft, 'arn' | 'consent'>>;
 
@@ -469,18 +480,26 @@ export interface App {
   forwardVerify(email: string, code: string): Promise<{ ok: boolean; said?: string }>;
   /** Gmail's forwarding confirmation code, once Gmail has sent it to our address; '' until then. */
   forwardGmailCode(): Promise<string>;                            // starts Windows' uninstaller and closes; '' or why not ('not_installed')
-  /** What importing a month into the company open in Tally would do. Nothing in Tally changes. */
-  tallyLook(q: TallyAsk): Promise<TallyLook>;
+  /** What importing a month into the person's books (Tally or Zoho Books) would do. Nothing in the books changes. */
+  booksLook(q: BooksLookQuery): Promise<BooksLook>;
   /** Put the month in. `adopt`: the invoices typed by hand to change to the registrar's figures. */
-  tallyImport(q: TallyAsk & { adopt: string[] }): Promise<TallyLook>;
-  /** Where the person's own invoice numbers continue from, in their Tally; `company` while setup is still open. */
-  booksNext(company?: string, arn?: string): Promise<{ state: string; company: string; last: string; next: string; at: number; method: string }>;
-  /** Refresh, while a run waits for Tally. */
+  booksImport(q: BooksLookQuery & { adopt: string[] }): Promise<BooksLook>;
+  /** Where the person's own invoice numbers continue from, in their books; `company`, `arn` and `kind` while setup is still open. */
+  booksNext(q?: { company?: string; arn?: string; kind?: '' | 'tally' | 'zoho' }): Promise<{ state: string; company: string; last: string; next: string; at: number; method: string }>;
+  /** Refresh, while a run waits for the books. */
   refreshBooks(run: string): Promise<void>;
-  /** Setup's Tally step: the companies open in Tally, each with its GSTIN beside this ARN's. */
-  tallySetup(gstin: string): Promise<TallySetup>;
-  /** Forget the company and the ledgers chosen for this ARN. */
-  tallyForget(): Promise<{ ok: boolean }>;
+  /** Setup's books step: the companies open in Tally, or the organisations in Zoho Books, each with its GSTIN beside this ARN's. */
+  booksSetup(q: { kind: 'tally' | 'zoho'; gstin: string; arn?: string }): Promise<BooksSetup>;
+  /** Use these books for this ARN from now on (Settings, the Books tab): the other kind is let go of. */
+  booksUse(q: { kind: 'tally' | 'zoho'; pick: TallyPick | ZohoPick }): Promise<{ ok: boolean }>;
+  /** Forget what was chosen for this ARN (Zoho Books is also revoked). */
+  booksForget(): Promise<{ ok: boolean }>;
+  /** Open Zoho's Accept page in the person's browser and wait for them (up to 5 minutes). */
+  zohoConnect(arn?: string): Promise<ZohoConnect>;
+  /** The person gave up waiting. */
+  zohoCancel(): Promise<void>;
+  /** Let go of Zoho Books for this ARN; its access is revoked at Zoho. */
+  zohoDisconnect(arn?: string): Promise<{ ok: boolean }>;
   /** One of CAMS's two files, from Windows' own Open box. Only the file's name comes back ('' if cancelled). */
   pickFile(kind: 'zip' | 'xls'): Promise<{ kind: string; name: string }>;
   /** A file dropped on the window, as base64: a zip is CAMS's invoices, an Excel its report. `kind` '' if neither. */

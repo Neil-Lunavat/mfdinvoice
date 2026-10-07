@@ -3,7 +3,7 @@
 import type { Invoice, InvoiceSettings, Invoices, ProfileDraft, Registrar, RunKind } from '../bridge';
 import type { Clash } from '../logic/clash';
 
-export type Page = 'splash' | 'signin' | 'setup' | 'overview' | 'invoices' | 'downloads' | 'tally' | 'settings';
+export type Page = 'splash' | 'signin' | 'setup' | 'overview' | 'invoices' | 'downloads' | 'books' | 'settings';
 export type Detail = 'who' | 'cams' | 'mb' | 'kf' | 'sig' | 'inv';
 
 export const SECTIONS = ['Connections', 'Your details', 'Your invoices', 'History', 'Account & plan', 'This PC', 'Support', 'Send an idea'] as const;
@@ -43,7 +43,7 @@ class Ui {
   // the run window is open: for these registrars and this month, as a run, a status check or a download
   runWith = $state<{ registrars: Registrar[]; period: string; what: RunKind; periods?: string[] } | null>(null);   // periods: a download of several months
   month = $state<string | null>(null);                   // the month Overview shows; null: this month
-  tallyMonth = $state<string | null>(null);              // the month the Tally tab opens on; null: the newest
+  booksMonth = $state<string | null>(null);              // the month the Books tab opens on; null: the newest
   settingsDirty = $state(false);                         // Your invoices has unsaved changes
   saveSettings: (() => Promise<void>) | null = null;     // how to save them, when leaving asks
   discardSettings: (() => void) | null = null;           // and how to drop them

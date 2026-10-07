@@ -9,7 +9,7 @@
 
 import type {
   Answer, App, Cert, CodeRefusal, Consent, DetailsPatch, InvoiceSettings, Link, MailProvider, NextNumber, Month, Place, ProfileDraft, Push,
-  Registrar, Result, RunKind, Snapshot, SurveyAnswers, VerifyRefusal, TallyAsk, TallyLook, TallySetup
+  Registrar, Result, RunKind, Snapshot, SurveyAnswers, VerifyRefusal, BooksLookQuery, BooksLook, BooksSetup, ZohoConnect, TallyPick, ZohoPick
 } from './types';
 
 interface PyApi { call(method: string, args?: unknown[]): Promise<unknown> }
@@ -86,12 +86,16 @@ export class RealApp implements App {
   forwardGmailCode() { return this.call<string>('forwardGmailCode'); }
   sendIdea(s: { text: string; picture?: { name: string; data: string } }) { return this.call<{ sent: boolean }>('sendIdea', s); }
   answerSurvey(id: number, answers: SurveyAnswers | null) { return this.call<{ sent: boolean }>('answerSurvey', id, answers); }
-  tallyLook(q: TallyAsk) { return this.call<TallyLook>('tallyLook', q); }
-  tallyImport(q: TallyAsk & { adopt: string[] }) { return this.call<TallyLook>('tallyImport', q); }
-  booksNext(company = '', arn = '') { return this.call<{ state: string; company: string; last: string; next: string; at: number; method: string }>('booksNext', company, arn); }
+  booksLook(q: BooksLookQuery) { return this.call<BooksLook>('booksLook', q); }
+  booksImport(q: BooksLookQuery & { adopt: string[] }) { return this.call<BooksLook>('booksImport', q); }
+  booksNext(q: { company?: string; arn?: string; kind?: '' | 'tally' | 'zoho' } = {}) { return this.call<{ state: string; company: string; last: string; next: string; at: number; method: string }>('booksNext', { company: q.company ?? '', arn: q.arn ?? '', kind: q.kind ?? '' }); }
   refreshBooks(run: string) { return this.call<void>('refreshBooks', run); }
-  tallySetup(gstin: string) { return this.call<TallySetup>('tallySetup', gstin); }
-  tallyForget() { return this.call<{ ok: boolean }>('tallyForget'); }
+  booksSetup(q: { kind: 'tally' | 'zoho'; gstin: string; arn?: string }) { return this.call<BooksSetup>('booksSetup', { kind: q.kind, gstin: q.gstin, arn: q.arn ?? '' }); }
+  booksUse(q: { kind: 'tally' | 'zoho'; pick: TallyPick | ZohoPick }) { return this.call<{ ok: boolean }>('booksUse', q); }
+  booksForget() { return this.call<{ ok: boolean }>('booksForget'); }
+  zohoConnect(arn = '') { return this.call<ZohoConnect>('zohoConnect', arn); }
+  zohoCancel() { return this.call<void>('zohoCancel'); }
+  zohoDisconnect(arn = '') { return this.call<{ ok: boolean }>('zohoDisconnect', arn); }
   pickFile(kind: 'zip' | 'xls') { return this.call<{ kind: string; name: string }>('pickFile', kind); }
   dropFile(f: { name: string; bytes: string }) { return this.call<{ kind: string; name: string }>('dropFile', f); }
 

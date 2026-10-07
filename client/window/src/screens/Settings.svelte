@@ -2,7 +2,8 @@
   import { NAME } from '../brand';
   /* Settings, one section at a time (#20). Each Change opens the setup control in a popup. History sits in the
      middle (#19). Leaving Your invoices with unsaved changes asks: Save · Discard · Cancel. */
-  import { app, type ProfileDraft } from '../bridge';
+  import { app, type ProfileDraft, type ZohoOrg } from '../bridge';
+  import { connectZoho } from '../logic/zoho';
   import { dayMon, dayMonYear, hhmm } from '../logic/format';
   import { noFreeSlot, planLine } from '../logic/plan';
   import { invoicesLine, invoicesStepValid, mailboxLine } from '../logic/details';
@@ -23,7 +24,8 @@
     const q = store.snap!.profile!;
     return { arn: q.arn, name: q.name, gstin: q.gstin, camsUsed: q.camsUsed, camsEmail: q.camsEmail, camsArn: q.camsArn, mailbox: { ...q.mailbox },
       kfintech: { ...q.kfintech }, signature: { ...q.signature }, invoices: structuredClone($state.snapshot(q.invoices)), consent: q.consent,
-      tally: q.books ? { company: q.tally.company, guid: '', gstin: q.tally.gstin ?? '', same: true, sure: true } : undefined };
+      tally: q.books === 'tally' ? { company: q.kept.company, guid: '', gstin: q.kept.gstin ?? '', same: true, sure: true } : undefined,
+      zoho: q.books === 'zoho' ? { orgId: '', org: q.kept.company, gstin: q.kept.gstin ?? '', same: true, sure: true } : undefined };
   };
   let inv = $state<ProfileDraft>(draftOf());
   const sigDirty = $derived(inv.signature.image !== p.signature.image || inv.signature.size !== p.signature.size);
@@ -38,6 +40,29 @@
   // a Change to which invoice is uploaded comes back through the store: start the form again from it
   let seenSource = $state(store.snap!.profile!.invoices.source);
   $effect(() => { if (p.invoices.source !== seenSource) { seenSource = p.invoices.source; inv = draftOf(); } });
+
+  // Connections: Zoho Books is let in through the person's own browser; one organisation is used
+  let zwaiting = $state(false);
+  let zsaid = $state('');
+  let zorgs = $state<ZohoOrg[] | null>(null);
+  let swapAsk = $state(false);
+  async function connectZ() {
+    if (zwaiting) return;
+    swapAsk = false;
+    zwaiting = true;
+    zsaid = '';
+    const r = await connectZoho(p.arn, p.gstin);
+    zwaiting = false;
+    if (!r.ok) { zsaid = r.cancelled ? '' : r.said; return; }
+    const mine = r.orgs.filter(o => o.same);
+    const one = mine.length === 1 ? mine[0] : r.orgs.length === 1 ? r.orgs[0] : null;
+    if (one) await useOrg(one); else zorgs = r.orgs;
+  }
+  async function useOrg(o: ZohoOrg) {
+    await app.booksUse({ kind: 'zoho', pick: { orgId: o.id, org: o.name, gstin: o.gstin, same: o.same, sure: false } });
+    zorgs = null;
+    store.toast(`Zoho Books is connected: ${o.name}`);
+  }
 
   let testing = $state(false);
   async function testMailbox() {
@@ -121,16 +146,40 @@
           {/if}
           <label class="switch srow"><span>I don't use KFintech</span><input type="checkbox" checked={!p.kfintech.used} disabled={p.kfintech.used && !p.camsUsed} onchange={e => kfintechOff(e.currentTarget.checked)} /></label>
         </div>
-        <div class="sgroup"><div class="sg-h"><b>Tally</b>{#if p.tally.company}<span class="chip good">In use</span>{/if}</div>
-          {#if p.tally.company}
-            <div class="srow"><span class="k">Company</span><span class="v">{p.tally.company} <span class="line">· {p.tally.ledgers} fund {p.tally.ledgers === 1 ? 'house' : 'houses'} matched to its ledgers</span></span>
-              <button class="btn ghost sm" onclick={async () => { await app.tallyForget(); store.toast('Forgotten. The Tally tab asks which company next time.'); }}>Change</button></div>
-            <div class="srow"><span class="k">GSTIN</span><span class="v"><span class="mono">{p.tally.gstin || 'Not read yet'}</span> <span class="line">in Tally · yours: <span class="mono">{p.gstin}</span></span>
-              {#if p.tally.gstin && p.tally.gstin !== p.gstin}<span class="chip wait">Not the same</span>{/if}</span></div>
+        <div class="sgroup"><div class="sg-h"><b>Tally</b>{#if p.books === 'tally'}<span class="chip good">In use</span>{/if}</div>
+          {#if p.books === 'tally'}
+            <div class="srow"><span class="k">Company</span><span class="v">{p.kept.company} <span class="line">· {p.kept.ledgers} fund {p.kept.ledgers === 1 ? 'house' : 'houses'} matched to its ledgers</span></span>
+              <button class="btn ghost sm" onclick={async () => { await app.booksForget(); store.toast('Forgotten. The Books tab asks which books next time.'); }}>Change</button></div>
+            <div class="srow"><span class="k">GSTIN</span><span class="v"><span class="mono">{p.kept.gstin || 'Not read yet'}</span> <span class="line">in Tally · yours: <span class="mono">{p.gstin}</span></span>
+              {#if p.kept.gstin && p.kept.gstin !== p.gstin}<span class="chip wait">Not the same</span>{/if}</span></div>
           {:else}
-            <p class="line" style="padding-bottom:12px">Each month's invoices go into the TallyPrime open on this PC. <a href="#tally" onclick={e => { e.preventDefault(); ui.go('tally'); }}>Open the Tally tab</a></p>
+            <p class="line" style="padding-bottom:12px">Each month's invoices go into the TallyPrime open on this PC. <a href="#books" onclick={e => { e.preventDefault(); ui.go('books'); }}>Open the Books tab</a></p>
           {/if}</div>
-        <div class="sgroup muted"><div class="sg-h"><b>Zoho Books</b><span class="tag later">Coming soon</span></div><p class="line" style="padding-bottom:12px">Import each month's invoices into your books.</p></div>
+        <div class="sgroup"><div class="sg-h"><b>Zoho Books</b>{#if p.books === 'zoho'}<span class="chip good">In use</span>{/if}</div>
+          {#if zwaiting}
+            <div class="banner wait" role="status"><span class="spin amber"></span><div><b>Waiting for Zoho in your browser</b><p>Sign in to Zoho if it asks, then press Accept.</p></div>
+              <div class="bact"><button class="btn secondary sm" onclick={() => app.zohoCancel()}>Cancel</button></div></div>
+          {:else if zorgs}
+            <div class="srow"><span class="k">Organisation</span><span class="v">Which one do these invoices go into?</span></div>
+            {#each zorgs as o (o.id)}
+              <div class="srow"><span class="k"></span><span class="v">{o.name} <span class="line mono">{o.gstin || 'No GSTIN in Zoho Books'}</span>{#if !o.same}<span class="chip wait">Not your GSTIN</span>{/if}</span>
+                <button class="btn ghost sm" onclick={() => useOrg(o)}>Use this</button></div>
+            {/each}
+          {:else}
+            {#if p.books === 'zoho'}
+              <div class="srow"><span class="k">Organisation</span><span class="v">{p.kept.company} <span class="line">· {p.kept.ledgers} fund {p.kept.ledgers === 1 ? 'house' : 'houses'} matched to its customers</span></span>
+                <button class="btn ghost sm" onclick={connectZ}>Change</button>
+                <button class="btn ghost sm" onclick={async () => { await app.zohoDisconnect(); store.toast('Zoho Books is let go of.'); }}>Disconnect</button></div>
+              <div class="srow"><span class="k">GSTIN</span><span class="v"><span class="mono">{p.kept.gstin || 'Not read yet'}</span> <span class="line">in Zoho Books · yours: <span class="mono">{p.gstin}</span></span>
+                {#if p.kept.gstin && p.kept.gstin !== p.gstin}<span class="chip wait">Not the same</span>{/if}</span></div>
+            {:else}
+              <p class="line" style="padding-bottom:8px">Each month's invoices go into your Zoho Books. Your browser opens at Zoho, and you press Accept.{p.books === 'tally' ? ' This lets go of Tally for this ARN.' : ''}</p>
+              <div class="srow"><span class="k"></span><span class="v"></span>
+                {#if swapAsk}<span class="line">Let go of Tally for this ARN?</span><button class="btn secondary sm" onclick={connectZ}>Yes, connect Zoho Books</button><button class="btn ghost sm" onclick={() => (swapAsk = false)}>No</button>
+                {:else}<button class="btn secondary sm" onclick={() => (p.books === 'tally' ? (swapAsk = true) : connectZ())}>Connect Zoho Books</button>{/if}</div>
+            {/if}
+            {#if zsaid}<p class="line bad" style="padding-bottom:12px">{zsaid}</p>{/if}
+          {/if}</div>
       {:else if ui.section === 'Your details'}
         <div class="sgroup">
           <div class="srow"><span class="k">ARN</span><span class="v"><span class="mono">{p.arn}</span>
@@ -150,7 +199,7 @@
         </div>
       {:else if ui.section === 'Your invoices'}
         <div class="sgroup">
-          <div class="srow">{@render row('Uploaded', invoicesLine(p.invoices, !!p.books))}<button class="btn ghost sm" onclick={() => edit('inv')}>Change</button></div>
+          <div class="srow">{@render row('Uploaded', invoicesLine(p.invoices, p.books))}<button class="btn ghost sm" onclick={() => edit('inv')}>Change</button></div>
         </div>
         <div class="sgroup"><YourInvoices bind:d={inv} settingsOnly />
           <div class="savebar" class:is-dirty={invDirty}><span class="dirty">Unsaved changes</span>

@@ -44,7 +44,7 @@ from playwright.async_api import Error as PWError
 
 from client import errors
 from client.credentials import CREDENTIALS, shown
-from client.hands import certstore, loader, local, ops_export, ops_pdf, ops_sig, ops_sign, server, sign_image, site, update
+from client.hands import certstore, loader, local, ops_export, ops_pdf, ops_sig, ops_sign, server, sign_image, site, update, zoho
 from client.brand import NAME, SITE
 from client.hands.browser import min_spec
 from client.hands.hands import APP_VERSION, Hands
@@ -106,7 +106,7 @@ class Window:
         self.updated_from = ""                               # this start follows an update from that version
         self.update_failed_to = ""                           # ... or an update to that version that did not start
         self._updating = False
-        self._tally_busy = False
+        self._books_busy = False
         self._books_wake = asyncio.Event()                   # Refresh pressed while a run waits for the books
         hands.arn = lambda: self.selected()
         hands.signature_path = lambda: self.signature_file(self.selected())
@@ -375,10 +375,10 @@ class Window:
                              "username": shown(self.credential(p["arn"], "kfintech_username"))},
                 "signature": self._signature_view(p["arn"]),
                 "invoices": invoices_of(p),
-                "books": "tally" if local.tally_kept(self.base(p["arn"]))["company"] else "",
+                "books": local.books_kept(self.base(p["arn"]))["kind"],
                 "usedTop": local.issued_top(self.base(p["arn"])),
                 "lastLogin": p.get("lastLogin", {"CAMS": "", "KFINTECH": ""}),
-                "tally": local.tally_kept(self.base(p["arn"])),
+                "kept": local.books_kept(self.base(p["arn"])),
                 "consent": p.get("consent") or None}
 
     def _signing(self, arn: str) -> dict:
@@ -774,13 +774,20 @@ class Window:
             p["bindOnRun"] = True
         self._save_profile(p)
         self._keep_for(arn)
-        pick = draft.get("tally") or {}
-        if pick.get("company") and pick.get("guid"):
-            try:
-                (await self._tally()).keep_company(self.base(arn), pick["company"], pick["guid"],
-                                                   str(pick.get("gstin") or ""), bool(pick.get("sure")))
-            except Exception:
-                log.exception("the Tally company chosen at setup could not be kept")  # the Tally tab asks again
+        # the books chosen at setup: one per ARN, so the other kind's choices and grant go
+        tpick, zpick = draft.get("tally") or {}, draft.get("zoho") or {}
+        try:
+            books = await self._books()
+            if zpick.get("orgId"):
+                books.keep("zoho", self.base(arn), zpick)
+            elif tpick.get("company") and tpick.get("guid"):
+                books.keep("tally", self.base(arn), tpick)
+            else:
+                books.forget(self.base(arn))
+            if not zpick.get("orgId") and zoho.connected(self.store, arn):
+                await asyncio.to_thread(zoho.disconnect, self.store, arn)
+        except Exception:
+            log.exception("the books chosen at setup could not be kept")        # the Books tab asks again
         self.store.put("selected_arn", arn)
         self._log(f"Set up {arn}")
         await self.read_plan()
@@ -943,7 +950,7 @@ class Window:
         await self.changed()
         return {"ok": True, "name": out.name}
 
-    # --- Tally --------------------------------------------------------------------------------------------------
+    # --- the person's books: Tally or Zoho Books, one per ARN -------------------------------------------------------
 
     async def _rule_46(self, text: str) -> str:
         """"" when this invoice number may be stored, else why not: GST Rule 46 allows at most 16 characters, only
@@ -953,96 +960,151 @@ class Window:
             return ""
         return "GST allows up to 16 characters: letters, digits, - and / only."
 
-    async def _tally(self):
-        """The steps' Tally half. Steps kept from before it existed are replaced by the current ones."""
+    async def _books(self):
+        """The steps' books half. Steps kept from before Zoho Books existed are replaced by the current ones."""
         auto = await loader.current()
-        if not hasattr(auto, "tally"):
+        if not hasattr(getattr(auto, "books", None), "open"):
             auto = await loader.latest()
-        return auto.tally
+        return auto.books
 
-    async def tally_look(self, period: str = "", company: str = "", which: str = "submitted", last: str = "",
-                         answers: dict | None = None) -> dict:
-        """What importing this month into the company open in Tally would do. Nothing in Tally changes.
-        `state`: off (Tally gives no answer), closed (no company is open), pick (which company?), ready."""
+    def zoho_token(self, arn: str, fresh: bool = False) -> dict:
+        """Zoho Books' access token for this ARN, for the steps: {token, api}, {gone: words} or {off: words}."""
+        return zoho.token(self.store, arn, fresh)
+
+    def _token_of(self, arn: str):
+        return lambda fresh=False: self.zoho_token(arn, fresh)
+
+    def _kind(self, kind: str = "", arn: str = "") -> str:
+        return kind or local.books_kept(self.base(arn))["kind"]
+
+    async def books_look(self, period: str = "", company: str = "", which: str = "submitted", last: str = "",
+                         answers: dict | None = None, kind: str = "") -> dict:
+        """What importing this month into the person's books would do. Nothing in the books changes. `state`: none
+        (no books chosen yet), connect (Zoho Books needs letting in), off (the books give no answer), closed (Tally:
+        no company is open), pick (which company or organisation?), ready."""
         p = self.profile()
         if not p:
             return {"state": "off", "said": "No ARN is set up.", "rows": []}
+        kind = self._kind(kind)
+        if not kind:
+            return {"state": "none", "kind": "", "rows": []}
+        if kind == "zoho" and not zoho.connected(self.store, p["arn"]):
+            return {"state": "connect", "kind": "zoho", "rows": [], "said": ""}
+        name = "Zoho Books" if kind == "zoho" else "Tally"
         try:
-            tally = await self._tally()
-            session = tally.Session(self.base(), period or local.current_period(), p, company=company, which=which,
-                                    last=last, answers=answers or {})
+            books = await self._books()
+            session = books.open(kind, self.base(), period or local.current_period(), p, self._token_of(p["arn"]),
+                                 company=company, which=which, last=last, answers=answers or {})
             got = await asyncio.to_thread(session.look)
         except (loader.Unreachable, loader.NotOurs):
             return {"state": "off", "said": f"{NAME} couldn't get its latest steps just now. Try again in a minute.",
                     "rows": []}
         except Exception as e:
-            log.exception("the look at Tally failed")
-            return {"state": "off", "said": f"Tally's answer couldn't be read ({type(e).__name__}).", "rows": []}
-        return {**got, "remembered": tally.remembered(self.base())}
+            log.exception("the look at %s failed", name)
+            return {"state": "off", "said": f"{name}'s answer couldn't be read ({type(e).__name__}).", "rows": []}
+        return {**got, "remembered": local.books_kept(self.base())}
 
-    async def tally_import(self, period: str, company: str, which: str = "submitted", last: str = "",
-                           answers: dict | None = None, adopt: list[str] | None = None) -> dict:
-        """Put the month into Tally. Answers with the look afterwards and `done`: what went in. Only the registrar's
-        invoices: the person's own go into Tally during their run, where they are numbered."""
+    async def books_import(self, period: str, company: str, which: str = "submitted", last: str = "",
+                           answers: dict | None = None, adopt: list[str] | None = None, kind: str = "") -> dict:
+        """Put the month into the books. Answers with the look afterwards and `done`: what went in. Only the
+        registrar's invoices: the person's own go into the books during their run, where they are numbered."""
         p = self.profile()
-        if not p or self._tally_busy:
+        if not p or self._books_busy:
             return {"state": "off", "said": "An import is already going." if p else "No ARN is set up.", "rows": []}
         if self._task is not None:
             return {"state": "off", "said": "A run is going. Import once it has ended.", "rows": []}
-        self._tally_busy = True
+        kind = self._kind(kind)
+        name = "Zoho Books" if kind == "zoho" else "Tally"
+        self._books_busy = True
         try:
-            tally = await self._tally()
-            session = tally.Session(self.base(), period, p, company=company, which=which, last=last,
-                                    answers=answers or {})
+            books = await self._books()
+            session = books.open(kind, self.base(), period, p, self._token_of(p["arn"]), company=company,
+                                 which=which, last=last, answers=answers or {})
             got = await asyncio.to_thread(session.bring_in, adopt or [])
         except (loader.Unreachable, loader.NotOurs):
             return {"state": "off", "said": f"{NAME} couldn't get its latest steps just now. Try again in a minute.",
                     "rows": []}
         except Exception as e:
-            log.exception("the import into Tally failed")
+            log.exception("the import into %s failed", name)
             return {"state": "off", "rows": [],
                     "said": f"The import stopped ({type(e).__name__}). Look again to see what went in."}
         finally:
-            self._tally_busy = False
+            self._books_busy = False
         done = got.get("done") or {}
         went = len(done.get("imported") or []) + len(done.get("adopted") or [])
         if went:
             numbers = done.get("numbers") or []
             span = f" ({numbers[0]} to {numbers[-1]})" if len(numbers) > 1 else f" ({numbers[0]})" if numbers else ""
-            self._log(f"Imported {went} invoice{'' if went == 1 else 's'} for {got.get('label') or period} into Tally"
+            self._log(f"Imported {went} invoice{'' if went == 1 else 's'} for {got.get('label') or period} into {name}"
                       f"{span}", tone="plain")
         await self.changed()
-        return {**got, "remembered": tally.remembered(self.base())}
+        return {**got, "remembered": local.books_kept(self.base())}
 
-    async def books_next(self, company: str = "", arn: str = "") -> dict:
-        """Where the person's own invoice numbers continue from, in their Tally: {state, company, last, next, at,
-        method}. `company` and `arn`: at setup, before the ARN's choice is kept. `state` is off, closed or pick when
-        Tally cannot say. Reads only."""
+    async def books_next(self, company: str = "", arn: str = "", kind: str = "") -> dict:
+        """Where the person's own invoice numbers continue from, in their books: {state, company, last, next, at,
+        method}. `company`, `arn` and `kind`: at setup, before the ARN's choice is kept. `state` is off, closed or pick
+        when the books cannot say. Reads only."""
         empty = {"state": "off", "company": "", "last": "", "next": "", "at": -1, "method": ""}
         if not (company or self.profile()):
             return empty
+        kind = self._kind(kind, arn) or "tally"
         try:
-            tally = await self._tally()
-            return await asyncio.to_thread(tally.books_next, self.base(arn), company)
+            books = await self._books()
+            return await asyncio.to_thread(books.books_next, kind, self._token_of(arn or self.selected()),
+                                           self.base(arn), company)
         except Exception:
-            log.exception("Tally's next invoice number could not be read")
+            log.exception("the next invoice number could not be read from the books")
             return empty
 
-    async def tally_setup(self, gstin: str) -> dict:
-        """Setup's Tally step: the companies open in Tally, each with its GSTIN and whether it is this ARN's."""
+    async def books_setup(self, kind: str, gstin: str, arn: str = "") -> dict:
+        """Setup's Books step: what the books say, with each company's or organisation's GSTIN beside this ARN's."""
         try:
-            tally = await self._tally()
-            return await asyncio.to_thread(tally.setup_look, gstin)
+            books = await self._books()
+            got = await asyncio.to_thread(books.setup_look, kind, self._token_of(arn or self.selected()), gstin)
+            return {"said": "", "companies": [], "orgs": [], **got}
         except Exception:
-            log.exception("Tally could not be read at setup")
-            return {"state": "off", "companies": []}
+            log.exception("the books could not be read at setup")
+            return {"state": "off", "said": "", "companies": [], "orgs": []}
 
-    async def tally_forget(self) -> dict:
-        """Forget the company and the ledgers chosen for this ARN: the next look asks again."""
-        tally = await self._tally()
-        tally.forget(self.base())
-        self._log("Forgot which Tally company and ledgers this ARN uses")
+    async def books_use(self, kind: str, pick: dict) -> dict:
+        """Use these books for this ARN from now on: the other kind's choices and grant are let go of. Tally:
+        {company, guid, gstin, sure}. Zoho Books: {orgId, org, gstin, sure}."""
+        arn = self.selected()
+        books = await self._books()
+        books.keep(kind, self.base(arn), pick)
+        if kind != "zoho" and zoho.connected(self.store, arn):
+            await asyncio.to_thread(zoho.disconnect, self.store, arn)
+        self._log(f"Using {'Zoho Books' if kind == 'zoho' else 'Tally'} for this ARN")
         await self.changed()
+        return {"ok": True}
+
+    async def books_forget(self) -> dict:
+        """Forget the books chosen for this ARN: the next look asks again. Zoho Books is also let go of."""
+        arn, kind = self.selected(), self._kind()
+        books = await self._books()
+        if kind == "zoho":
+            await asyncio.to_thread(zoho.disconnect, self.store, arn)
+        books.forget(self.base())
+        self._log("Let go of Zoho Books for this ARN" if kind == "zoho" else
+                  "Forgot which Tally company and ledgers this ARN uses")
+        await self.changed()
+        return {"ok": True}
+
+    async def zoho_connect(self, arn: str = "") -> dict:
+        """Open Zoho's Accept page in the person's browser and wait for them: {ok}, or {ok: False, state, said}."""
+        return await asyncio.to_thread(zoho.connect, self.store, arn or self.selected())
+
+    async def zoho_cancel(self) -> None:
+        zoho.cancel()
+
+    async def zoho_disconnect(self, arn: str = "") -> dict:
+        """Let go of Zoho Books for this ARN (the grant is revoked at Zoho), at setup or in Settings."""
+        arn = arn or self.selected()
+        await asyncio.to_thread(zoho.disconnect, self.store, arn)
+        if arn in self.profiles():
+            (self.base(arn) / "zoho.json").unlink(missing_ok=True)
+            self._log("Let go of Zoho Books for this ARN")
+            await self.changed()
         return {"ok": True}
 
     async def open_pdf(self, key: str) -> None:
@@ -1090,9 +1152,9 @@ class Window:
         p = self.profile()
         if not p:
             return {"run": "", "said": "No ARN is set up."}
-        if self._tally_busy:
-            return {"run": "", "said": "An import into Tally is going. Try again when it has ended."}
-        books = bool(local.tally_kept(self.base(p["arn"]))["company"])
+        if self._books_busy:
+            return {"run": "", "said": "An import into your books is going. Try again when it has ended."}
+        books = bool(local.books_kept(self.base(p["arn"]))["kind"])
         if last and last.get("text") and invoices_of(p)["source"] == "own" and not books:
             # the number may skip ahead, never go below the highest this software has used this financial year
             if refused := await self._rule_46(str(last["text"])):
@@ -1471,9 +1533,9 @@ class Window:
                 "first": str(a.get("first") or ""),
                 "dated": list(a.get("dated") or [])}
 
-    def books_waiting(self, run: str, on: bool, company: str, said: str) -> None:
-        """The run is waiting for the person's books (Tally): the window shows a red line with a Refresh button."""
-        self._push({"type": "books_waiting", "run": run, "on": on, "company": company, "said": said})
+    def books_waiting(self, run: str, on: bool, company: str, said: str, kind: str = "tally") -> None:
+        """The run is waiting for the person's books: the window shows a red line with a Refresh button."""
+        self._push({"type": "books_waiting", "run": run, "on": on, "company": company, "said": said, "kind": kind})
 
     async def books_nap(self, seconds: float) -> None:
         """Wait for Refresh, or this long, before the books are asked again."""

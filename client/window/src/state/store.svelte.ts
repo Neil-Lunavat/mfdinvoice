@@ -17,7 +17,7 @@ export interface RunLive {
   startedAt: number;                            // when the run window began it, for the clock
   ask: Ask | null;                              // the question on screen, if any
   waitingEmail: { since: string; ref: string; skip: boolean } | null;
-  waitingBooks: { company: string; said: string } | null;    // the run waits for Tally to answer
+  waitingBooks: { company: string; said: string; kind: string } | null;    // the run waits for the books to answer
   month?: { period: string; index: number };    // a download of several months: the one it is on
   submitted: Partial<Record<Registrar, number>>;
   ended: 'done' | 'stopped' | 'nothing' | null;
@@ -107,7 +107,7 @@ class Store {
         if (r && r.id === p.run) r.waitingEmail = { since: p.since, ref: p.ref, skip: !!p.skip };
         break;
       case 'books_waiting':
-        if (r && r.id === p.run) r.waitingBooks = p.on ? { company: p.company, said: p.said } : null;
+        if (r && r.id === p.run) r.waitingBooks = p.on ? { company: p.company, said: p.said, kind: p.kind } : null;
         break;
       case 'submitted':
         if (r && r.id === p.run) r.submitted = { ...r.submitted, [p.registrar]: p.count };
