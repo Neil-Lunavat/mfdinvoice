@@ -199,7 +199,7 @@ export interface BooksRow {
 export interface BooksLook {
   kind: '' | 'tally' | 'zoho';
   state: 'none' | 'connect' | 'off' | 'closed' | 'pick' | 'ready';
-  said: string; companies: string[]; company: string; period: string; label: string; own: boolean;
+  said: string; companies: string[]; orgs?: { id: string; name: string }[]; orgId?: string; company: string; period: string; label: string; own: boolean;
   which: 'submitted' | 'all'; vtype: string; method: string; tallyNumbers: boolean; last: string; askLast: boolean;
   rows: BooksRow[];
   creates: { kind: 'party' | 'tax'; name: string; gstin: string }[];
@@ -210,7 +210,7 @@ export interface BooksLook {
            refused: { key: string; amc: string; said: string }[] };
 }
 
-export interface BooksLookQuery { period: string; company: string; which: 'submitted' | 'all'; last: string; answers: Record<string, string>; kind?: '' | 'tally' | 'zoho' }
+export interface BooksLookQuery { period: string; company: string; which: 'submitted' | 'all'; last: string; answers: Record<string, string>; kind?: '' | 'tally' | 'zoho'; orgId?: string }
 
 export interface Month {
   period: string;                  // CAMS's payment month, e.g. "OCT-2026"
@@ -485,7 +485,7 @@ export interface App {
   /** Put the month in. `adopt`: the invoices typed by hand to change to the registrar's figures. */
   booksImport(q: BooksLookQuery & { adopt: string[] }): Promise<BooksLook>;
   /** Where the person's own invoice numbers continue from, in their books; `company`, `arn` and `kind` while setup is still open. */
-  booksNext(q?: { company?: string; arn?: string; kind?: '' | 'tally' | 'zoho' }): Promise<{ state: string; company: string; last: string; next: string; at: number; method: string }>;
+  booksNext(q?: { company?: string; arn?: string; kind?: '' | 'tally' | 'zoho'; orgId?: string }): Promise<{ state: string; company: string; last: string; next: string; at: number; method: string }>;
   /** Refresh, while a run waits for the books. */
   refreshBooks(run: string): Promise<void>;
   /** Setup's books step: the companies open in Tally, or the organisations in Zoho Books, each with its GSTIN beside this ARN's. */

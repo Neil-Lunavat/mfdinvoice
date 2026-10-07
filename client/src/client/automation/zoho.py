@@ -185,18 +185,20 @@ class Session:
     """One month of one ARN against the organisation connected in Zoho Books: what an import would do (`look`), doing it
     (`bring_in`), and a run's glance and place. Nothing is written by `look`."""
 
-    def __init__(self, base: Path, period: str, profile: dict, token, *, company: str = "", which: str = "submitted",
+    def __init__(self, base: Path, period: str, profile: dict, token, *, company: str = "", org_id: str = "", which: str = "submitted",
                  last: str = "", answers: dict | None = None):
+        # `company` is the organisation's name for display only; the organisation is chosen by `org_id`
         self.base, self.period, self.profile = base, period, profile
         self.arn = str(profile.get("arn") or base.name)
         self.month = Month(base, period) if period else None
         self.own = (profile.get("invoices") or {}).get("source") == "own"
         self.which = "all" if which == "all" else "submitted"
-        self.asked_company, self.answers = company, dict(answers or {})
+        self.asked_org, self.answers = org_id, dict(answers or {})
         self.remember: dict = _load(base / "zoho.json")
         self.api = Api(token)
         self.company = self.org_id = self.books_gstin = ""
         self.org_names: list[str] = []
+        self.orgs: list[dict] = []
         self.rows: list[dict] = []
         self.creates: list[dict] = []
         self.asks: list[dict] = []
@@ -223,10 +225,10 @@ class Session:
         except Said as e:
             return {"state": "off", "said": str(e)}
         self.org_names = [o["name"] for o in orgs]
+        self.orgs = [{"id": o["id"], "name": o["name"]} for o in orgs]
         kept = (self.remember.get("org") or {})
-        want = next((o for o in orgs if o["name"] == self.asked_company and self.asked_company), None) \
-            or next((o for o in orgs if o["id"] == kept.get("id")), None)
-        if want is None and len(orgs) == 1 and not self.asked_company and not kept.get("id"):
+        want = next((o for o in orgs if o["id"] == (self.asked_org or kept.get("id"))), None)
+        if want is None and len(orgs) == 1 and not self.asked_org and not kept.get("id"):
             want = orgs[0]
         if want is None:
             return {"state": "pick", "companies": self.org_names,
@@ -413,8 +415,8 @@ class Session:
                   "byHand": sum(1 for p in self.rows if p["action"] == "by_hand"),
                   "inBooks": sum(1 for p in self.rows if p["action"] == "in_books")}
         label = words.labels(self.period)[0] if self.period else ""
-        return {"kind": "zoho", "state": state, "said": "", "companies": self.org_names, "company": self.company,
-                "period": self.period, "label": label, "own": self.own, "which": self.which, "vtype": "",
+        return {"kind": "zoho", "state": state, "said": "", "companies": self.org_names, "orgs": self.orgs, "orgId": self.org_id,
+                "company": self.company, "period": self.period, "label": label, "own": self.own, "which": self.which, "vtype": "",
                 "method": "", "tallyNumbers": False, "last": "", "askLast": False, "rows": public,
                 "creates": self.creates, "asks": self.asks, "warn": self.warn, "counts": counts, **more}
 
@@ -647,7 +649,7 @@ class Session:
             done["stoppedAt"] = (e.said or f"{NAME} isn't answering") + " Look again to see what went in."
             self.month.save()
             return {**before, "done": done}
-        again = Session(self.base, self.period, self.profile, self.api.token, company=self.company, which=self.which,
+        again = Session(self.base, self.period, self.profile, self.api.token, org_id=self.org_id, which=self.which,
                         answers=self.answers)
         out = again.look()
         said = {x["key"]: x["said"] for x in done["refused"]}
@@ -687,10 +689,10 @@ def setup_look(token, gstin: str) -> dict:
     return {"state": "ready", "said": "", "orgs": out}
 
 
-def books_next(token, base: Path, org_name: str = "") -> dict:
+def books_next(token, base: Path, org_id: str = "") -> dict:
     """Where the person's own invoice numbers continue from, for setup's line: {state, company, last, next, at,
     method}. Reads only."""
-    s = Session(base, "", {"arn": base.name}, token, company=org_name)
+    s = Session(base, "", {"arn": base.name}, token, org_id=org_id)
     stopped = s.connect()
     if stopped:
         return {"state": stopped["state"], "company": "", "last": "", "next": "", "at": -1, "method": ""}

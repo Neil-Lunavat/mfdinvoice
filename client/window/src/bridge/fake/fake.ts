@@ -235,8 +235,9 @@ export class FakeApp implements App {
   async finishSetup(p: ProfileDraft, adding: boolean) {
     await sleep(400);
     if (this.arns.some(a => a.profile.arn === p.arn)) return { ok: false as const, said: `${p.arn} is already on this account.` };
+    const books = p.zoho?.orgId ? 'zoho' as const : p.tally?.company ? 'tally' as const : '' as const;
     const profile: Profile = { ...structuredClone(p), arnConfirmed: true, lastLogin: { CAMS: '', KFINTECH: '' },
-      kept: { kind: '' as const, company: '', ledgers: 0 }, books: p.zoho?.orgId ? 'zoho' as const : p.tally?.company ? 'tally' as const : '' as const, usedTop: '',
+      kept: { kind: books, company: p.zoho?.orgId ? p.zoho.org : p.tally?.company ?? '', ledgers: 0 }, books, usedTop: '',
       consent: p.consent ? { ...p.consent, device: 'THIS-PC' } : null };
     const fresh: ArnData = { profile, state: 'first_run', month: D.october('first_run'), notes: [], activity: [], second: adding };
     fresh.activity = [{ at: now(), text: `Set up ${p.arn}`, registrar: null, who: 'you, on this PC', tone: 'setting' }];

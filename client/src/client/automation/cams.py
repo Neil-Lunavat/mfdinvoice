@@ -475,8 +475,8 @@ def compare(ours_rows: list[dict], theirs_rows: list[dict], unfilled: list[dict]
     it emailed the month.
 
     `ours_rows` are the rows filled in (a FILE NAME and a PDF each); every one must be in CAMS's review. `unfilled`
-    are the template's other rows, left exactly as CAMS gave them: CAMS may list them or leave them out, and if it
-    lists one, its figures must still be the template's. Each difference: {key, what, ours, theirs}.
+    are the template's other rows, which are deleted from the uploaded Excel (CAMS refuses a row with no FILE NAME):
+    CAMS should not list them, and if it does, its figures must still be the template's. Each difference: {key, what, ours, theirs}.
     """
     ours = {r[CAMS_INVOICE]: r for r in ours_rows}
     others = {r[CAMS_INVOICE]: r for r in unfilled if r[CAMS_INVOICE] not in ours}

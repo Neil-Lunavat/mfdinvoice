@@ -33,7 +33,7 @@
     const company = bookName, kind = bookKind(d);
     continues = '';
     if (!company || !kind || d.invoices.source !== 'own') return;
-    void app.booksNext({ company, arn: d.arn, kind }).then(r => { if (bookName === company && r.state === 'ready') continues = r.next; });
+    void app.booksNext({ company, arn: d.arn, kind, orgId: d.zoho?.orgId ?? '' }).then(r => { if (bookName === company && r.state === 'ready') continues = r.next; });
   });
 
   function choose(source: 'registrar' | 'own') { d.invoices.source = source; }

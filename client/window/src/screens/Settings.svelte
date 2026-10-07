@@ -51,12 +51,17 @@
     swapAsk = false;
     zwaiting = true;
     zsaid = '';
-    const r = await connectZoho(p.arn, p.gstin);
-    zwaiting = false;
-    if (!r.ok) { zsaid = r.cancelled ? '' : r.said; return; }
-    const mine = r.orgs.filter(o => o.same);
-    const one = mine.length === 1 ? mine[0] : r.orgs.length === 1 ? r.orgs[0] : null;
-    if (one) await useOrg(one); else zorgs = r.orgs;
+    try {
+      const r = await connectZoho(p.arn, p.gstin);
+      if (!r.ok) { zsaid = r.cancelled ? '' : r.said; return; }
+      const mine = r.orgs.filter(o => o.same);
+      const one = mine.length === 1 ? mine[0] : r.orgs.length === 1 ? r.orgs[0] : null;
+      if (one) await useOrg(one); else zorgs = r.orgs;
+    } catch (e) {
+      zsaid = e instanceof Error && e.message ? e.message : "Zoho Books isn't answering. Try again.";
+    } finally {
+      zwaiting = false;
+    }
   }
   async function useOrg(o: ZohoOrg) {
     await app.booksUse({ kind: 'zoho', pick: { orgId: o.id, org: o.name, gstin: o.gstin, same: o.same, sure: false } });

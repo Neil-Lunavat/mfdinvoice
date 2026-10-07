@@ -100,21 +100,22 @@ class Month:
         row.update(facts)
         return row
 
-    def read_status(self, registrar: str, reading: list[dict]) -> None:
-        """The registrar's status page was read: its words are the truth about what it has."""
+    def read_status(self, registrar: str, reading: list[dict], after_press: bool = False) -> str:
+        """The registrar's status page was read: its words are the truth about what it has. A word never seen stops
+        the run with it quoted (guessing could send an invoice twice or never); it is ours: a portal changed, or a
+        word we have not met. Right after a Submit (`after_press`) the invoices are already gone, so nothing is
+        raised: the unknown words are returned ("" when none) for the caller to say after it has recorded the send."""
         strange = [r for r in reading if words.meaning(registrar, r.get("status")) == "unknown"]
-        if strange:
-            # A word never seen: guessing could send an invoice twice or never, so the run stops with it quoted. It
-            # is ours: a portal changed, or a word we have not met.
+        said_strange = "; ".join(sorted({f"{r['key']}: {(r.get('status') or '').strip() or '(empty)'}" for r in strange}))
+        if strange and not after_press:
             name = words.NAMES[registrar]
-            said = "; ".join(sorted({f"{r['key']}: {(r.get('status') or '').strip() or '(empty)'}" for r in strange}))
             raise Stop("ours", f"{name} showed a status {NAME} doesn't know",
-                       "Nothing was sent. This one is ours to fix, and it has been sent to us.", said=said,
+                       "Nothing was sent. This one is ours to fix, and it has been sent to us.", said=said_strange,
                        registrar=registrar)
         at = now()
         self.facts.setdefault("status", {})[registrar] = reading
         self.facts["checkedAt"] = at
-        by_key = latest(reading)
+        by_key = latest(reading, registrar)
         for row in self.rows.values():
             if row["registrar"] != registrar:
                 continue
@@ -126,15 +127,16 @@ class Month:
             if not words.is_final(registrar, said):
                 row["sentAt"] = ""                # the registrar does not have it, whatever was pressed
         self.facts.get("pressed", {}).pop(registrar, None)      # a status reading settles a Submit nobody answered
+        return said_strange
 
     def with_registrar(self, registrar: str) -> set[str]:
         """The invoices the registrar already has, by its last status reading."""
-        return {k for k, r in latest(self.facts.get("status", {}).get(registrar, [])).items()
+        return {k for k, r in latest(self.facts.get("status", {}).get(registrar, []), registrar).items()
                 if words.is_final(registrar, r.get("status"))}
 
     def said_about(self, registrar: str, key: str) -> dict:
         """The registrar's latest words about one invoice."""
-        return latest(self.facts.get("status", {}).get(registrar, [])).get(key, {})
+        return latest(self.facts.get("status", {}).get(registrar, []), registrar).get(key, {})
 
     def of(self, registrar: str) -> list[dict]:
         return [r for r in self.rows.values() if r["registrar"] == registrar]
@@ -144,10 +146,20 @@ class Month:
         self.save()
 
 
-def latest(reading: list[dict]) -> dict[str, dict]:
+RANK = {"done": 4, "with": 3, "rejected": 2, "open": 1, "unknown": 0}
+
+
+def latest(reading: list[dict], registrar: str = "") -> dict[str, dict]:
     """A status reading by invoice. CAMS lists an invoice once for every time it was sent (REJECTED, then APPROVED
-    after the resend), in the order it happened and with no date on the row, so the last row listed is the latest."""
-    return {r["key"]: r for r in reading}
+    after the resend), with no date on the row, so the order says nothing: the row that wins is the furthest along
+    (approved, then with the registrar, then rejected, then open). Equal rows: the last listed."""
+    out: dict[str, dict] = {}
+    for r in reading:
+        have = out.get(r["key"])
+        if have is None or (RANK[words.meaning(registrar, r.get("status"))]
+                            >= RANK[words.meaning(registrar, have.get("status"))]):
+            out[r["key"]] = r
+    return out
 
 
 def _timeline(r: dict) -> list[dict]:

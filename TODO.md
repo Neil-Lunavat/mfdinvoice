@@ -8,48 +8,26 @@ parked for later are in `IDEAS.md`. Delete a line when it is done, a section whe
 
 - [ ] Once the portal work below is in: `LAB-PORTALS.md`, `LAB-ZOHO.md`.
 
-## 2. Small things (the portal lab into the software, and bugs found reading)
+## 2. Built 8 Oct, all of it unseen by Neil (checked: compile, type-check, MFD Test in Tally and Zoho)
 
-The portal lab's findings, bugs and Neil's answers: `labs/portals-report.md` (sections 2, 4 and 5); its working
-scripts: `labs/portals/`.
+- The portal lab in the software: status words, CAMS (one browser, sign-in again on expiry, only ticked rows,
+  validation, Submit's answer, the survey), KFintech (sign-in by the server's reply, greyed rows, tab clicks, missing
+  files fetched next run). CAMS files checked for month and ARN before they enter a month. Rule 46 where typed.
+- Invoice numbers, books first (Tally and Zoho); setup's new order with Name and GSTIN; Zoho Books; the Books tab.
+- A code review of all of it (11 findings, all fixed).
+- Before March: a run whose invoices span two financial years (March invoices sent in April) assumes one year.
+- Zoho asks for full access; try the narrower scopes once Neil has clicked Accept for real.
 
-- [ ] **Status words** (`words.py`, `month.said_about`): whole words, forgiving (case, spaces, a trailing full stop);
-      unknown stops with the words; several rows for one invoice, the latest wins. "File Not Uploaded." is not final;
-      KFintech's "Uploaded & Verification pending" is with the registrar. Both final states show "Approved".
-- [ ] **CAMS:** sign-in checks the box's value after typing, and ignores the old expiry toast; one browser for good,
-      sign in again on the expiry toast or form and redo the step once (no 20-minute rule); the upload's Excel holds
-      only the ticked rows; validation waits until every row is decided and reads "VALIDATED"; Submit's answer is
-      `.re-success` + each row's Message; the survey pop-up is cancelled.
-- [ ] **KFintech:** sign-in reads loginAPI's 10000/10001 and the snackbar's text (not its colour), a wrong captcha asks
-      again; greyed rows (`pointer-events: none`) are not clickable; tab clicks repeat until `aria-selected`; a listed
-      fund with no file means the files are fetched again on the next run.
-- [ ] The SEP-2026 CAMS folder held August's mailback: files land in the wrong month.
-- [ ] `MonthView.check` still uses the old toast (Overview has the new one).
-- [ ] Own invoice numbers obey GST Rule 46 where they are typed (16 characters; letters, digits, `-`, `/`).
-- [ ] Website: Privacy and Security say invoice files never reach us, but forwarded CAMS mail passes through our
-      server (encrypted, deleted once fetched); they don't mention survey answers or ideas. "The records of runs is";
-      Terms' "before you say press upload".
+## 3. Neil's pass in the real software
 
-## 3. Big things
+On a fresh start, from onboarding (the app data was wiped 8 Oct). Nothing below has been seen by him in the real
+software.
 
-- [ ] **Numbering: books first** (rules in `CLAUDE.md`, "Invoice numbers"). The Tally lab's numbering answers (`e40`)
-      decide Automatic numbering with a back-dated month. Then: the import moves into the run before Sign for own
-      invoices; the wait on TallyPrime with its refresh button; the guard without books; the end-of-run list
-      without books; Your check's new-year line; the Tally tab stops importing own and submitted invoices.
-- [x] Built 8 Oct (live-checked on MFD Test's LAB40 types only; screens not looked at). Before March: a run whose
-      invoices span two financial years (March invoices sent in April) assumes one year today.
-- [ ] **Setup's new order** (rules in `CLAUDE.md`): the name and GSTIN step from CAMS and KFintech; Books before Your
-      invoices. Then the website's `/setup` page follows it (with forwarding, the DSC and Zoho).
-- [ ] **Zoho Books** (`labs/zoho-results.md`): connect from the browser's Accept page back to the PC (loopback, PKCE,
-      the secret shipped); the organisation and its GSTIN checked like Tally's company; the customer by GSTIN (made if
-      missing; two with one GSTIN stop and ask); our number or the registrar's (`ignore_auto_number_generation`);
-      our id in `reference_number`; the signed PDF attached; marked sent with no email; one invoice per request,
-      Zoho's own words on a refusal; the look before anything is written; an invoice typed by hand is adopted.
-      Neil makes a Zoho login for MFDInvoice to own the API client; until then, his MFD Test client.
-
-## 4. Neil's pass in the real software
-
-On a fresh start, from onboarding. Nothing below has been seen by him in the real software.
+- Setup's 9 screens: the name and GSTIN read from CAMS and KFintech; Books: Tally, Zoho Books (the browser's Accept
+  page, the organisation, its GSTIN), or neither; Your invoices "continue from" the books.
+- A run on own invoices with Tally: "Fetching your last invoice number", Tally shut (the red line, Refresh), Tally's
+  questions inside the run, Your check without the number column, the books step, the end screen's invoice numbers,
+  "In Tally as …, not sent yet" on the next run. The same with Zoho Books (attached, marked sent after Submit).
 
 - Sign-in: "New here? Sign up" opens `/signin?from=app`; an email with no account is refused; "Free trial used".
 - Setup: every step, both "I don't use" ways, the Tally step's cases (Tally shut, no company, one, two, a GSTIN that

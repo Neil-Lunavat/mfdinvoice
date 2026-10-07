@@ -9,8 +9,11 @@ What the app calls, and nothing else:
     check(host, period, registrars)      what the registrars have now
     download(host, period, registrars)   the month's invoices onto this PC
     cams.arn_of, kfin.arn_of             setup's two verifications
+    cams.name_of, kfin.profile_of        the name and GSTIN each registrar shows, for setup
     layout, registrar, sample            the invoice previews in setup and Settings
-    tally.Session, tally.last_number     the month into the person's Tally, on this PC
+    books.open, books.keep, books.forget, books.setup_look, books.books_next, books.kept
+                                         the person's books, Tally or Zoho Books, on this PC
+    tally, zoho                          the two halves of `books`
     page.Refused, page.Changed, kfin.Cancelled
 
 What these steps are given is `host` (`client.hands.host.Host`): the browser's tabs, the person, the files, the
@@ -18,9 +21,9 @@ signature and the mailbox. That is the boundary: anything on this side of it rea
 anything on the other side needs an update of the app.
 """
 
-from client.automation import cams, kfin, page, tally
+from client.automation import books, cams, kfin, page, tally, zoho
 from client.automation.flow import check, download, run
 from client.automation.invoices import layout, registrar
 from client.automation.invoices.sample import sample
 
-__all__ = ["cams", "check", "download", "kfin", "layout", "page", "registrar", "run", "sample", "tally"]
+__all__ = ["books", "cams", "check", "download", "kfin", "layout", "page", "registrar", "run", "sample", "tally", "zoho"]

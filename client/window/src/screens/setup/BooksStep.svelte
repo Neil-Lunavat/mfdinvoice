@@ -40,13 +40,18 @@
     if (waiting) return;
     waiting = true;
     said = '';
-    const r = await connectZoho(d.arn, d.gstin);
-    waiting = false;
-    if (!r.ok) { said = r.cancelled ? '' : r.said; return; }
-    orgs = r.orgs;
-    const mine = r.orgs.filter(o => o.same);
-    if (mine.length === 1) pickOrg(mine[0]);
-    else if (r.orgs.length === 1) pickOrg(r.orgs[0]);
+    try {
+      const r = await connectZoho(d.arn, d.gstin);
+      if (!r.ok) { said = r.cancelled ? '' : r.said; return; }
+      orgs = r.orgs;
+      const mine = r.orgs.filter(o => o.same);
+      if (mine.length === 1) pickOrg(mine[0]);
+      else if (r.orgs.length === 1) pickOrg(r.orgs[0]);
+    } catch (e) {
+      said = e instanceof Error && e.message ? e.message : "Zoho Books isn't answering. Try again.";
+    } finally {
+      waiting = false;
+    }
   }
   function cancel() { void app.zohoCancel(); }
 

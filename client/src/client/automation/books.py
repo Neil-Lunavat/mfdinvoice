@@ -55,7 +55,7 @@ class Tally:
     name = "Tally"
 
     def __init__(self, base: Path, period: str, profile: dict, token=None, *, company: str = "",
-                 which: str = "submitted", last: str = "", answers: dict | None = None):
+                 org_id: str = "", which: str = "submitted", last: str = "", answers: dict | None = None):
         self.base, self.period, self.profile = base, period, profile
         self.company, self.which, self.last = company, which, last
         self.answers: dict[str, str] = dict(answers or {})
@@ -98,16 +98,16 @@ class Zoho:
     kind = "zoho"
     name = "Zoho Books"
 
-    def __init__(self, base: Path, period: str, profile: dict, token, *, company: str = "", which: str = "submitted",
-                 last: str = "", answers: dict | None = None):
+    def __init__(self, base: Path, period: str, profile: dict, token, *, company: str = "", org_id: str = "",
+                 which: str = "submitted", last: str = "", answers: dict | None = None):
         self.base, self.period, self.profile, self.token = base, period, profile, token
-        self.company, self.which = company, which
+        self.company, self.org_id, self.which = company, org_id, which
         self.answers: dict[str, str] = dict(answers or {})
         self.session: zoho.Session | None = None
 
     def _new(self) -> zoho.Session:
         self.session = zoho.Session(self.base, self.period, self.profile, self.token, company=self.company,
-                                    which=self.which, answers=self.answers)
+                                    org_id=self.org_id, which=self.which, answers=self.answers)
         return self.session
 
     def glance(self, keys: list[str]) -> dict:
@@ -149,8 +149,8 @@ def setup_look(kind: str, token, gstin: str) -> dict:
     return zoho.setup_look(token, gstin) if kind == "zoho" else tally.setup_look(gstin)
 
 
-def books_next(kind: str, token, base: Path, company: str = "") -> dict:
-    return zoho.books_next(token, base, company) if kind == "zoho" else tally.books_next(base, company)
+def books_next(kind: str, token, base: Path, company: str = "", org_id: str = "") -> dict:
+    return zoho.books_next(token, base, org_id) if kind == "zoho" else tally.books_next(base, company)
 
 
 def keep(kind: str, base: Path, pick: dict) -> None:

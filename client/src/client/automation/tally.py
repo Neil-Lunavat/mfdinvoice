@@ -347,13 +347,20 @@ class Session:
         if not open_now:
             return {"state": "closed"}
         names = [c["name"] for c in open_now]
-        want = self.asked_company or next((c["name"] for c in open_now if c["guid"] == self.remember.get("guid")), "")
-        if want not in names:
-            want = names[0] if len(names) == 1 and not self.asked_company else ""
+        mem = self.remember.get("guid")
+        if mem and (self.run_mode or not self.asked_company):
+            # A company is remembered: only that one, never another that happens to be open. In a run the person's
+            # choice at the Books tab is not asked again.
+            want = next((c["name"] for c in open_now if c["guid"] == mem), "")
+            if not want:
+                return {"state": "pick", "companies": names,
+                        "said": f"{self.remember.get('company') or 'Your company'} isn't open in Tally."}
+        else:
+            want = self.asked_company
+            if want not in names:
+                want = names[0] if len(names) == 1 and not self.asked_company else ""
         if not want:
-            return {"state": "pick", "companies": names,
-                    "said": (f"{self.remember['company']} isn't open in Tally." if self.remember.get("company")
-                             and self.remember["company"] not in names else "")}
+            return {"state": "pick", "companies": names, "said": ""}
         chosen = next(c for c in open_now if c["name"] == want)
         self.company, self.guid, self.open_names = want, chosen["guid"], names
         if self.remember.get("guid") != self.guid:
@@ -544,8 +551,8 @@ class Session:
         if (cgst or sgst) and (self.tax["cgst"][1] or self.tax["sgst"][1]):
             return {**p, "action": "stop", "note": "No CGST and SGST ledgers were found in this company."}
 
-        # typed by hand already? the same fund house, the same month, within a rupee
-        hand = next((v for v in vouchers if v["party"] == p["party"] and v["date"][:6] == p["date"].replace("-", "")[:6]
+        # typed by hand already? the same fund house, the same month (the registrar's, whatever date we write), within a rupee
+        hand = next((v for v in vouchers if v["party"] == p["party"] and v["date"][:6] == str(r.get("date") or p["date"]).replace("-", "")[:6]
                      and abs(-v["amount"] - total) <= 1 and not v["remote"].startswith(OURS) and not v["off"]
                      and v["mid"] not in used_by_hand), None)
         if hand and not p["partyNew"]:
@@ -650,8 +657,11 @@ class Session:
                 p["block"] = p["note"]
             elif self.method == "None" and p["action"] == "import":
                 p["block"] = f"Your Tally gives '{self.vtype}' invoices no invoice numbers."
-            elif renumbers and p["action"] == "import" and newest and p["date"].replace("-", "") < newest:
-                # Tally would renumber the invoices after it. The run offers: date it today, or put it aside.
+            elif (renumbers and newest and p["date"].replace("-", "") < newest
+                  and (p["action"] == "import" or (p["action"] == "by_hand"
+                                                   and p["_"]["hand"]["date"] != p["date"].replace("-", "")))):
+                # Tally would renumber the invoices after it (a new one, or a typed one moved to the registrar's
+                # date). The run offers: date it today, or put it aside.
                 p["block"] = "Can't go into Tally as it's set up."
                 p["why"] = {"kind": "renumber", "type": self.vtype, "date": p["date"]}
         dates = [p["date"].replace("-", "") for p in self.rows if p["action"] == "import" and not p.get("block")]

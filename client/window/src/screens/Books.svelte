@@ -26,6 +26,7 @@
   let busy = $state<'' | 'look' | 'import'>('');
   let which = $state<'submitted' | 'all'>('submitted');
   let company = $state('');
+  let orgId = $state('');                           // Zoho Books: the organisation is chosen by its id, never its name
   let last = $state('');
   let answers = $state<Record<string, string>>({});
   let adopt = $state<Record<string, boolean>>({});
@@ -51,16 +52,17 @@
     busy = 'look';
     const was = keep ? look?.done : undefined;
     checked = false;
-    const r = await app.booksLook({ period, company, which, last: last.trim(), answers: $state.snapshot(answers), kind: chosen });
+    const r = await app.booksLook({ period, company, which, last: last.trim(), answers: $state.snapshot(answers), kind: chosen, orgId });
     look = was ? { ...r, done: was } : r;
     if (r.state === 'ready') {
       company = r.company;
+      orgId = r.orgId ?? '';
       if (r.askLast && !last) last = r.last;
     }
     busy = '';
   }
   function pick(p: string) { period = p; ui.booksMonth = p; adopt = {}; look = null; void read(); }
-  function choose(c: string) { company = c; answers = {}; adopt = {}; void read(); }
+  function choose(c: string, id = '') { company = c; orgId = id; answers = {}; adopt = {}; void read(); }
   function only(w: 'submitted' | 'all') { if (which === w) return; which = w; void read(); }
   function answer(id: string, v: string) { if (!v) return; answers = { ...answers, [id]: v }; void read(); }
   function answerAll(v: string) {
@@ -72,7 +74,7 @@
   async function bringIn() {
     if (busy || !count || waiting || needsLast || !checked || look?.state !== 'ready') return;
     busy = 'import';
-    look = await app.booksImport({ period, company, which, last: last.trim(), answers: $state.snapshot(answers), kind: chosen,
+    look = await app.booksImport({ period, company, which, last: last.trim(), answers: $state.snapshot(answers), kind: chosen, orgId,
       adopt: adopting.map(r => r.key) });
     adopt = {};
     checked = false;
@@ -82,22 +84,34 @@
     store.toast(went ? `${went} ${went === 1 ? 'invoice is' : 'invoices are'} in ${name}` : look.said || 'Nothing went in.');
   }
 
-  async function use(k: 'tally' | 'zoho') { chosen = k; look = null; await read(); }
+  async function use(k: 'tally' | 'zoho') {
+    // one kind of books per ARN: the other kind's choices (and Zoho's grant) are let go of, as in Settings
+    if (k === 'tally' && s.profile?.kept.kind === 'zoho') await app.booksForget();
+    chosen = k; company = ''; orgId = ''; look = null;
+    await read();
+  }
   async function connect() {
     if (zwaiting) return;
     zwaiting = true;
     zsaid = '';
-    const r = await connectZoho(s.arn, s.profile!.gstin);
-    zwaiting = false;
-    if (!r.ok) { zsaid = r.cancelled ? '' : r.said; return; }
-    const mine = r.orgs.filter(o => o.same);
-    const one = mine.length === 1 ? mine[0] : r.orgs.length === 1 ? r.orgs[0] : null;
-    if (one) await useOrg(one); else zorgs = r.orgs;
+    try {
+      const r = await connectZoho(s.arn, s.profile!.gstin);
+      if (!r.ok) { zsaid = r.cancelled ? '' : r.said; return; }
+      const mine = r.orgs.filter(o => o.same);
+      const one = mine.length === 1 ? mine[0] : r.orgs.length === 1 ? r.orgs[0] : null;
+      if (one) await useOrg(one); else zorgs = r.orgs;
+    } catch (e) {
+      zsaid = e instanceof Error && e.message ? e.message : "Zoho Books isn't answering. Try again.";
+    } finally {
+      zwaiting = false;
+    }
   }
   async function useOrg(o: ZohoOrg) {
     await app.booksUse({ kind: 'zoho', pick: { orgId: o.id, org: o.name, gstin: o.gstin, same: o.same, sure: false } });
     zorgs = null;
     chosen = 'zoho';
+    company = '';
+    orgId = '';
     look = null;
     await read();
   }
@@ -167,7 +181,8 @@
     <div class="empty-state"><b>Which {isZoho ? 'organisation' : 'company'} do these invoices go into?</b>
       {look.said || (isZoho ? `${look.companies.length} organisations are in your Zoho Books.` : `${look.companies.length} companies are open in TallyPrime.`)} It's remembered for this ARN.
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px">
-        {#each look.companies as c (c)}<button class="btn secondary" onclick={() => choose(c)}>{c}</button>{/each}
+        {#if look.orgs}{#each look.orgs as o (o.id)}<button class="btn secondary" onclick={() => choose(o.name, o.id)}>{o.name}</button>{/each}
+        {:else}{#each look.companies as c (c)}<button class="btn secondary" onclick={() => choose(c)}>{c}</button>{/each}{/if}
       </div></div>
   {:else}
     <div class="filters">
@@ -180,8 +195,9 @@
           <input class="input mono" style="width:150px" bind:value={last} onchange={() => read()} data-own-enter /></label>
       {/if}
       {#if look.companies.length > 1}
-        <select class="input" style="width:auto;margin-left:auto" aria-label={isZoho ? 'Organisation' : 'Company'} value={look.company} onchange={e => choose(e.currentTarget.value)}>
-          {#each look.companies as c (c)}<option value={c}>{c}</option>{/each}
+        <select class="input" style="width:auto;margin-left:auto" aria-label={isZoho ? 'Organisation' : 'Company'} value={look.orgs ? look.orgId : look.company} onchange={e => { const v = e.currentTarget.value; const o = look?.orgs?.find(x => x.id === v); if (o) choose(o.name, o.id); else choose(v); }}>
+          {#if look.orgs}{#each look.orgs as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
+          {:else}{#each look.companies as c (c)}<option value={c}>{c}</option>{/each}{/if}
         </select>
       {/if}
     </div>

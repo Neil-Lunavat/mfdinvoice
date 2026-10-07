@@ -138,12 +138,19 @@ def connect(store, arn: str) -> dict:
     if where != "in" or not server.rstrip("/").endswith("zoho.in"):
         log.info("zoho: the callback named %s / %s", where, server)
         return {"ok": False, "state": "off", "said": ONLY_INDIA}
-    reply = _post(ACCOUNTS + "/oauth/v2/token", {
-        "grant_type": "authorization_code", "client_id": cfg["client_id"], "client_secret": cfg["client_secret"],
-        "code": got["code"], "redirect_uri": redirect, "code_verifier": verifier})
+    try:
+        reply = _post(ACCOUNTS + "/oauth/v2/token", {
+            "grant_type": "authorization_code", "client_id": cfg["client_id"], "client_secret": cfg["client_secret"],
+            "code": got["code"], "redirect_uri": redirect, "code_verifier": verifier})
+    except (urllib.error.URLError, ValueError, OSError) as e:
+        log.info("zoho: no answer swapping the code (%s)", e)
+        return {"ok": False, "state": "off", "said": "Zoho Books isn't answering. Try again."}
     if not reply.get("refresh_token"):
         log.info("zoho: the code was not swapped: %s", reply.get("error"))
         return {"ok": False, "state": "off", "said": "Zoho Books didn't finish letting the software in. Try again."}
+    old = store.get_secret(vault_key(arn))
+    if old and old != reply["refresh_token"]:
+        _revoke(old)                                # a reconnect lets the grant it replaces go
     with _lock:
         store.put_secret(vault_key(arn), reply["refresh_token"])
         _access[arn] = {"token": reply.get("access_token", ""),
@@ -171,7 +178,7 @@ def token(store, arn: str, fresh: bool = False) -> dict:
             reply = _post(ACCOUNTS + "/oauth/v2/token", {
                 "grant_type": "refresh_token", "client_id": cfg["client_id"], "client_secret": cfg["client_secret"],
                 "refresh_token": refresh})
-        except (urllib.error.URLError, OSError) as e:
+        except (urllib.error.URLError, ValueError, OSError) as e:
             log.info("zoho: no answer refreshing (%s)", e)
             return {"off": "Zoho Books isn't answering."}
         if not reply.get("access_token"):
@@ -190,7 +197,12 @@ def disconnect(store, arn: str) -> None:
         _access.pop(arn, None)
         store.put_secret(vault_key(arn), None)
     if refresh:
-        try:
-            _post(ACCOUNTS + "/oauth/v2/token/revoke?" + urllib.parse.urlencode({"token": refresh}), {})
-        except (urllib.error.URLError, OSError) as e:
-            log.info("zoho: the grant could not be revoked (%s)", e)
+        _revoke(refresh)
+
+
+def _revoke(refresh: str) -> None:
+    """Revoke a grant at Zoho, best effort."""
+    try:
+        _post(ACCOUNTS + "/oauth/v2/token/revoke?" + urllib.parse.urlencode({"token": refresh}), {})
+    except (urllib.error.URLError, ValueError, OSError) as e:
+        log.info("zoho: the grant could not be revoked (%s)", e)

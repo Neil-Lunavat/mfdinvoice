@@ -2,10 +2,12 @@
 
 - A number is text with one part that goes up by 1, exactly as the person prints it ("73/26-27"). Zero padding is
   kept (073 -> 074).
-- With books connected (Tally) the books give the numbers: `books.py` reads the highest of the person's own shape and
-  writes each invoice in. Here `shape`, `highest` and `next_year` work out the series from the numbers they hold.
-- Without books a run starts from the last number the person confirmed, and may skip ahead but never go below the
-  highest this software has used this financial year (`Issued.top`, `below`).
+- With books connected (Tally or Zoho Books) the books give the numbers: `books.py` reads the highest of the person's
+  own shape and writes each invoice in. Here `shape`, `highest` and `next_year` work out the series from the numbers
+  they hold.
+- Without books a run starts from the last number the person confirmed. The software keeps the highest it has used
+  this financial year (`Issued.top`); the guard against going below it lives in the software (the window's
+  `local.below`), not here.
 - Only the invoices ticked at Your check get numbers, in order, CAMS's first, with no gap. One left out has none.
 - Without books a number is given to its invoice for good when Submit is pressed (`Issued.lock`); with books, when it
   is in the books. The same invoice always carries the same number afterwards, sent again or not, and that number is
@@ -115,14 +117,6 @@ def highest(numbers: list[str], sample: str, at: int) -> str:
         except NumberError:
             continue
     return best
-
-
-def below(typed: str, at: int, top: str) -> bool:
-    """Is `typed` lower than `top`, the highest number used, in the same series? Another series is never below."""
-    try:
-        return shape(typed, at) == shape(top, at) and count(typed, at) < count(top, at)
-    except NumberError:
-        return False
 
 
 def next_year(text: str, at: int) -> str:

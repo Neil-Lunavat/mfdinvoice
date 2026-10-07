@@ -978,7 +978,7 @@ class Window:
         return kind or local.books_kept(self.base(arn))["kind"]
 
     async def books_look(self, period: str = "", company: str = "", which: str = "submitted", last: str = "",
-                         answers: dict | None = None, kind: str = "") -> dict:
+                         answers: dict | None = None, kind: str = "", orgId: str = "") -> dict:
         """What importing this month into the person's books would do. Nothing in the books changes. `state`: none
         (no books chosen yet), connect (Zoho Books needs letting in), off (the books give no answer), closed (Tally:
         no company is open), pick (which company or organisation?), ready."""
@@ -994,7 +994,8 @@ class Window:
         try:
             books = await self._books()
             session = books.open(kind, self.base(), period or local.current_period(), p, self._token_of(p["arn"]),
-                                 company=company, which=which, last=last, answers=answers or {})
+                                 company=company, org_id=orgId, which=which, last=last,
+                                 answers=answers or {})
             got = await asyncio.to_thread(session.look)
         except (loader.Unreachable, loader.NotOurs):
             return {"state": "off", "said": f"{NAME} couldn't get its latest steps just now. Try again in a minute.",
@@ -1005,7 +1006,8 @@ class Window:
         return {**got, "remembered": local.books_kept(self.base())}
 
     async def books_import(self, period: str, company: str, which: str = "submitted", last: str = "",
-                           answers: dict | None = None, adopt: list[str] | None = None, kind: str = "") -> dict:
+                           answers: dict | None = None, adopt: list[str] | None = None, kind: str = "",
+                           orgId: str = "") -> dict:
         """Put the month into the books. Answers with the look afterwards and `done`: what went in. Only the
         registrar's invoices: the person's own go into the books during their run, where they are numbered."""
         p = self.profile()
@@ -1019,7 +1021,7 @@ class Window:
         try:
             books = await self._books()
             session = books.open(kind, self.base(), period, p, self._token_of(p["arn"]), company=company,
-                                 which=which, last=last, answers=answers or {})
+                                 org_id=orgId, which=which, last=last, answers=answers or {})
             got = await asyncio.to_thread(session.bring_in, adopt or [])
         except (loader.Unreachable, loader.NotOurs):
             return {"state": "off", "said": f"{NAME} couldn't get its latest steps just now. Try again in a minute.",
@@ -1040,7 +1042,7 @@ class Window:
         await self.changed()
         return {**got, "remembered": local.books_kept(self.base())}
 
-    async def books_next(self, company: str = "", arn: str = "", kind: str = "") -> dict:
+    async def books_next(self, company: str = "", arn: str = "", kind: str = "", orgId: str = "") -> dict:
         """Where the person's own invoice numbers continue from, in their books: {state, company, last, next, at,
         method}. `company`, `arn` and `kind`: at setup, before the ARN's choice is kept. `state` is off, closed or pick
         when the books cannot say. Reads only."""
@@ -1051,7 +1053,7 @@ class Window:
         try:
             books = await self._books()
             return await asyncio.to_thread(books.books_next, kind, self._token_of(arn or self.selected()),
-                                           self.base(arn), company)
+                                           self.base(arn), company, orgId)
         except Exception:
             log.exception("the next invoice number could not be read from the books")
             return empty

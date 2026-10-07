@@ -88,7 +88,7 @@ export class RealApp implements App {
   answerSurvey(id: number, answers: SurveyAnswers | null) { return this.call<{ sent: boolean }>('answerSurvey', id, answers); }
   booksLook(q: BooksLookQuery) { return this.call<BooksLook>('booksLook', q); }
   booksImport(q: BooksLookQuery & { adopt: string[] }) { return this.call<BooksLook>('booksImport', q); }
-  booksNext(q: { company?: string; arn?: string; kind?: '' | 'tally' | 'zoho' } = {}) { return this.call<{ state: string; company: string; last: string; next: string; at: number; method: string }>('booksNext', { company: q.company ?? '', arn: q.arn ?? '', kind: q.kind ?? '' }); }
+  booksNext(q: { company?: string; arn?: string; kind?: '' | 'tally' | 'zoho'; orgId?: string } = {}) { return this.call<{ state: string; company: string; last: string; next: string; at: number; method: string }>('booksNext', { company: q.company ?? '', arn: q.arn ?? '', kind: q.kind ?? '', orgId: q.orgId ?? '' }); }
   refreshBooks(run: string) { return this.call<void>('refreshBooks', run); }
   booksSetup(q: { kind: 'tally' | 'zoho'; gstin: string; arn?: string }) { return this.call<BooksSetup>('booksSetup', { kind: q.kind, gstin: q.gstin, arn: q.arn ?? '' }); }
   booksUse(q: { kind: 'tally' | 'zoho'; pick: TallyPick | ZohoPick }) { return this.call<{ ok: boolean }>('booksUse', q); }
