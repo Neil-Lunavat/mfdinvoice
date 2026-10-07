@@ -57,8 +57,8 @@ export class RealApp implements App {
   agree(c: Consent) { return this.call<Result>('agree', c); }
 
   testMailbox(m: { provider: MailProvider; address: string; appPassword: string }) { return this.call<Result<{ found: number; as: string }>>('testMailbox', m); }
-  testCams(c: { email: string; arn: string }) { return this.call<Result<{ arn: string }>>('testCams', c); }
-  testKfintech(k: { username: string; password: string; arn: string }) { return this.call<Result<{ as: string; arn: string }>>('testKfintech', k); }
+  testCams(c: { email: string; arn: string }) { return this.call<Result<{ arn: string; name: string }>>('testCams', c); }
+  testKfintech(k: { username: string; password: string; arn: string }) { return this.call<Result<{ as: string; arn: string; name: string; gstin: string }>>('testKfintech', k); }
   prepareSignature(photo: { bytes: string }) { return this.call<Result<{ image: string }>>('prepareSignature', photo); }
   rotateSignature() { return this.call<{ image: string }>('rotateSignature'); }
   dropSignatureDraft() { return this.call<void>('dropSignatureDraft'); }

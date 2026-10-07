@@ -9,7 +9,7 @@
                                      own invoice as a run draws it
 
      `choiceOnly`: just the two options (Settings' Change). `settingsOnly`: everything but the two options (Settings'
-     own page, where Change is beside it). Setup shows both. */
+     own page, where Change is beside it). Setup shows both, and `noSignature`: the signature has its own step there. */
   import { app, type ProfileDraft } from '../../bridge';
   import { continuesLine, continuesLineNoNext } from '../../logic/books';
   import { booked, nextInvoice } from '../../logic/details';
@@ -18,7 +18,7 @@
   import RegistrarPreview from '../../ui/RegistrarPreview.svelte';
   import Signature from './Signature.svelte';
 
-  let { d = $bindable(), settingsOnly = false, choiceOnly = false }: { d: ProfileDraft; settingsOnly?: boolean; choiceOnly?: boolean } = $props();
+  let { d = $bindable(), settingsOnly = false, choiceOnly = false, noSignature = false }: { d: ProfileDraft; settingsOnly?: boolean; choiceOnly?: boolean; noSignature?: boolean } = $props();
 
   const s = $derived(d.invoices.settings);
   const segs = $derived(parts(d.invoices.last));
@@ -51,7 +51,7 @@
   </div>
 {/if}
 
-{#if !choiceOnly && d.invoices.source === 'registrar'}
+{#if !choiceOnly && d.invoices.source === 'registrar' && !noSignature}
   <div class="row2 top sub-part enter">
     <div class="fcol">
       <div class="field"><span class="label">Your signature</span></div>
@@ -93,8 +93,10 @@
         {#if next}<div class="derived"><span>Your next invoice <b>{next}</b></span></div>{/if}
       </div>
       {/if}
-      <div class="field"><span class="label">Your signature</span></div>
-      <Signature bind:d />
+      {#if !noSignature}
+        <div class="field"><span class="label">Your signature</span></div>
+        <Signature bind:d />
+      {/if}
       <div class="field">
         <label for="addr">Your address, as it is on your invoices</label>
         <textarea id="addr" class="input ta" rows="3" placeholder="One line each" value={addressText} oninput={e => lines(e.currentTarget.value)}></textarea>

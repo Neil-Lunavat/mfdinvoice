@@ -7,8 +7,10 @@ import { bump, counterOf, rule46 } from './numbering';
 
 /** The details alone, as a Change in Settings checks them. */
 export const detailsValid = (d: ProfileDraft) => arnOk(d.arn) && gstinOk(d.gstin) && d.name.trim().length >= 3;
-/** Setup's first step: the details, with the authority sentence ticked. Setup cannot go on without it. */
-export const whoValid = (d: ProfileDraft) => detailsValid(d) && !!d.consent;
+/** Setup's first step: the ARN, with the authority sentence ticked. Setup cannot go on without it. */
+export const whoValid = (d: ProfileDraft) => arnOk(d.arn) && !!d.consent;
+/** Setup's Name and GSTIN step. */
+export const nameValid = (d: ProfileDraft) => gstinOk(d.gstin) && d.name.trim().length >= 3;
 /** The ARN a portal showed is the ARN typed. */
 export const sameArn = (shown: string, typed: string) => !!shown && shown.replace(/\D/g, '') === typed.replace(/\D/g, '');
 /** The CAMS email with a sign-in that showed this ARN, or "I don't use CAMS": the same rule as KFintech. */
@@ -54,9 +56,11 @@ export const invoicesStepValid = (d: ProfileDraft) => invoicesValid(d) && signat
 export const tallyValid = (d: ProfileDraft) => !d.tally?.company || d.tally.same || d.tally.sure;
 export const tallyLine = (t: ProfileDraft['tally']) => (t?.company ? t.company : 'Not connected');
 
-// Tally comes before Your invoices: with books connected, the books give the invoice numbers
-export const STEP_TITLES = ['Who you are', 'CAMS', 'Mailbox', 'KFintech', 'Tally', 'Your invoices', 'Check everything'] as const;
-const STEPS_VALID = [whoValid, camsValid, mailboxValid, kfintechValid, tallyValid, invoicesStepValid] as const;
+// The portals come before Name and GSTIN, which they fill in. Tally comes before Your invoices: with books
+// connected, the books give the invoice numbers. The mailbox is last.
+export const STEP_TITLES = ['Your ARN', 'CAMS', 'KFintech', 'Name and GSTIN', 'Signature', 'Tally', 'Your invoices', 'Mailbox', 'Check everything'] as const;
+export const STEP = { arn: 0, cams: 1, kfintech: 2, name: 3, signature: 4, tally: 5, invoices: 6, mailbox: 7 } as const;
+const STEPS_VALID = [whoValid, camsValid, kfintechValid, nameValid, signatureValid, tallyValid, invoicesValid, mailboxValid] as const;
 /** Check everything finishes only when every step still holds (an ARN changed late unsettles the others) and a
     portal has shown the ARN. */
 export const allValid = (d: ProfileDraft) => STEPS_VALID.every(v => v(d)) && arnProven(d);

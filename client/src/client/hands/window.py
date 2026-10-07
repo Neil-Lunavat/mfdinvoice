@@ -561,6 +561,7 @@ class Window:
             try:
                 page = await host.fresh_page()
                 found = await auto.cams.arn_of(page, email.strip())
+                name = await auto.cams.name_of(page, _the_arn(found, arn)) if hasattr(auto.cams, "name_of") else ""
                 await auto.cams.sign_out(page)
             except auto.page.Refused as e:
                 log.info("the CAMS test: CAMS said %r", e.said)
@@ -575,7 +576,7 @@ class Window:
                         await page.close()
                 await host.close()
         self._log("Verified the CAMS email", registrar="CAMS")
-        return {"ok": True, "arn": _the_arn(found, arn)}
+        return {"ok": True, "arn": _the_arn(found, arn), "name": name}
 
     async def test_kfintech(self, username: str, password: str, arn: str = "") -> dict:
         """A test login, with the captcha asked in the window; `arn` in the answer is the ARN KFintech's dashboard
@@ -594,6 +595,9 @@ class Window:
             try:
                 page = await host.fresh_page()
                 found = await auto.kfin.arn_of(page, username, password, host.captcha)
+                seen = {"name": "", "gstin": ""}
+                if hasattr(auto.kfin, "profile_of") and _the_arn(found, arn) == arn.strip().upper():
+                    seen = await auto.kfin.profile_of(page)          # only for the ARN typed: never another's name
             except auto.kfin.Cancelled:
                 return {"ok": False, "said": "", "ours": True}
             except auto.page.Refused as e:
@@ -611,7 +615,8 @@ class Window:
         self.store.put_secret("kfintech_password", password)
         self.store.put_secret("kfintech_username", username)
         self._log("Verified the KFintech login", registrar="KFINTECH")
-        return {"ok": True, "as": shown(username), "arn": _the_arn(found, arn)}
+        return {"ok": True, "as": shown(username), "arn": _the_arn(found, arn),
+                "name": seen["name"], "gstin": seen["gstin"]}
 
     async def prepare_signature(self, bytes: str) -> dict:  # noqa: A002 - the window's own name for it
         try:

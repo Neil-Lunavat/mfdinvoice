@@ -230,6 +230,17 @@ def holder_in(text: str, arn: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+async def name_of(page: Page, arn: str) -> str:
+    """Setup, after Verify sign-in: the holder's name from CAMS's header ("ARN-123456 / R K MEHTA"), "" when it is not
+    there. Not needed to be signed in, so a failure to read it is no error."""
+    with contextlib.suppress(PWError, Changed):
+        for _ in range(10):
+            if name := holder_in(await page.locator("body").inner_text(), arn):
+                return name
+            await page.wait_for_timeout(500)
+    return ""
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # what CAMS already has, and what it lists
 # ---------------------------------------------------------------------------------------------------------------

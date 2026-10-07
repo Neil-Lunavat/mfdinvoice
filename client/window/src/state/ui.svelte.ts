@@ -55,6 +55,9 @@ class Ui {
   returnTo = $state<number | null>(null);                // opened from Check everything's Change
   adding = $state(false);                                // Add ARN, not a first setup
   draft = $state<ProfileDraft>(blankDraft());
+  /* What the portals showed at Verify, for the Name and GSTIN step to offer. `version` counts the readings; the step
+     takes them once per reading, so what the person has typed over is not put back. */
+  read = $state({ cams: '', kf: '', gstin: '', version: 0, taken: 0 });
 
   go(p: Page) {
     if (this.page === 'settings' && p !== 'settings' && this.settingsDirty) {
@@ -84,6 +87,7 @@ class Ui {
     this.reached = 0;
     this.returnTo = null;
     this.draft = blankDraft();
+    this.read = { cams: '', kf: '', gstin: '', version: 0, taken: 0 };
     this.page = 'setup';
   }
 }

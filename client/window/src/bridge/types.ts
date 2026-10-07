@@ -431,9 +431,9 @@ export interface App {
   // setup, and every "Change" (the same controls)
   testMailbox(m: { provider: MailProvider; address: string; appPassword: string }): Promise<Result<{ found: number; as: string }>>;
   /** Sign in to CAMS with this email, once, and read the ARN CAMS shows. `arn`: the ARN being set up. */
-  testCams(c: { email: string; arn: string }): Promise<Result<{ arn: string }>>;
+  testCams(c: { email: string; arn: string }): Promise<Result<{ arn: string; name: string }>>;
   /** A test login; `arn` in the answer is the ARN KFintech shows. A captcha Ask arrives meanwhile. */
-  testKfintech(k: { username: string; password: string; arn: string }): Promise<Result<{ as: string; arn: string }>>;
+  testKfintech(k: { username: string; password: string; arn: string }): Promise<Result<{ as: string; arn: string; name: string; gstin: string }>>;
   prepareSignature(photo: { bytes: string }): Promise<Result<{ image: string }>>;   // the photo, base64; cleaned on this PC
   rotateSignature(): Promise<{ image: string }>;
   /** A photo that was prepared and then not kept (Discard, Cancel, a setup begun afresh): forget it. */

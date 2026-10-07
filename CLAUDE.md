@@ -99,7 +99,7 @@ Each ARN's data: `%LOCALAPPDATA%\MFDInvoice\workspace\arns\<ARN>\<OCT-2026>\` (`
 
 ## Setup, as Neil decided it
 
-CAMS → KFintech → name and GSTIN → Signature → Books → Your invoices → Mailbox.
+Your ARN → CAMS → KFintech → Name and GSTIN → Signature → Books → Your invoices → Mailbox → Check everything.
 
 - Name and GSTIN: CAMS gives the name; KFintech (Distributor Profile, View Uploaded) gives the name and GSTIN and
   overrides CAMS's. The step shows them, "Is this correct?", editable. KFintech skipped: the name is prefilled, the

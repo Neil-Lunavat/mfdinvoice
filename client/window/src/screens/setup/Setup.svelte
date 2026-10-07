@@ -1,16 +1,18 @@
 <script lang="ts">
-  /* Setup, per ARN: seven steps, one per screen (Tally is optional). Back never erases; Continue unlocks only when the step is valid.
+  /* Setup, per ARN: eight steps, one per screen (Tally is optional). Back never erases; Continue unlocks only when the step is valid.
      From Check everything, Change opens a step whose button becomes Save and comes straight back. Finish setup needs
      every step to hold and a portal's sign-in to have shown the ARN: finishing binds the ARN to the account. */
   import { onMount } from 'svelte';
   import { app } from '../../bridge';
-  import { arnProven, booked, tallyLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP_TITLES, stepValid } from '../../logic/details';
+  import { arnProven, booked, tallyLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP, STEP_TITLES, stepValid } from '../../logic/details';
   import { store } from '../../state/store.svelte';
   import { ui } from '../../state/ui.svelte';
   import { icons } from '../../ui/icons';
   import CamsEmail from './CamsEmail.svelte';
   import Kfintech from './Kfintech.svelte';
   import Mailbox from './Mailbox.svelte';
+  import NameGstin from './NameGstin.svelte';
+  import SignatureStep from './SignatureStep.svelte';
   import WhoYouAre from './WhoYouAre.svelte';
   import TallyStep from './TallyStep.svelte';
   import YourInvoices from './YourInvoices.svelte';
@@ -70,21 +72,24 @@
         <div class="label">Step {ui.step + 1} of {STEP_TITLES.length}</div>
         <div id="parts"><div class="part">
           <div class="part-hd"><h2 class="step-h">{STEP_TITLES[ui.step]}</h2>
-            {#if ui.step < LAST}<button class="btn ghost sm vid" onclick={() => app.open('help')}>{@html icons.play}How to · {ui.step === 2 ? '2 min' : '1 min'}</button>{/if}</div>
-          {#if ui.step === 0}<WhoYouAre bind:d={ui.draft} />
-          {:else if ui.step === 1}<CamsEmail bind:d={ui.draft} signInEmail={email} />
-          {:else if ui.step === 2}
+            {#if ui.step < LAST}<button class="btn ghost sm vid" onclick={() => app.open('help')}>{@html icons.play}How to · {ui.step === STEP.mailbox ? '2 min' : '1 min'}</button>{/if}</div>
+          {#if ui.step === STEP.arn}<WhoYouAre bind:d={ui.draft} />
+          {:else if ui.step === STEP.cams}<CamsEmail bind:d={ui.draft} signInEmail={email} />
+          {:else if ui.step === STEP.kfintech}<Kfintech bind:d={ui.draft} />
+          {:else if ui.step === STEP.name}<NameGstin bind:d={ui.draft} />
+          {:else if ui.step === STEP.signature}<SignatureStep bind:d={ui.draft} />
+          {:else if ui.step === STEP.tally}<TallyStep bind:d={ui.draft} />
+          {:else if ui.step === STEP.invoices}<YourInvoices bind:d={ui.draft} noSignature />
+          {:else if ui.step === STEP.mailbox}
             {#if ui.draft.camsUsed}<Mailbox bind:d={ui.draft} />
             {:else}<p class="line">The mailbox is only for CAMS's invoice mails, and this ARN doesn't use CAMS. Nothing to connect.</p>{/if}
-          {:else if ui.step === 3}<Kfintech bind:d={ui.draft} />
-          {:else if ui.step === 4}<TallyStep bind:d={ui.draft} />
-          {:else if ui.step === 5}<YourInvoices bind:d={ui.draft} />
           {:else}
             {@const d = ui.draft}
             <div class="cklist">
               {#each [
-                ['ARN', d.arn, 0, true], ['GSTIN', `${d.gstin} · ${d.name}`, 0, true], ['CAMS email', d.camsUsed ? d.camsEmail : 'Not used', 1, false],
-                ...(d.camsUsed ? [['Mailbox', mailboxLine(d.mailbox).replace(/ · not connected$/, ''), 2, false]] : []), ['KFintech', kfintechLine(d.kfintech), 3, false]
+                ['ARN', d.arn, STEP.arn, true], ['GSTIN', `${d.gstin} · ${d.name}`, STEP.name, true], ['CAMS email', d.camsUsed ? d.camsEmail : 'Not used', STEP.cams, false],
+                ['KFintech', kfintechLine(d.kfintech), STEP.kfintech, false],
+                ...(d.camsUsed ? [['Mailbox', mailboxLine(d.mailbox).replace(/ · not connected$/, ''), STEP.mailbox, false]] : [])
               ] as [k, v, step, mono] (k)}
                 <div class="ck"><span class="k">{k}</span><span class="v" class:mono>{v}</span>
                   {#if !stepValid[step as number](d)}<span class="err">Needs a change</span>{/if}
@@ -92,17 +97,17 @@
               {/each}
               <div class="ck"><span class="k">Signature</span>{#if d.signature.way === 'dsc'}<span class="v">{signatureLine(d.signature)}</span>
                 {:else}<span class="v sigmini"><img class="sigimg" src={d.signature.image} alt="Your signature" /></span>{/if}
-                <a href="#change" onclick={e => { e.preventDefault(); change(5); }}>Change</a></div>
+                <a href="#change" onclick={e => { e.preventDefault(); change(STEP.signature); }}>Change</a></div>
               <div class="ck"><span class="k">Tally</span><span class="v">{tallyLine(d.tally)}</span>
-                {#if !stepValid[4](d)}<span class="err">Needs a change</span>{/if}
-                <a href="#change" onclick={e => { e.preventDefault(); change(4); }}>Change</a></div>
+                {#if !stepValid[STEP.tally](d)}<span class="err">Needs a change</span>{/if}
+                <a href="#change" onclick={e => { e.preventDefault(); change(STEP.tally); }}>Change</a></div>
               <div class="ck"><span class="k">Invoices</span><span class="v">{invoicesLine(d.invoices, booked(d))}</span>
-                {#if !stepValid[5](d)}<span class="err">Needs a change</span>{/if}
-                <a href="#change" onclick={e => { e.preventDefault(); change(5); }}>Change</a></div>
+                {#if !stepValid[STEP.invoices](d)}<span class="err">Needs a change</span>{/if}
+                <a href="#change" onclick={e => { e.preventDefault(); change(STEP.invoices); }}>Change</a></div>
             </div>
             {#if !arnProven(d)}
               <div class="banner bad" role="alert"><div><b>{d.arn} isn't confirmed yet.</b> {d.kfintech.used ? 'Verify your KFintech login' : 'Verify your CAMS email'}: it shows whose ARN this is.</div>
-                <button class="btn secondary sm" onclick={() => change(d.kfintech.used ? 3 : 1)}>{d.kfintech.used ? 'Verify KFintech' : 'Verify CAMS'}</button></div>
+                <button class="btn secondary sm" onclick={() => change(d.kfintech.used ? STEP.kfintech : STEP.cams)}>{d.kfintech.used ? 'Verify KFintech' : 'Verify CAMS'}</button></div>
             {:else}
               <p class="line">{d.arn} is confirmed by {provenBy(d)}.</p>
             {/if}

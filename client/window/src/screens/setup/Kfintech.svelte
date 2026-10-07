@@ -26,7 +26,10 @@
     const r = await app.testKfintech({ username: d.kfintech.username.trim(), password: pw, arn: d.arn });
     busy = false;
     store.setupCaptcha = null;
-    if (r.ok) { d.kfintech.loggedInAs = r.as; d.kfintech.arn = r.arn; }
+    if (r.ok) {
+      d.kfintech.loggedInAs = r.as; d.kfintech.arn = r.arn;
+      if (inSetup) { ui.read.kf = r.name; ui.read.gstin = r.gstin; ui.read.version++; }
+    }
     else { said = r.said; ours = !!r.ours; failed = !!r.said || !r.ours; }
   }
   function answer(text: string, refresh: boolean) {

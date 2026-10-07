@@ -3,6 +3,7 @@
      shown the ARN typed, as on KFintech's step. Or "I don't use CAMS": CAMS is left out of every run. */
   import { app, type ProfileDraft } from '../../bridge';
   import { sameArn } from '../../logic/details';
+  import { ui } from '../../state/ui.svelte';
   import { emailOk } from '../../logic/validate';
   import { icons } from '../../ui/icons';
   import Help from './Help.svelte';
@@ -22,7 +23,10 @@
     busy = true; edited();
     const r = await app.testCams({ email: d.camsEmail.trim(), arn: d.arn });
     busy = false;
-    if (r.ok) d.camsArn = r.arn;
+    if (r.ok) {
+      d.camsArn = r.arn;
+      if (ui.page === 'setup') { ui.read.cams = r.name; ui.read.version++; }
+    }
     else { said = r.said; ours = !!r.ours; failed = true; }
   }
 </script>

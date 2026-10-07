@@ -188,7 +188,7 @@ export class FakeApp implements App {
   async testCams(c: { email: string; arn: string }) {
     await sleep(1400);
     if (/^locked/i.test(c.email)) return { ok: false as const, said: 'Your email ID is locked. Please try again after 30 minutes' };
-    return { ok: true as const, arn: /^other/i.test(c.email) ? 'ARN-118830' : c.arn };
+    return { ok: true as const, arn: /^other/i.test(c.email) ? 'ARN-118830' : c.arn, name: 'R K MEHTA' };
   }
 
   async testKfintech(k: { username: string; password: string; arn: string }) {
@@ -201,7 +201,8 @@ export class FakeApp implements App {
     await sleep(600);
     if (/wrong/i.test(k.password)) return { ok: false as const, said: 'Invalid username or password.' };
     const other = /^other/i.test(k.username);
-    return { ok: true as const, as: other || k.username.toLowerCase().startsWith('sr') ? 'S R MEHTA' : 'R K MEHTA', arn: other ? 'ARN-118830' : k.arn };
+    return { ok: true as const, as: other || k.username.toLowerCase().startsWith('sr') ? 'S R MEHTA' : 'R K MEHTA', arn: other ? 'ARN-118830' : k.arn,
+      name: 'R K MEHTA & CO', gstin: /^nogst/i.test(k.username) ? '' : '27ABCPM1234F1Z3' };
   }
 
   async prepareSignature() {

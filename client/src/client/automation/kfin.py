@@ -35,7 +35,7 @@ from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arn
 from client.automation.widgets import KFIN as K, missing
 from client.automation.words import KFIN as REG, MONTHS
 
-C, L, D, U = K["common"], K["login"], K["download"], K["upload"]
+C, L, D, U, PR = K["common"], K["login"], K["download"], K["upload"], K["profile"]
 
 DATA = "/dssapi/GetGeneric"   # the call that fills the upload page's table: as the page opens, and per month chosen
 LOGIN_API = "/dssapilogin/login/loginAPI"   # the sign-in's call: statusCode 10000 signed in, 10001 "Invalid Password"
@@ -220,6 +220,36 @@ async def arn_of(page: Page, username: str, password: str, ask_captcha: AskCaptc
     """Setup's Verify login: sign in and return every ARN the dashboard shows."""
     await page.add_locator_handler(page.locator(C["promo_close"]).first, lambda b: b.click())
     return await sign_in(page, username, password, ask_captcha)
+
+
+GSTIN = re.compile(r"\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]")
+
+
+async def profile_of(page: Page) -> dict:
+    """Setup, after Verify login: the name on Distributor Profile and the GSTIN View Uploaded fills in once a month
+    is picked. {"name": ..., "gstin": ...}, each "" when it could not be read: neither is needed to be signed in."""
+    got = {"name": "", "gstin": ""}
+    with contextlib.suppress(PWError, Changed):
+        await go(page, "profile")
+        box = page.locator(PR["name"]).first
+        for _ in range(40):                                   # the inputs are filled after the page draws
+            got["name"] = (await box.input_value()).strip()
+            if got["name"]:
+                break
+            await page.wait_for_timeout(500)
+    with contextlib.suppress(PWError, Changed):
+        await go(page, "submitted")
+        await page.locator(PR["month_select"]).click()
+        option = page.locator(PR["month_option"]).filter(has_text=re.compile(r"\w+-\d{4}")).first
+        await seen(option, 30_000)
+        await option.click()
+        for _ in range(40):
+            values = await page.locator("input").evaluate_all("is => is.map(i => i.value.trim())")
+            if found := [v for v in values if GSTIN.fullmatch(v)]:
+                got["gstin"] = found[0]
+                break
+            await page.wait_for_timeout(500)
+    return got
 
 
 async def inside(page: Page) -> None:

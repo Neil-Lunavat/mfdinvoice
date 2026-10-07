@@ -8,6 +8,7 @@ dashboard = "https://dss.kfintech.com/dssweb/Dashboard"
 download = "https://dss.kfintech.com/dssweb/GSTInvoice_CreditNoteDownload"
 upload = "https://dss.kfintech.com/dssweb/GstInvoiceUpload"
 submitted = "https://dss.kfintech.com/dssweb/ViewSubmitGSTInvoice_CreditNote"
+profile = "https://dss.kfintech.com/dssweb/DistributorProfile"
 
 [common]
 alert = ".MuiAlert-message"                        # snackbars + inline banners (success, warning, error)
@@ -16,6 +17,13 @@ error_alert = ".MuiAlert-colorError .MuiAlert-message"   # red (filled) alerts, 
 option = "[role=listbox] [role=option]"
 # IRIS promo after login. Only dialogs without form fields, so an OTP/upload dialog is never closed by accident.
 promo_close = ".MuiDialog-root:not(:has(input)) button[aria-label=close]"
+
+[profile]
+# Distributor Profile: read-only inputs, the values are in the inputs and not the page text (verified live 7 Oct 2026).
+name = "input[name=name]"
+# View Uploaded: once a month is picked, KFintech fills the GSTIN box by itself (no GSTIN on the profile page).
+month_select = "#mui-component-select-asondt"
+month_option = "[role=listbox] [role=option]"
 
 [login]
 username = "input#userName"

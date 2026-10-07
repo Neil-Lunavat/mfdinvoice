@@ -4,6 +4,7 @@
   import { app } from '../bridge';
   import type { DevFakeApp } from './devFake';
   import type { MonthState } from '../bridge/fake/data';
+  import { STEP } from '../logic/details';
   import { timing } from '../state/timing';
   import { ui } from '../state/ui.svelte';
   import { signature } from '../bridge/fake/images';
@@ -33,11 +34,11 @@
       ? { arn: 'ARN-121904', gstin: '27AAKPM5678K1ZY', name: 'A. R. Mehta', camsEmail: 'armehta.mfd@gmail.com', camsUsed: true }
       : { arn: 'ARN-104512', gstin: '27ABCPM1234F1Z3', name: 'R. K. Mehta', camsEmail: 'rkmehta@gmail.com', camsUsed: true };
     Object.assign(d, a);
-    if (ui.step >= 2) d.mailbox = { provider: 'gmail', address: a.camsEmail, connected: true };
-    if (ui.step >= 1) d.camsArn = a.arn;
-    if (ui.step >= 3) d.kfintech = { used: true, username: 'rkmehta_dss', loggedInAs: 'R K MEHTA', arn: a.arn };
-    if (ui.step >= 5) d.signature = { way: 'image', present: true, image: signature(0), size: 100, cert: null };
-    if (ui.step >= 4) d.tally = { company: 'Lunavat & Co', guid: 'g1', gstin: a.gstin, same: true, sure: false };
+    if (ui.step >= STEP.kfintech) d.camsArn = a.arn;
+    if (ui.step >= STEP.name) d.kfintech = { used: true, username: 'rkmehta_dss', loggedInAs: 'R K MEHTA', arn: a.arn };
+    if (ui.step >= STEP.tally) d.signature = { way: 'image', present: true, image: signature(0), size: 100, cert: null };
+    if (ui.step >= STEP.invoices) d.tally = { company: 'Lunavat & Co', guid: 'g1', gstin: a.gstin, same: true, sure: false };
+    if (ui.step >= STEP.mailbox) d.mailbox = { provider: 'gmail', address: a.camsEmail, connected: true };
   }
   $effect(() => {
     timing.captchaPauseMs = fast ? 8_000 : 3 * 60_000;
