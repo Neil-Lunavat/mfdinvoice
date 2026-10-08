@@ -1,11 +1,11 @@
 <script lang="ts">
   /* Add CAMS's files: zips and Excels for any months, dropped or chosen at once. The box is cleared when this opens;
-     what each call returns is the whole box so far. Done (or Esc) hands the months added back to Downloads. */
+     what each call returns is the whole box so far. Close (or Esc) hands the months added back to Downloads; Download starts a CAMS-only download of them. */
   import { app, type CamsFiles } from '../../bridge';
   import { ui } from '../../state/ui.svelte';
   import Modal from '../../ui/Modal.svelte';
 
-  let { done }: { done: (periods: string[]) => void } = $props();
+  let { done }: { done?: (periods: string[]) => void } = $props();
 
   const NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -39,7 +39,14 @@
     if (!files.length || busy) return;
     await run(async () => app.dropCamsFiles(await Promise.all(files.map(async f => ({ name: f.name, bytes: await base64(f) })))));
   }
-  function close() { done(box.added.map(a => a.period)); ui.close(); }
+  const periods = $derived([...new Set(box.added.map(a => a.period))].sort((a, b) => key(a) - key(b)));   // the oldest first
+  function close() { done?.(box.added.map(a => a.period)); ui.close(); }
+  function download() {
+    const ps = periods;
+    done?.(box.added.map(a => a.period));
+    ui.close();
+    ui.runWith = { registrars: ['CAMS'], period: ps[0], what: 'download', periods: ps };
+  }
 </script>
 
 <Modal label="Add CAMS's files" onclose={close}>
@@ -59,11 +66,16 @@
       {#each box.refused as r}<div class="cf-line err">{r.name}: {r.why}</div>{/each}
       {#if box.said}<div class="cf-line err">{box.said}</div>{/if}
       {#if failed}<div class="cf-line err">{failed}</div>{/if}
-      {#if box.added.length}<div class="cf-line muted">Download these months to read them in; CAMS won't be asked to email them again.</div>{/if}
+      {#if box.added.length}<div class="cf-line muted">Downloading reads them in. CAMS won't be asked to email them again.</div>{/if}
     </div>
   </div>
   {#snippet foot()}
-    <button class="btn primary" data-primary disabled={busy} onclick={close}>Done</button>
+    {#if periods.length}
+      <button class="btn secondary" disabled={busy} onclick={close}>Close</button>
+      <button class="btn primary" data-primary disabled={busy} onclick={download}>Download {periods.length} {periods.length === 1 ? 'month' : 'months'}</button>
+    {:else}
+      <button class="btn primary" data-primary disabled={busy} onclick={close}>Close</button>
+    {/if}
   {/snippet}
 </Modal>
 

@@ -512,7 +512,7 @@ export class FakeApp implements App {
       await sleep(900); guard();
       if (c.profile.mailbox.provider === 'folder' || this.scenario.byHand) {
         this.say('Get', 'running', "Choose CAMS's invoice files");
-        await this.ask({ type: 'pick_files', month: 'October 2026', sentTo: c.profile.camsEmail, skip: true });
+        await this.ask({ type: 'pick_files', month: 'October 2026', sentTo: c.profile.camsEmail, skip: true, message: this.scenario.byHand ? "These files are September 2026's, not October 2026's." : '' });
       } else {
         this.say('Get', 'running', "Waiting for CAMS's email");
         this.push({ type: 'waiting_email', run: r.id, since: new Date().toISOString(), ref: '224851745 WBR106' });
@@ -566,7 +566,8 @@ export class FakeApp implements App {
     this.scenario.renumber = this.scenario.newYear = false;
     const check = await this.ask({
       type: 'your_check', notes: [],
-      books: booked ? { kind: 'tally' as const, company: 'Lunavat & Co', after: newYear ? '' : 'September', first: newYear ? { fy: '2027-28', proposed: '1/27-28' } : null } : null,
+      books: booked ? { kind: 'tally' as const, company: 'Lunavat & Co', after: newYear ? '' : 'September', first: newYear ? { fy: '2027-28', proposed: '1/27-28' } : null,
+        creates: [{ kind: 'party', name: 'Aditya Birla Sun Life AMC', gstin: '27AAACB0000A1Z5' }, { kind: 'party', name: 'HDFC Asset Management', gstin: '27AAACH0000A1Z5' }] } : null,
       rows: ordered.map((x, i) => ({
         key: x.key, registrar: x.registrar, amc: x.amc,
         number: own && !booked && !x.igst ? `${first + can.indexOf(x)}/26-27` : '', ...(own && !booked && !x.igst ? { seq: can.indexOf(x), kept: false } : {}),

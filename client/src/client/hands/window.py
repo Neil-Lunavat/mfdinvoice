@@ -1579,13 +1579,13 @@ class Window:
         a = await self._ask(run, {"type": "signature", "key": key, "amc": amc})
         return {"looks_right": bool(a.get("looksRight")), "fixed": bool(a.get("fixed"))}
 
-    async def pick_files(self, run: str, month: str, skip: bool = False) -> dict:
+    async def pick_files(self, run: str, month: str, skip: bool = False, message: str = "") -> dict:
         """CAMS's zip and Excel, from the person: each chosen with Windows' own Open box (`pick_file`) or dropped on
         the window (`drop_file`). Answers when both are in, with where they are on this PC, or {skip: True} when the
         person was offered Skip CAMS (`skip`) and took it."""
         self._picked = {}
         p = self.profile() or {}
-        answer = await self._ask(run, {"type": "pick_files", "month": month, "skip": skip,
+        answer = await self._ask(run, {"type": "pick_files", "month": month, "skip": skip, "message": message,
                                        "sentTo": shown(self.credential(p.get("arn", ""), "cams_email"))})
         got, self._picked = dict(self._picked), {}
         return {"skip": True} if answer.get("skip") else got
@@ -1631,7 +1631,7 @@ class Window:
     async def choose_cams_files(self) -> dict:
         """CAMS's files from the person's own Open box, as many as they pick."""
         paths = await asyncio.to_thread(self.choose_files, "CAMS's zips and Excels",
-                                        ("CAMS's files (*.zip;*.xls;*.xlsx)",))
+                                        ("CAMS files (*.zip;*.xls;*.xlsx)",))
         return await self._add_cams_files([Path(p) for p in paths])
 
     async def drop_cams_files(self, files: list[dict]) -> dict:

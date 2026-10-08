@@ -335,7 +335,7 @@ export type Ask =
       during: 'run' | 'setup';
     }
   | { id: string; type: 'signature'; key: string; amc: string }     // the first run: one signed invoice to look at
-  | { id: string; type: 'pick_files'; month: string; sentTo: string; skip: boolean }   // CAMS's zip and Excel, from the person; skip: CAMS may be left out instead
+  | { id: string; type: 'pick_files'; month: string; sentTo: string; skip: boolean; message: string }   // CAMS's zip and Excel, from the person; skip: CAMS may be left out instead
   | {
       id: string; type: 'pin';                          // a token Windows cannot reach. Never stored.
       said: string;                                      // the token's words after a wrong PIN, '' the first time
@@ -347,7 +347,8 @@ export type Ask =
 /** Own invoices with books connected: what Your check says about them. `after`: the month of a newer invoice already
     in the books ("September"). `first`: a new financial year with Manual numbering and no invoice yet, so the
     person types its first invoice number (proposed from last year's style). */
-export interface BooksNote { kind: 'tally' | 'zoho'; company: string; after: string; first: { fy: string; proposed: string } | null }
+export interface BooksNote { kind: 'tally' | 'zoho'; company: string; after: string; first: { fy: string; proposed: string } | null;
+  creates: { kind: 'party' | 'tax' | 'sales'; name: string; gstin: string }[] }
 export interface BooksQuestion { id: string; question: string; options: string[] }
 /** Own invoices without books, submitted: what the person enters in their books. */
 export interface Entered { registrar: Registrar; amc: string; key: string; number: string }

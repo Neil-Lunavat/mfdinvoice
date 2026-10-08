@@ -404,8 +404,7 @@ def added(zip_file: Path, xls: Path) -> dict:
         raise Stop("wrong_files", "The zip couldn't be opened", registrar=REG) from None
     absent = [r for r in rows if (str(r.get(FILE_NAME) or "").strip() or file_name(r)) not in in_zip]
     if absent:
-        raise Stop("wrong_files", f"The zip has no PDF for {words.plural(len(absent), 'invoice')} in its Excel",
-                   registrar=REG)
+        raise Stop("wrong_files", "The zip and the Excel aren't from the same email of CAMS's", registrar=REG)
     mm = months.pop()
     try:
         period = f"{MONTHS[int(mm[:2]) - 1]}-{int(mm[2:])}"

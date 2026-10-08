@@ -231,10 +231,11 @@ class Host:
         log.debug("the captcha was answered: %s", sorted(got) if isinstance(got, dict) else got)
         return got
 
-    async def files(self, month: str, skip: bool = False) -> dict:
+    async def files(self, month: str, skip: bool = False, message: str = "") -> dict:
         """CAMS's zip and Excel, chosen or dropped by the person: {zip, xls}, each a path on this PC. `skip`: the
-        person may leave CAMS out of this run instead, which answers {skip: True}."""
-        got = await self.w.pick_files(self.run, month, skip)
+        person may leave CAMS out of this run instead, which answers {skip: True}. `message`: why they are asked
+        (again), shown in the box."""
+        got = await self.w.pick_files(self.run, month, skip, message)
         log.debug("CAMS's files: %s", sorted(got))
         return got
 

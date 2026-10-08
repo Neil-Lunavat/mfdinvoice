@@ -45,6 +45,7 @@
 <div class="rm-stage" data-ask={ask.id}>
   <div class="work-hd"><div><h3>Add CAMS's invoice files</h3>
     <p class="sub">CAMS has emailed {ask.month}'s invoices{ask.sentTo ? ` to ${ask.sentTo}` : ''}. Save the zip and the Excel from that email, then add both here.</p></div></div>
+  {#if ask.message}<p class="err" role="alert">{ask.message}</p>{/if}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="drop files" class:over ondragover={e => { e.preventDefault(); over = true; }} ondragleave={() => (over = false)} ondrop={drop}>
     {#if reading}<span class="spin"></span>{:else}<b>Drop the zip and the Excel here</b><span>or open each one below</span>{/if}

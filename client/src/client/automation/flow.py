@@ -33,6 +33,7 @@ Rules that hold throughout:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import re
 import shutil
@@ -78,6 +79,7 @@ class Job:
         self.aside: dict[str, str] = {}          # registrar -> why it takes no part in this run
         self.unlisted: set[str] = set()          # ... the ones that do not list the month yet
         self.skipped: set[str] = set()           # ... the ones the person left out of this run
+        self.behind = ""                          # CAMS lists more than its last email held: said in the file box
         self.locked: dict[str, str] = {}         # own invoices without books: the numbers already given for good
         self.numbers: dict[str, str] = {}        # own invoices with books: key -> the invoice number the books gave
         self.glanced: dict = {}                  # what the books said at the look before Your check
@@ -361,20 +363,47 @@ class Job:
         return self._take_cams(pair, "Got CAMS's invoices for {}")
 
     async def _by_hand(self) -> list[Path] | None:
-        """CAMS's two files, chosen by the person; None when they skipped CAMS instead."""
+        """CAMS's two files, chosen by the person; None when they skipped CAMS instead. Files that can't be this run's
+        (another month or ARN, a zip not of its Excel, fewer invoices than CAMS lists now) are refused there and then,
+        with the reason, and the person chooses again or skips CAMS (Neil, 8 Oct)."""
         await self.at("Get", "Choose CAMS's invoice files")
-        got = await self.host.files(self.label, skip=KFIN in self.active())
-        if got.get("skip"):
-            self.skipped.add(CAMS)
-            self.aside[CAMS] = "CAMS's files weren't added"
-            return None
-        pair = [Path(got["zip"]), Path(got["xls"])]
-        rows = await asyncio.to_thread(cams.read_report, pair[1], self.period)       # not this month's: refused here
-        if not self._arn_rows(rows):
-            raise Stop("wrong_files", "These files aren't for this ARN",
-                       f"The Excel report is for another ARN. Choose the zip and the Excel from CAMS's email for "
-                       f"{self.label}.", registrar=CAMS)
-        return pair
+        said = self.behind
+        while True:
+            got = await self._files(said)
+            if got.get("skip"):
+                self.skipped.add(CAMS)
+                self.aside[CAMS] = "CAMS's files weren't added"
+                return None
+            pair = [Path(got["zip"]), Path(got["xls"])]
+            said = await asyncio.to_thread(self._unusable, pair)
+            if not said:
+                return pair
+            log.info("CAMS's files refused: %s", said)
+
+    async def _files(self, said: str) -> dict:
+        skip = KFIN in self.active()
+        if "message" in inspect.signature(self.host.files).parameters:
+            return await self.host.files(self.label, skip=skip, message=said)
+        if said and said != self.behind:                # a software too old to say why: the run stops on it instead
+            raise Stop("wrong_files", "These files can't be used", said, registrar=CAMS)
+        return await self.host.files(self.label, skip=skip)
+
+    def _unusable(self, pair: list[Path]) -> str:
+        """Why this zip and Excel can't be this run's, in a sentence; empty when they can."""
+        try:
+            got = cams.added(pair[0], pair[1])
+        except Stop as e:
+            return f"{e.title}."
+        if got["arn"] != re.sub(r"\D", "", str(self.host.profile.get("arn") or "")):
+            return f"These files are for ARN-{got['arn']}, not this ARN."
+        if got["period"] != self.period:
+            return f"These files are {words.labels(got['period'])[0]}'s, not {self.label}'s."
+        missing = [k for k in self.listed[CAMS] if k not in got["invoices"]]
+        if missing:
+            return (f"CAMS lists {plural(len(self.listed[CAMS]), 'invoice')} for {self.label} now and these files hold "
+                    f"{len(got['invoices'])}: {', '.join(missing)} isn't in them. Use the files from CAMS's newest "
+                    "email.")
+        return ""
 
     def _take_cams(self, pair: list[Path], said: str) -> bool:
         dest = self.month.folder(CAMS, "fetched", empty=True)        # the latest pair only, never two
@@ -412,8 +441,12 @@ class Job:
                 continue                                             # another month's, or not a report we know
             if not self._arn_rows(rows):
                 continue
-            if set(self.listed[CAMS]) - {r[cams.CAMS_INVOICE] for r in rows}:
-                continue                                             # older than what CAMS lists now
+            missing = [k for k in self.listed[CAMS] if k not in {r[cams.CAMS_INVOICE] for r in rows}]
+            if missing:                                              # older than what CAMS lists now: said once
+                self.behind = self.behind or (
+                    f"CAMS lists {plural(len(self.listed[CAMS]), 'invoice')} for {self.label} now and its last email "
+                    f"held {len(rows)}: {', '.join(missing)} came since, so CAMS was asked to email them again.")
+                continue
             return [zip_file, xls]
         return None
 
@@ -825,7 +858,8 @@ class Job:
         extra = None
         if self.books:
             g = self.glanced
-            extra = {"kind": self.kind, "company": g.get("company") or books.company(host.base), "after": g.get("after", ""), "first": g.get("first")}
+            extra = {"kind": self.kind, "company": g.get("company") or books.company(host.base), "after": g.get("after", ""),
+                     "first": g.get("first"), "creates": g.get("creates") or []}
         await self.at("Your check", "Your check")
         notes = [f"{self.aside[r]}." for r in self.regs if r in self.aside]
         answer = await (host.your_check(rows, notes, extra) if extra else host.your_check(rows, notes))

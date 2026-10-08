@@ -141,10 +141,14 @@ own check, Submit, status again. Your check comes before anything is prepared, s
 - CAMS's email, three ways, in this order: forwarded to us, Gmail with an app password, by hand. Any mailback for this
   ARN and month will do (checked by the Excel's month, BROKER CODE and listing). 10 minutes without it falls back to
   by hand; a late one is read in by itself while the software is open. Skip CAMS lets KFintech carry on.
-- "Add CAMS's files" (Downloads, beside Download): a modal where any number of CAMS's zips and Excels, of any months,
-  are dropped or picked at once. They are paired by the request number in their names; each Excel gives the month and
-  the ARN (BROKER CODE). Per month it says "October 2026: 5 invoices added"; another ARN's pair or a file without its
-  partner is refused with the reason. A run uses them under the rule above (CAMS still lists exactly those invoices).
+- "Add CAMS's files" (Downloads beside Download, and each month's page): a modal where any number of CAMS's zips and
+  Excels, of any months, are dropped or picked at once. They are paired by the request number in their names; each
+  Excel gives the month and the ARN (BROKER CODE). Per month it says "October 2026: 5 invoices added"; another ARN's
+  pair or a file without its partner is refused with the reason. Its "Download N months" reads them in (CAMS only); a
+  run or download uses files on the PC when they hold every invoice CAMS lists now.
+- CAMS's files given in a run are checked there and then (month, ARN, zip with its Excel, every invoice CAMS lists
+  now); unusable ones are refused in the same box with the reason, to choose again or skip CAMS. When CAMS lists more
+  than its last email held, the box says which invoices came since.
 - Tally: a missing ledger is made by the software, never a stop: the fund house's (Sundry Debtors), IGST, CGST and
   SGST (Duties & Taxes), and "Commission Received" (Sales Accounts) when the company has no sales ledger. Where one
   already exists and the choice is not obvious, the person picks, as before.
@@ -153,6 +157,8 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   Submit's answer is being read. A stop is how a run ended (`run_ended.stop`), never a question.
 - Every run, check and download is sent to the software's server when it ends (kind `run`), with its own log and the
   pictures of the pages. Send to support attaches the latest run's record too. The person sees none of this.
+- Your check: the table only, no invoice preview; its buttons are Cancel and Submit. With books connected it says the
+  ticked invoices go into the books first (company named) and which ledgers will be new.
 - Run is one month (the month picker at the top right of Overview). Downloads takes any months at once.
 - Check now: a reading under 10 minutes old is shown again.
 - IGST on own invoices: set aside at Your check, for now. Keep the door open.
