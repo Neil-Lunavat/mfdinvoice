@@ -346,10 +346,17 @@ class Job:
                 return False
         else:
             await self.at("Get", "Waiting for CAMS's email")
-            # Skip CAMS is offered while KFintech is in the same run (a software too old for it isn't asked)
-            skip = getattr(host, "skip_wanted", None) if KFIN in self.active() else None
-            await (host.waiting_email(asked["at"], asked["ref"], skip=True) if skip
-                   else host.waiting_email(asked["at"], asked["ref"]))
+            # Skip CAMS (KFintech goes on) or, CAMS alone, Don't wait (Neil, 8 Oct): the email is read in when it comes.
+            # A software too old for Don't wait offers Skip CAMS only with KFintech; older still, neither.
+            skip = getattr(host, "skip_wanted", None)
+            alone = KFIN not in self.active()
+            if skip and "alone" in inspect.signature(host.waiting_email).parameters:
+                await host.waiting_email(asked["at"], asked["ref"], skip=True, alone=alone)
+            elif skip and not alone:
+                await host.waiting_email(asked["at"], asked["ref"], skip=True)
+            else:
+                skip = None
+                await host.waiting_email(asked["at"], asked["ref"])
             deadline = time.monotonic() + MAIL_GIVE_UP_S
             while True:
                 pair = await self._ours(await host.mail_look(asked["ref"])) or await self._month_mail(fetch=False)

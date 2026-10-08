@@ -16,7 +16,7 @@ export interface RunLive {
   steps: StepView[];
   startedAt: number;                            // when the run window began it, for the clock
   ask: Ask | null;                              // the question on screen, if any
-  waitingEmail: { since: string; ref: string; skip: boolean; months?: string[] } | null;
+  waitingEmail: { since: string; ref: string; skip: boolean; alone?: boolean; months?: string[] } | null;
   waitingBooks: { company: string; said: string; kind: string } | null;    // the run waits for the books to answer
   month?: { period: string; index: number };    // a download of several months: the one it is on
   submitted: Partial<Record<Registrar, number>>;
@@ -104,7 +104,7 @@ class Store {
         if (r && r.id === p.run) { r.month = { period: p.period, index: p.index }; r.waitingEmail = null; }
         break;
       case 'waiting_email':
-        if (r && r.id === p.run) r.waitingEmail = { since: p.since, ref: p.ref, skip: !!p.skip, months: p.months };
+        if (r && r.id === p.run) r.waitingEmail = { since: p.since, ref: p.ref, skip: !!p.skip, alone: !!p.alone, months: p.months };
         break;
       case 'books_waiting':
         if (r && r.id === p.run) r.waitingBooks = p.on ? { company: p.company, said: p.said, kind: p.kind } : null;

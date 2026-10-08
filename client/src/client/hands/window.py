@@ -1792,8 +1792,8 @@ class Window:
         a = await self._ask(run, {"type": "books_ask", "asks": asks})
         return {str(k): str(v) for k, v in (a.get("answers") or {}).items()}
 
-    def waiting_email(self, run: str, since: str, ref: str, skip: bool = False) -> None:
-        self._push({"type": "waiting_email", "run": run, "since": since, "ref": ref, "skip": skip})
+    def waiting_email(self, run: str, since: str, ref: str, skip: bool = False, alone: bool = False) -> None:
+        self._push({"type": "waiting_email", "run": run, "since": since, "ref": ref, "skip": skip, "alone": alone})
 
     async def skip_cams(self, run: str) -> None:
         """Skip CAMS while its email is awaited: the run carries on with KFintech; the email is read when it comes."""

@@ -374,7 +374,7 @@ export type Push =
   | { type: 'ask_withdrawn'; id: string }                // the question no longer needs an answer
   | { type: 'notify'; kind: string; text: string; opens: Note['opens']; toast: boolean }
   | { type: 'run_month'; run: string; period: string; index: number }       // a download of several months: on this one now
-  | { type: 'waiting_email'; run: string; since: string; ref: string; skip?: boolean; months?: string[] }   // CAMS has been asked; its email is awaited (skip: Skip CAMS is offered; months: several months' emails awaited together)
+  | { type: 'waiting_email'; run: string; since: string; ref: string; skip?: boolean; alone?: boolean; months?: string[] }   // CAMS has been asked; its email is awaited (skip: Skip CAMS is offered, or Don't wait when alone: CAMS is all the run does; months: several months' emails awaited together)
   | { type: 'submitted'; run: string; registrar: Registrar; count: number } // the registrar's status shows them
   | { type: 'books_waiting'; run: string; on: boolean; company: string; said: string; kind: 'tally' | 'zoho' }   // the run waits for the books (on), or no longer
   | { type: 'run_ended'; run: string; how: 'done' | 'stopped' | 'nothing'; what: RunKind;

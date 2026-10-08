@@ -277,8 +277,9 @@ class Host:
         if self.run and rows:
             self.w.steps(self.run, rows)
 
-    async def waiting_email(self, since: str, ref: str, skip: bool = False) -> None:
-        self.w.waiting_email(self.run, since, ref, skip)
+    async def waiting_email(self, since: str, ref: str, skip: bool = False, alone: bool = False) -> None:
+        """CAMS's email is awaited. skip: Skip CAMS is offered; alone: CAMS is all the run does, so it's Don't wait."""
+        self.w.waiting_email(self.run, since, ref, skip, alone)
 
     def skip_wanted(self) -> bool:
         """Skip CAMS was pressed while its email was awaited."""

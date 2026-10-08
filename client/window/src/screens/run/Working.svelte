@@ -54,8 +54,8 @@
       <div class="bact"><button class="btn secondary sm" disabled={skipping} onclick={() => { skipping = true; app.skipCams(run.id); }}>{skipping ? 'Stopping…' : "Don't wait"}</button></div></div>
   {:else if run.waitingEmail}
     <div class="banner wait"><span class="spin amber"></span>
-      <div><b>CAMS was asked at {hhmm(run.waitingEmail.since)}{run.waitingEmail.ref ? ` · ref ${run.waitingEmail.ref}` : ''}</b><p>CAMS takes a few minutes to send it. The run carries on by itself when it comes.{run.waitingEmail.skip ? " Or skip CAMS: KFintech goes on, and CAMS's email is read when it comes." : ''}</p></div>
-      {#if run.waitingEmail.skip}<div class="bact"><button class="btn secondary sm" disabled={skipping} onclick={() => { skipping = true; app.skipCams(run.id); }}>{skipping ? 'Skipping…' : 'Skip CAMS'}</button></div>{/if}</div>
+      <div><b>CAMS was asked at {hhmm(run.waitingEmail.since)}{run.waitingEmail.ref ? ` · ref ${run.waitingEmail.ref}` : ''}</b><p>CAMS takes a few minutes to send it. The run carries on by itself when it comes.{run.waitingEmail.skip ? (run.waitingEmail.alone ? " Or stop waiting: it's read in when it comes, while the software is open." : " Or skip CAMS: KFintech goes on, and CAMS's email is read when it comes.") : ''}</p></div>
+      {#if run.waitingEmail.skip}<div class="bact"><button class="btn secondary sm" disabled={skipping} onclick={() => { skipping = true; app.skipCams(run.id); }}>{run.waitingEmail.alone ? (skipping ? 'Stopping…' : "Don't wait") : (skipping ? 'Skipping…' : 'Skip CAMS')}</button></div>{/if}</div>
   {/if}
   {#if run.waitingBooks}
     <div class="banner bad" role="alert"><div><b>{waitingLine(run.waitingBooks.kind, run.waitingBooks.company, run.waitingBooks.said)}</b><p>{waitingSub(run.waitingBooks.kind, run.waitingBooks.said)}</p></div>
