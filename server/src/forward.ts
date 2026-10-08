@@ -199,7 +199,14 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
   const auth = h('authentication-results') + ' ' + h('arc-authentication-results');
   if (auth.trim() && !/dkim=pass[^;]*camsonline\.com/i.test(auth)) return refuse('Not signed by CAMS.', `auth ${JSON.stringify(auth.slice(0, 1500))}`);
   if (message.rawSize > MAIL_MAX) return refuse('Too large.', `size ${message.rawSize}`);
-  for (const to of emails(h('to'))) {
+  /* whose it is: any mailbox it was for or came through. CAMS writes to the ARN's registered email, which often
+     forwards on before the mailbox whose filter sends it here (pritamutha@ → neillunavat3192@ → us, 8 Oct): To and
+     Cc, the Delivered-To / X-Forwarded-For / X-Original-To each mailbox adds, and Gmail's forwarding sender
+     (x+caf_=…@gmail.com is x@gmail.com). The box is the email proved in the software: the one that forwards here. */
+  const sender = message.from.toLowerCase().replace(/\+caf_=[^@]*@/, '@');
+  /* the mailbox that sent it here first (Gmail's sender, the latest Delivered-To), then the rest of the way */
+  const seen = [...new Set([...emails(sender), ...['delivered-to', 'to', 'cc', 'x-original-to', 'x-forwarded-for'].flatMap(n => emails(h(n)))])];
+  for (const to of seen) {
     const box = await env.DB.prepare('SELECT who, pub FROM boxes WHERE who = ? AND pub IS NOT NULL').bind(await who(to)).first<{ who: string; pub: string }>();
     if (!box) continue;
     const raw = await new Response(message.raw).arrayBuffer();
@@ -208,5 +215,5 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
     await env.FILES.put(`forward/${row!.id}`, await seal(box.pub, raw));
     return;
   }
-  return refuse('No MFDInvoice user has set this email up for forwarding.', `to ${JSON.stringify(h('to'))}, delivered-to ${JSON.stringify(h('delivered-to'))}`);
+  return refuse('No MFDInvoice user has set this email up for forwarding.', `seen ${JSON.stringify(seen)}`);
 }
