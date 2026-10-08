@@ -94,6 +94,9 @@ export type Release = { version: string; date: string; size: string; sha256: str
   changes: { tag: 'New' | 'Better' | 'Fixed'; text: string }[] };
 export const RELEASES: Release[] = [
   /* ops/release.py writes the newest release here */
+  { version: '1.0.0', date: '8 October 2026', size: 'About 87 MB',
+    sha256: '21e2b674d2a6b723dec754138a1922c6b26a041510a40f6c57fef27205ca4c43', note: 'The first release: your CAMS and KFintech commission invoices, made, signed, submitted, and imported into the bookkeeping software of your choice.',
+    changes: [{ tag: 'New', text: 'The first release: your CAMS and KFintech commission invoices, made, signed, submitted, and imported into the bookkeeping software of your choice.' }, { tag: 'New', text: 'Your ARN, name and GSTIN are read from CAMS and KFintech. Nothing is typed that the portals already know.' }, { tag: 'New', text: 'Each month\'s invoices come from CAMS, by its email (forwarded from Gmail, read with a Gmail app password, or added by hand), and from KFintech.' }, { tag: 'New', text: 'Your own invoices, numbered as GST asks, or the registrars\' own.' }, { tag: 'New', text: 'Signed with a photo of your signature, or with your DSC token.' }, { tag: 'New', text: 'Your check before anything is sent: only what you tick goes.' }, { tag: 'New', text: 'Submitted to CAMS and KFintech, and what each has is read back.' }, { tag: 'New', text: 'Tally and Zoho Books: invoice numbers come from your books, and each invoice is entered in them.' }, { tag: 'New', text: 'Downloads of any months, with every figure.' }, { tag: 'New', text: 'When CAMS or KFintech change something on their portals, we fix it on our side as fast as we can, most often without an update, so the service stays reliable.' }] },
 ];
 
 /* The app's current version, which is also the oldest that may run: an older app shows only Update now (the app reads
