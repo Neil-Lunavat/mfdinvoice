@@ -162,16 +162,6 @@ async def _snack(page: Page) -> str:
     return " ".join(await w.toasts(page, C["snackbar"]))
 
 
-async def _type(page: Page, selector: str, text: str) -> None:
-    """Type into a sign-in box key by key, as a person does. KFintech's firewall turned away a sign-in whose boxes
-    were filled in one go and whose button was clicked with no pointer near it (8 Oct); a person's own typing in the
-    same kind of browser got in."""
-    box = page.locator(selector)
-    await box.click()
-    await box.fill("")
-    await box.press_sequentially(text, delay=70)
-
-
 async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCaptcha) -> set[str]:
     """Username and password typed here, the captcha by the person. KFintech's answer is read from the server's reply
     to the sign-in (statusCode 10000 signed in, 10001 "Invalid Password", anything else is refused in its own words)
@@ -190,8 +180,8 @@ async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCapt
     try:
         for attempt in range(1, CAPTCHA_TRIES + 1):
             await seen(page.locator(L["username"]).first)
-            await _type(page, L["username"], username)
-            await _type(page, L["password"], password)
+            await page.locator(L["username"]).fill(username)
+            await page.locator(L["password"]).fill(password)
             picture = await page.locator(L["captcha_image"]).first.screenshot()
             answer = await ask_captcha(picture, attempt, "" if attempt == 1 else "Not quite. Here's a new one.")
             if answer.get("refresh"):
@@ -200,10 +190,8 @@ async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCapt
             typed = (answer.get("text") or "").strip()
             if not typed:
                 raise Cancelled()
-            await _type(page, L["captcha"], typed)
+            await page.locator(L["captcha"]).fill(typed)
             replies.clear()
-            await page.locator(L["submit"]).hover()
-            await page.wait_for_timeout(250)
             await page.locator(L["submit"]).click()
             said = ""
             for _ in range(SLOW_MS // 500):               # the dashboard, a reply from the server, or a snackbar

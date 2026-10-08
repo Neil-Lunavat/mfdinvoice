@@ -32,6 +32,7 @@ import re
 import shutil
 import socket
 import subprocess
+import threading
 import time
 import uuid
 import webbrowser
@@ -978,14 +979,17 @@ class Window:
             return ""
 
     def _signed_page(self, auto, ops: list[dict], page_w: float, page_h: float, size, name: str) -> str:
-        """Draw this draw-list with the signature on screen placed by the run's own rule, and return its first page."""
-        door = ops_sign.Door(lambda: self._signature_on_screen(size))
-        sig = door.info()
-        if sig.get("present"):
-            ops = auto.layout.sign(ops, sig, page_w, page_h)
-        out = self.workspace / "previews" / name
-        ops_pdf.render_to(door, out, page_w, page_h, ops)
-        return ops_export.first_page(out)
+        """Draw this draw-list with the signature on screen placed by the run's own rule, and return its first page.
+        One at a time: the previews share the signature's draft file, and two drawn at once (CAMS's and KFintech's,
+        after the size slider is let go) read it half-written (8 Oct)."""
+        with _DRAWING:
+            door = ops_sign.Door(lambda: self._signature_on_screen(size))
+            sig = door.info()
+            if sig.get("present"):
+                ops = auto.layout.sign(ops, sig, page_w, page_h)
+            out = self.workspace / "previews" / name
+            ops_pdf.render_to(door, out, page_w, page_h, ops)
+            return ops_export.first_page(out)
 
     def _signature_on_screen(self, size) -> Path:
         """The signature a preview draws: the photo being set up right now, if there is one (it is saved only when
@@ -1685,6 +1689,7 @@ def _zipped(folder: Path, pictures: bool = True) -> bytes | None:
 # October 2026, the first round with real distributors: every run sends the pictures of the portals' pages with its
 # log. Turn it off once those pages are known; the website's Privacy and Security pages say which it is.
 PICTURES_WITH_EVERY_RUN = True
+_DRAWING = threading.Lock()      # previews are drawn one at a time (`_signed_page`)
 BLANK_SETTINGS = {"template": "tally", "address": [], "phone": "", "email": "", "website": "",
                   "particulars": "Commission", "particularsAmc": True, "remarks": ""}
 
