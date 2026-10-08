@@ -29,8 +29,7 @@ in `IDEAS.md` at the repo root; the software's list is `TODO.md`.
       the ✓ (the picture can load from mfdinvoice.co.in now). A simpler 16px favicon if the tab icon looks smudged.
 - [ ] The link preview (`og.png`): Neil checks it in WhatsApp and LinkedIn's Post Inspector once live.
 - [ ] The legal pages: Neil has read them; the "A draft" line goes. Acting on CAMS and KFintech sits inside their terms.
-- [ ] `www.mfdinvoice.co.in` redirects to the apex.
-- [ ] `INDEXING = true`; Google Search Console with the sitemap; one Lighthouse pass on a phone (Home, Pricing,
+- [ ] Google Search Console with the sitemap; one Lighthouse pass on a phone (Home, Pricing,
       Downloads).
 - [ ] Cloudflare Web Analytics on (Neil, in the dashboard), and its line in Privacy.
 - [ ] The panel: the Deletions card says when the soonest one goes, and an account page's "Delete now"; the Software
@@ -48,7 +47,8 @@ in `IDEAS.md` at the repo root; the software's list is `TODO.md`.
       support@mfdinvoice.co.in (smtp.gmail.com, 587, the Gmail address and an app password); one reaches another inbox.
 
 Done by Neil: mail arrives (support@, hello@; no-reply@ passes DKIM and DMARC), Support › Reply, the live site end to
-end on his own account. After launch: `AFTER-LAUNCH.md`.
+end on his own account. Live 8 Oct: www to the apex, indexing on, the logo fixes, the panel's deletions and run
+view. After launch: `AFTER-LAUNCH.md`.
 
 ## After the sole proprietorship is registered
 
