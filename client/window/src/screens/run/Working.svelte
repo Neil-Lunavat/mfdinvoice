@@ -35,10 +35,11 @@
   // Stop is at once, except while a Submit's answer is being read. If nothing has happened after 6 seconds, the
   // person can close this window.
   const stuck = $derived(run.stopAsked && stoppedAt > 0 && now - stoppedAt > 6000);
+  const listed = (m: string[]) => m.length < 2 ? m.join('') : `${m.slice(0, -1).join(', ')} and ${m[m.length - 1]}`;
 </script>
 
 <div class="rm-stage">
-  <div class="work-hd"><div><h3>{v.line || 'Starting'}</h3></div>{#if !captcha && !run.waitingEmail && !run.waitingBooks}<span class="spin big"></span>{/if}</div>
+  <div class="work-hd"><div><h3>{run.waitingEmail?.months?.length ? "Waiting for CAMS's emails" : v.line || 'Starting'}</h3></div>{#if !captcha && !run.waitingEmail && !run.waitingBooks}<span class="spin big"></span>{/if}</div>
   {#if captcha}
     {#if paused}
       <div class="banner wait nospin"><div><b>Waiting for the characters.</b><p>KFintech's image may have changed. Continue for a fresh one.</p></div>
@@ -46,6 +47,11 @@
     {:else}
       {#key captcha.id}<Captcha image={captcha.image} message={captcha.message} onanswer={answer} />{/key}
     {/if}
+  {:else if run.waitingEmail?.months?.length}
+    <!-- several months downloaded: every month's email was asked for first, and they are waited for together -->
+    <div class="banner wait"><span class="spin amber"></span>
+      <div><b>CAMS was asked for {listed(run.waitingEmail.months)}</b><p>CAMS takes a few minutes to send them. Each is read in as it comes. Or stop waiting: they're read in when they come, while the software is open.</p></div>
+      <div class="bact"><button class="btn secondary sm" disabled={skipping} onclick={() => { skipping = true; app.skipCams(run.id); }}>{skipping ? 'Stopping…' : "Don't wait"}</button></div></div>
   {:else if run.waitingEmail}
     <div class="banner wait"><span class="spin amber"></span>
       <div><b>CAMS was asked at {hhmm(run.waitingEmail.since)}{run.waitingEmail.ref ? ` · ref ${run.waitingEmail.ref}` : ''}</b><p>CAMS takes a few minutes to send it. The run carries on by itself when it comes.{run.waitingEmail.skip ? " Or skip CAMS: KFintech goes on, and CAMS's email is read when it comes." : ''}</p></div>

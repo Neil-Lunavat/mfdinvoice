@@ -8,6 +8,7 @@ What the app calls, and nothing else:
     run(host, period, registrars)        the month's run
     check(host, period, registrars)      what the registrars have now
     download(host, period, registrars)   the month's invoices onto this PC
+    pickup(host, period)                 CAMS's email for a month that went on without it, read in when it comes
     cams.arn_of, kfin.arn_of             setup's two verifications
     cams.name_of, kfin.profile_of        the name and GSTIN each registrar shows, for setup
     layout, registrar, sample            the invoice previews in setup and Settings
@@ -22,8 +23,8 @@ anything on the other side needs an update of the app.
 """
 
 from client.automation import books, cams, kfin, page, tally, zoho
-from client.automation.flow import check, download, run
+from client.automation.flow import check, download, pickup, run
 from client.automation.invoices import layout, registrar
 from client.automation.invoices.sample import sample
 
-__all__ = ["books", "cams", "check", "download", "kfin", "layout", "page", "registrar", "run", "sample", "tally", "zoho"]
+__all__ = ["books", "cams", "check", "download", "kfin", "layout", "page", "pickup", "registrar", "run", "sample", "tally", "zoho"]

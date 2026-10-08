@@ -66,13 +66,13 @@
       {#each box.refused as r}<div class="cf-line err">{r.name}: {r.why}</div>{/each}
       {#if box.said}<div class="cf-line err">{box.said}</div>{/if}
       {#if failed}<div class="cf-line err">{failed}</div>{/if}
-      {#if box.added.length}<div class="cf-line muted">Downloading reads them in. CAMS won't be asked to email them again.</div>{/if}
+      {#if box.added.length}<div class="cf-line muted">Adding signs in to CAMS to see what it lists, then reads them in. CAMS won't be asked to email them again.</div>{/if}
     </div>
   </div>
   {#snippet foot()}
     {#if periods.length}
       <button class="btn secondary" disabled={busy} onclick={close}>Close</button>
-      <button class="btn primary" data-primary disabled={busy} onclick={download}>Download {periods.length} {periods.length === 1 ? 'month' : 'months'}</button>
+      <button class="btn primary" data-primary disabled={busy} onclick={download}>Add {periods.length} {periods.length === 1 ? 'month' : 'months'}</button>
     {:else}
       <button class="btn primary" data-primary disabled={busy} onclick={close}>Close</button>
     {/if}

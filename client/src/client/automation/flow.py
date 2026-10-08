@@ -79,6 +79,7 @@ class Job:
         self.aside: dict[str, str] = {}          # registrar -> why it takes no part in this run
         self.unlisted: set[str] = set()          # ... the ones that do not list the month yet
         self.skipped: set[str] = set()           # ... the ones the person left out of this run
+        self.wait_email = True                    # False: CAMS's email is asked for, not waited for (several months)
         self.behind = ""                          # CAMS lists more than its last email held: said in the file box
         self.locked: dict[str, str] = {}         # own invoices without books: the numbers already given for good
         self.numbers: dict[str, str] = {}        # own invoices with books: key -> the invoice number the books gave
@@ -334,6 +335,13 @@ class Job:
             pair = await self._by_hand()
             if pair is None:
                 return False
+        elif not self.wait_email:
+            # several months at once: asked now, read in later by the app's wait over all of them (`pickup`)
+            pair = await self._ours(await host.mail_look(asked["ref"])) or await self._month_mail(fetch=False)
+            if not pair:
+                self.skipped.add(CAMS)
+                self.aside[CAMS] = "CAMS's email is asked for"
+                return False
         else:
             await self.at("Get", "Waiting for CAMS's email")
             # Skip CAMS is offered while KFintech is in the same run (a software too old for it isn't asked)
@@ -487,7 +495,11 @@ class Job:
                      if i["registrar"] == reg and reg in self.active() and k not in m.with_registrar(reg)]
         if self.own:
             self.cannot_draw = {k: why for k in self.open if (why := own.drawable(self.items[k]))}
-            self.blocked = dict(self.cannot_draw)
+        # two invoices under one KFintech reference (`kfin.read_zip`): how KFintech takes them back is not known yet
+        self.cannot_draw.update({k: "KFintech raised two invoices for this payment (GST on top and GST within). "
+                                    f"{NAME} doesn't send these yet: send this one on KFintech yourself."
+                                 for k in self.open if len(self.items[k].get("one", {}).get("parts") or []) > 1})
+        self.blocked = dict(self.cannot_draw)
         m.save()
         await self.host.changed()
 
@@ -1157,9 +1169,12 @@ async def _run(job: Job) -> dict:
             "enter": job.entered, "left": job.left}
 
 
-async def download(host, period: str, registrars: list[str]) -> dict:
-    """The month's invoices onto this PC, with their figures, and nothing more: nothing is signed or sent."""
+async def download(host, period: str, registrars: list[str], wait_email: bool = True) -> dict:
+    """The month's invoices onto this PC, with their figures, and nothing more: nothing is signed or sent.
+    `wait_email` False (several months, a mailbox read by itself): CAMS is asked for its email and the download goes on
+    without waiting; the app waits for every month's email once they have all been asked for (Neil, 8 Oct)."""
     job = Job(host, period, registrars)
+    job.wait_email = wait_email
     await job.plan(["Check", "Get", "Read"])
 
     async def steps(job: Job) -> dict:

@@ -37,6 +37,7 @@ import time
 import uuid
 import webbrowser
 import zipfile
+import inspect
 import io
 from datetime import date, datetime
 from pathlib import Path
@@ -1326,9 +1327,14 @@ class Window:
         """Several months' downloads in one go, one after another: the portals stay signed in between them. A month
         not listed yet is noted and the next goes on; any other stop ends it there, saying which months came."""
         came, unlisted = [], []
+        # a mailbox read by itself: each month's CAMS email is asked for and not waited for; all of them are waited for
+        # together at the end (Neil, 8 Oct)
+        ask_only = "CAMS" in registrars and host.profile["mailbox"].get("provider") in ("gmail", "forward") and \
+            "wait_email" in inspect.signature(auto.download).parameters and hasattr(auto, "pickup")
         for i, period in enumerate(periods):
             self._push({"type": "run_month", "run": run, "period": period, "index": i})
-            out = await auto.download(host, period, registrars)
+            out = await (auto.download(host, period, registrars, wait_email=False) if ask_only
+                         else auto.download(host, period, registrars))
             name = local.labels(period)[0].split(" ")[0]
             stop = out.get("stop")
             if stop and stop.get("kind") in ("not_listed", "nothing_to_do"):
@@ -1338,8 +1344,40 @@ class Window:
                 so_far = f"Downloaded before it stopped: {', '.join(came)}." if came else ""
                 return {**out, "stop": {**stop, "title": f"{name}: {stop['title']}", "so_far": so_far}}
             came.append(name)
-        summary = (f"Downloaded {', '.join(came)}." if came else "Nothing was downloaded.") +             (f" Not listed yet: {', '.join(unlisted)}." if unlisted else "")
+        late = await self._wait_cams(auto, host, run, periods) if ask_only else []
+        summary = (f"Downloaded {', '.join(came)}." if came else "Nothing was downloaded.") + \
+            (f" CAMS's email hadn't come for {', '.join(late)}: it's read in when it comes." if late else "") + \
+            (f" Not listed yet: {', '.join(unlisted)}." if unlisted else "")
         return {"how": "done", "summary": summary, "used": "", "counts": {}, "total": 0, "downloaded": True}
+
+    async def _wait_cams(self, auto, host: Host, run: str, periods: list[str]) -> list[str]:
+        """CAMS's emails for the months just asked for, waited for together: each is read in as it comes. Up to the
+        steps' own wait (10 minutes), or until the person stops waiting; what hasn't come is read in later by itself
+        (`_pickup_loop`). Returns the months still without it."""
+        left = [p for p in periods if p in set(local.cams_waiting(host.base))]
+        every, give_up = getattr(auto.flow, "MAIL_EVERY_S", 15), getattr(auto.flow, "MAIL_GIVE_UP_S", 600)
+        names = lambda: [local.labels(p)[0].split(" ")[0] for p in left]   # noqa: E731
+        self._skip_cams = False
+        deadline = time.monotonic() + give_up
+        while left:
+            self._push({"type": "waiting_email", "run": run, "since": datetime.now().isoformat(timespec="seconds"),
+                        "ref": "", "skip": True, "months": names()})
+            for period in list(left):
+                try:
+                    if (await auto.pickup(host, period)).get("got") is not None:
+                        left.remove(period)
+                        self._push({"type": "waiting_email", "run": run, "since": "", "ref": "", "skip": True,
+                                    "months": names()})
+                except Exception as e:                     # read in later by itself, as if it hadn't come
+                    log.info("CAMS's email for %s couldn't be read in: %r", period, e)
+            if not left or self._skip_cams or time.monotonic() > deadline:
+                break
+            for _ in range(every):
+                if self._skip_cams:
+                    break
+                await asyncio.sleep(1)
+        self._skip_cams = False
+        return names()
 
     async def _ended(self, run: str, what: str, period: str, out: dict, host: Host, seconds: int) -> None:
         stop = out.get("stop")
@@ -1368,7 +1406,8 @@ class Window:
                         "counts": out.get("counts") or {}, "total": out.get("total") or 0,
                         "stop": {"kind": stop["kind"], "title": stop["title"], "said": stop.get("said") or "",
                                  "lines": list(stop.get("lines") or []), "so_far": stop.get("so_far") or "",
-                                 "registrar": stop.get("registrar") or None} if stop else None})
+                                 "registrar": stop.get("registrar") or None,
+                                 "others": list(stop.get("others") or [])} if stop else None})
         await self.changed()
 
     def answer(self, id: str, a: dict) -> None:  # noqa: A002

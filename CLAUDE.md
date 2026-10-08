@@ -144,7 +144,7 @@ own check, Submit, status again. Your check comes before anything is prepared, s
 - "Add CAMS's files" (Downloads beside Download, and each month's page): a modal where any number of CAMS's zips and
   Excels, of any months, are dropped or picked at once. They are paired by the request number in their names; each
   Excel gives the month and the ARN (BROKER CODE). Per month it says "October 2026: 5 invoices added"; another ARN's
-  pair or a file without its partner is refused with the reason. Its "Download N months" reads them in (CAMS only); a
+  pair or a file without its partner is refused with the reason. Its "Add N months" reads them in (CAMS only); a
   run or download uses files on the PC when they hold every invoice CAMS lists now.
 - CAMS's files given in a run are checked there and then (month, ARN, zip with its Excel, every invoice CAMS lists
   now); unusable ones are refused in the same box with the reason, to choose again or skip CAMS. When CAMS lists more
@@ -163,6 +163,11 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   pictures of the pages. Send to support attaches the latest run's record too. The person sees none of this.
 - Your check: the table only, no invoice preview; its buttons are Cancel and Submit. With books connected it says the
   ticked invoices go into the books first (company named) and which ledgers will be new.
+- Downloads of several months with a mailbox read by itself (forwarded, Gmail): every month's CAMS email is asked for
+  first, nothing waits per month; then all are waited for together (10 minutes, "Don't wait"), each read in as it
+  comes; any later one is read in by itself while the software is open.
+- KFintech can raise two invoices under one reference (GST on top and GST within, Bank of India June 2026): read as one
+  invoice with both parts; if one is ever open, it is held back with the reason until we see how KFintech takes it.
 - Run is one month (the month picker at the top right of Overview). Downloads takes any months at once.
 - Check now: a reading under 10 minutes old is shown again.
 - IGST on own invoices: set aside at Your check, for now. Keep the door open.
@@ -183,6 +188,13 @@ for good once it is in the books, and is sent again unchanged after a failed or 
 no number. An open invoice someone already typed into the books (same fund house, month, within a rupee) takes that
 voucher's number instead of a second voucher. The books must answer: if TallyPrime is not open, the run waits on a
 red line saying so, with a refresh button; nothing reaches the portals without the books' numbers.
+
+**The last invoice number is always shown** (setup's Your invoices, and Settings): fixed, read from the books, when
+they hold invoices this financial year; typed ("What was your last invoice number?") when there are no books, or the
+books hold none yet. A Tally sales type on Automatic numbering with no invoices numbers from 1 whatever is sent: setup
+says so and how to set it in Tally (start from the next number, or Manual); nothing is renumbered, as none exist.
+Every number also passes KFintech's rule (at least 3 characters), checked before anything is written to the books.
+When KFintech's Upload stays disabled, its own words are shown.
 
 **Own invoices without books:** the person types the last number before each run; it may skip ahead but never go below
 the highest number the software has used (no repeats). A number is fixed at Submit. The run's end lists "enter these
