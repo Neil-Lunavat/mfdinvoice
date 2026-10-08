@@ -455,7 +455,31 @@ class Session:
                     peek = first["proposed"]
         except Off as e:
             return self._answer("off", said=e.said or f"{NAME} isn't answering.")
-        return {**self._answer("ready"), "first": first, "after": "", "peek": peek, "renumbers": False}
+        return {**self._answer("ready"), "first": first, "after": self._after_month(), "peek": peek, "renumbers": False}
+
+    def _after_month(self) -> str:
+        """The name of the month of the newest invoice in the person's own series this financial year, when an invoice
+        going in is dated before it (it takes the numbers after that month's); else ''."""
+        live = sorted((i for i in self.invoices if i.get("invoice_number") and i.get("status") != "void"),
+                      key=lambda i: i.get("created_time", ""))
+        dates = [p["date"] for p in self.rows if p["action"] == "import" and not p.get("block") and p.get("date")]
+        if not live or not dates:
+            return ""
+        sample = str(live[-1]["invoice_number"])
+        at = numbering.default_counter(sample)
+        if at < 0:
+            return ""
+        series = []
+        for i in live:
+            try:
+                if numbering.shape(str(i["invoice_number"]), at) == numbering.shape(sample, at):
+                    series.append(str(i.get("date", "")))
+            except numbering.NumberError:
+                continue
+        newest = max(series, default="")
+        if newest[:7] > max(dates)[:7]:
+            return datetime.strptime(newest[:10], "%Y-%m-%d").strftime("%B")
+        return ""
 
     def _top(self, invoices: list[dict]) -> str:
         """The highest invoice number of the person's own shape: the shape of their newest invoice."""

@@ -175,7 +175,10 @@ async def sign_in(page: Page, email: str) -> set[str]:
         answer = page.locator(C["toast"]).filter(has_not_text=EXPIRED).first    # "session has expired" is the old one
         await seen(ok.or_(active).or_(field_err.first).or_(answer).first)
         if await ok.is_visible():
-            shown = await arns_shown(page, "CAMS")
+            try:
+                shown = await arns_shown(page, "CAMS")        # the header's "ARN-n / Name": one ARN per login
+            except Changed:
+                raise Stop("ours", "CAMS showed no ARN.", "Nothing was submitted.", registrar=REG) from None
             await _land(page)
             return shown
         if await active.is_visible() and attempt == 0:

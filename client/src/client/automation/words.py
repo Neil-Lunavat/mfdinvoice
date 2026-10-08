@@ -62,11 +62,8 @@ def norm(said: str | None) -> str:
 def meaning(registrar: str, said: str | None) -> str:
     """'open', 'with', 'done', 'rejected' or 'unknown': what the registrar's status words mean (see CAMS_WORDS)."""
     s = norm(said)
-    got = (CAMS_WORDS if registrar == CAMS else KFIN_WORDS).get(s)
-    if got:
-        return got
-    # KFintech's rejection words have not been seen: a status that says rejected, as a whole word, is taken as one.
-    return "rejected" if re.search(r"\bREJECT(ED)?\b", s) else "unknown"
+    # only the exact known words count: KFintech's rejection word has not been seen, so it is unknown until it is
+    return (CAMS_WORDS if registrar == CAMS else KFIN_WORDS).get(s) or "unknown"
 
 
 def is_final(registrar: str, status: str | None) -> bool:

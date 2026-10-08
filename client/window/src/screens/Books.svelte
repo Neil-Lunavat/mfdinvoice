@@ -7,6 +7,7 @@
   import { app, type BooksLook, type BooksRow, type ZohoOrg } from '../bridge';
   import { booksName } from '../logic/books';
   import { n2, regTag } from '../logic/format';
+  import { rule46 } from '../logic/numbering';
   import { connectZoho } from '../logic/zoho';
   import { store } from '../state/store.svelte';
   import { ui } from '../state/ui.svelte';
@@ -36,7 +37,8 @@
   const going = $derived(rows.filter(r => r.action === 'import'));
   const adopting = $derived(rows.filter(r => r.action === 'by_hand' && adopt[r.key]));
   const waiting = $derived((look?.asks?.length ?? 0) > 0);
-  const needsLast = $derived(!!look?.askLast && !last.trim());
+  const refused = $derived(rule46(last));            // Rule 46 holds for a number typed here too
+  const needsLast = $derived(!!look?.askLast && (!last.trim() || !!refused));
   const count = $derived(going.length + adopting.length);
   const done = $derived(look?.done ?? null);
   // the sales ledger asked per fund house: one card, with one choice for all of them
@@ -192,7 +194,8 @@
       </div>
       {#if look.askLast}
         <label class="tl-last">Your last invoice number in Tally
-          <input class="input mono" style="width:150px" bind:value={last} onchange={() => read()} data-own-enter /></label>
+          <input class="input mono" style="width:150px" bind:value={last} onchange={() => { if (!refused) read(); }} data-own-enter /></label>
+        {#if refused}<span class="err" role="alert">{refused}</span>{/if}
       {/if}
       {#if look.companies.length > 1}
         <select class="input" style="width:auto;margin-left:auto" aria-label={isZoho ? 'Organisation' : 'Company'} value={look.orgs ? look.orgId : look.company} onchange={e => { const v = e.currentTarget.value; const o = look?.orgs?.find(x => x.id === v); if (o) choose(o.name, o.id); else choose(v); }}>

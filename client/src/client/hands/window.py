@@ -562,14 +562,19 @@ class Window:
             try:
                 page = await host.fresh_page()
                 found = await auto.cams.arn_of(page, email.strip())
-                cams_arn = _the_arn(found, arn)
+                if len(found) != 1:                          # one ARN per login: never a pick among several
+                    log.info("the CAMS test: the page showed %d ARNs: %s", len(found), sorted(found))
+                    return {"ok": False, "ours": True,
+                            "said": "CAMS showed no ARN." if not found
+                            else "CAMS showed more than one ARN: " + ", ".join(sorted(found)) + "."}
+                cams_arn = next(iter(found))
                 name = await auto.cams.name_of(page, cams_arn) if hasattr(auto.cams, "name_of") else ""
                 await auto.cams.sign_out(page)
             except auto.page.Refused as e:
                 log.info("the CAMS test: CAMS said %r", e.said)
                 return {"ok": False, "said": e.said}
             except auto.page.Stop as e:
-                return {"ok": False, "said": e.said or e.title}
+                return {"ok": False, "said": e.said or e.title, **({"ours": True} if e.kind == "ours" else {})}
             except (auto.page.Changed, PWError, errors.Failure) as e:
                 return _ours("CAMS", e)
             finally:
@@ -1327,11 +1332,11 @@ class Window:
     async def send_support(self, text: str, where: str) -> dict:
         """Send to support: the software's server keeps it. What goes is what the popup lists: these words, where they
         were written, this app's version, this PC, the app's last log lines with every password blanked, and the
-        latest run's record when there is a recent one. There is no ticket and no reply: a problem is fixed for
+        latest run's record, whatever its age. There is no ticket and no reply: a problem is fixed for
         everyone."""
         runs = sorted((d for d in (self.workspace / "runs").glob("*") if d.is_dir() and not d.name.startswith("_")),
                       key=lambda d: d.stat().st_mtime)
-        recent = runs[-1] if runs and time.time() - runs[-1].stat().st_mtime < 3600 else None
+        recent = runs[-1] if runs else None
         return {"sent": await self._report("problem", text, where, recent,
                                          about={"run": recent.name} if recent else None)}
 
@@ -1626,13 +1631,6 @@ def invoices_of(p: dict) -> dict:
     return {"source": "own" if got.get("source") == "own" else "registrar", "last": str(got.get("last") or ""),
             "at": int(got.get("at") if got.get("at") is not None else -1),
             "settings": {**BLANK_SETTINGS, **(got.get("settings") or {})}}
-
-
-def _the_arn(found: set[str], expected: str = "") -> str:
-    """The ARN CAMS showed. Setup types none; if the page prints more than one, the expected one (a Change's own ARN)
-    counts when it is among them, else the first."""
-    expected = expected.strip().upper()
-    return expected if expected in found else sorted(found)[0]
 
 
 def _ours(portal: str, e: Exception) -> dict:

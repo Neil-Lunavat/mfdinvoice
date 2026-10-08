@@ -135,43 +135,68 @@ class Job:
     # --- Check --------------------------------------------------------------------------------------------------------
 
     async def enter(self, step: str = "Check", only: list[str] | None = None) -> None:
-        """Sign in to each portal (or use the tab already signed in), and hold each to the ARN law."""
-        host = self.host
+        """Sign in to each portal (or use the tab already signed in), and hold each to the ARN law. A registrar that
+        cannot be signed in to is set aside with its stop (`stopped`); the other goes on."""
         for reg in (KFIN, CAMS):                         # KFintech first: its captcha is the one thing asked of the person
             if reg not in (self.regs if only is None else only):
                 continue
-            await self.at(step, f"Signing in to {NAMES[reg]}")
-            if reg == KFIN:
-                user, password = host.secret("kfintech_username"), host.secret("kfintech_password")
-                if not user or not password:
-                    raise Stop("setup", "Your KFintech login isn't saved on this PC",
-                               "Add it in Settings › Connections, then run again.", registrar=KFIN)
-                page = self.pages[KFIN] = await host.page("kfintech.com")
-                try:
-                    shown = await kfin.enter(page, user, password, host.captcha, self.arn)
-                except kfin.Cancelled:
-                    raise Stop("ended", "Stopped", "The captcha was closed, so the run stopped. Nothing was "
-                                                   "submitted.") from None
-            else:
-                email = host.secret("cams_email")
-                if not email:
-                    raise Stop("setup", "Your CAMS email isn't saved on this PC",
-                               "Add it in Settings › Connections, then run again.", registrar=CAMS)
-                page = self.pages[CAMS] = await host.page("camsonline.com")
-                shown = await cams.enter(page, email, self.arn)
-            if self.arn not in shown:
-                # (the hyphen in an ARN is written so that it never breaks across two lines)
-                raise Stop("arn_mismatch", f"{NAMES[reg]}'s ARN ({', '.join(sorted(shown))}) doesn't match your ARN "
-                                           f"({self.arn})".replace("ARN-", "ARN‑"),
-                           "Nothing was submitted. Check that the CAMS email and the KFintech login are both this "
-                           "ARN's.", registrar=reg)
-            host.signed_in(reg)
-        self.portals_at = time.monotonic()
+            try:
+                await self._enter_one(reg, step)
+            except (Stop, Refused, Changed, PWError, AssertionError) as e:
+                await self.stopped(reg, e)
+
+    async def _enter_one(self, reg: str, step: str) -> None:
+        host = self.host
+        await self.at(step, f"Signing in to {NAMES[reg]}")
+        if reg == KFIN:
+            user, password = host.secret("kfintech_username"), host.secret("kfintech_password")
+            if not user or not password:
+                raise Stop("setup", "Your KFintech login isn't saved on this PC",
+                           "Add it in Settings › Connections, then run again.", registrar=KFIN)
+            page = self.pages[KFIN] = await host.page("kfintech.com")
+            try:
+                shown = await kfin.enter(page, user, password, host.captcha, self.arn)
+            except kfin.Cancelled:
+                raise Stop("ended", "Stopped", "The captcha was closed, so KFintech was left out. Nothing was "
+                                               "submitted to it.", registrar=KFIN) from None
+        else:
+            email = host.secret("cams_email")
+            if not email:
+                raise Stop("setup", "Your CAMS email isn't saved on this PC",
+                           "Add it in Settings › Connections, then run again.", registrar=CAMS)
+            page = self.pages[CAMS] = await host.page("camsonline.com")
+            shown = await cams.enter(page, email, self.arn)
+        if self.arn not in shown:
+            # (the hyphen in an ARN is written so that it never breaks across two lines)
+            raise Stop("arn_mismatch", f"{NAMES[reg]}'s ARN ({', '.join(sorted(shown))}) doesn't match your ARN "
+                                       f"({self.arn})".replace("ARN-", "ARN‑"),
+                       "Nothing was submitted. Check that the CAMS email and the KFintech login are both this "
+                       "ARN's.", registrar=reg)
+        host.signed_in(reg)
+        if reg == KFIN:
+            self.portals_at = time.monotonic()
+
+    async def stopped(self, reg: str, e: Exception) -> None:
+        """This registrar's step ended: it is set aside with its stop, its page kept for whoever fixes it, and the other
+        registrar goes on. The run's end reports every registrar's stop."""
+        self.problems[reg] = stop = await _why(self, e, reg)
+        self.aside[reg] = f"{NAMES[reg]} stopped: {stop.title}"
+        log.info("%s set aside: %s | %s", reg, stop.kind, stop.title)
+        for s in self.steps:
+            if s["name"] == NAMES[reg]:
+                s.update(state="bad", result=stop.title)
+        if reg in self.pages and stop.kind != "ended":
+            await _keep(self, reg, e)
+        await self.host.steps(self.steps)
+
+    def raise_problems(self) -> None:
+        if self.problems:
+            raise next(iter(self.problems.values()))
 
     async def again(self) -> None:
         """KFintech was left alone too long to trust its sign-in (the person took their time at a screen): forget it
         and sign in again. CAMS has no clock: its tab stays, and `cams` signs in again if CAMS says it ended. Nothing
-        has been prepared on a portal yet."""
+        has been prepared on KFintech yet."""
         log.info("the portals were left alone for %d minutes: signing in to KFintech afresh",
                  (time.monotonic() - self.portals_at) // 60)
         await self.host.afresh("kfintech.com")
@@ -182,11 +207,12 @@ class Job:
         """What each registrar already has, and what it lists for the month. `listing_only`: a download, which needs
         only what is listed (CAMS's status is a page of its own, and its slowest)."""
         m = self.month
-        for reg in self.regs:
+        for reg in self.active():
             page = self.pages[reg]
             await self.at("Check", f"Reading what {NAMES[reg]} {'lists' if listing_only else 'already has'}")
             if reg == KFIN:
                 reading = await kfin.read_status(page, self.period)
+                self.portals_at = time.monotonic()
                 listed = None if reading is None else sorted(r["key"] for r in reading)
             else:
                 reading = None
@@ -230,6 +256,7 @@ class Job:
                 self.aside[reg] = f"every invoice is already submitted to {NAMES[reg]}"
         if self.active():
             return
+        self.raise_problems()                            # a registrar that stopped, and none left to carry on
         month = words.month_name(self.period)
         if all(r in self.unlisted for r in self.regs):
             raise Stop("not_listed", f"{month}'s invoices aren't listed yet",
@@ -256,14 +283,18 @@ class Job:
                 else:
                     fetched[KFIN] = {"at": now(), "listed": self.listed[KFIN]}
                     self.host.activity(f"Downloaded KFintech's invoices for {self.kf_label}", KFIN)
+                self.portals_at = time.monotonic()
                 m.save()
         if CAMS in self.active():
             have, folder = fetched.get(CAMS), m.folder(CAMS, "fetched")
             if not (have and have.get("listed") == self.listed[CAMS] and _pair(folder)):
                 fetched.pop(CAMS, None)
-                if await self._cams_get():
-                    fetched[CAMS] = {"at": now(), "listed": self.listed[CAMS]}
-                    m.facts.pop("asked", None)
+                try:
+                    if await self._cams_get():
+                        fetched[CAMS] = {"at": now(), "listed": self.listed[CAMS]}
+                        m.facts.pop("asked", None)
+                except (Stop, Refused, Changed, PWError, AssertionError) as e:
+                    await self.stopped(CAMS, e)              # CAMS is left out; KFintech goes on
                 m.save()
 
     async def _cams_get(self) -> bool:
@@ -392,15 +423,20 @@ class Job:
         self.locked = self.issued().locked if self.own and not self.books else {}
         if CAMS in self.active():
             await self.at("Read", "Reading CAMS's invoices")
-            await asyncio.to_thread(self._read_cams)
-            # the files are this ARN's month, as emailed by CAMS: an ARN set up without KFintech is bound now
-            confirm = getattr(self.host, "confirm_arn", None)
-            if confirm:
-                ok, said = await confirm()
-                if not ok:
-                    raise Stop("arn_unbound", "This ARN couldn't be added to your account", "Nothing was submitted. "
-                               "CAMS's files for this month are on this PC, so the next run starts from them.",
-                               said=said, registrar=CAMS)
+            try:
+                await asyncio.to_thread(self._read_cams)
+                # the files are this ARN's month, as emailed by CAMS: an ARN set up without KFintech is bound now
+                confirm = getattr(self.host, "confirm_arn", None)
+                if confirm:
+                    ok, said = await confirm()
+                    if not ok:
+                        raise Stop("arn_unbound", "This ARN couldn't be added to your account", "Nothing was submitted. "
+                                   "CAMS's files for this month are on this PC, so the next run starts from them.",
+                                   said=said, registrar=CAMS)
+            except Stop as e:
+                if not e.registrar:
+                    raise
+                await self.stopped(CAMS, e)                  # CAMS is left out; KFintech goes on
         if KFIN in self.active():
             await self.at("Read", "Reading KFintech's invoices")
             await asyncio.to_thread(self._read_kfin)
@@ -973,7 +1009,7 @@ class Job:
             elif reg in self.ready:
                 parts.append(f"{NAMES[reg]}: {self.ready[reg]} ready, not submitted")
             elif reg in self.problems:
-                parts.append(f"{NAMES[reg]}: stopped")
+                parts.append(f"{NAMES[reg]}: stopped" + (f" ({self.problems[reg].title})" if len(self.problems) > 1 else ""))
             elif reg in self.aside:
                 parts.append(self.aside[reg])
         return " · ".join(parts)
@@ -1016,7 +1052,6 @@ async def _run(job: Job) -> dict:
                    "Update it, then run again. Nothing was submitted.")
     await job.enter()
     await job.status()
-    job.portals_at = time.monotonic()
     job.anything_to_do()
     await job.done("Check", job.check_line())
 
@@ -1027,6 +1062,7 @@ async def _run(job: Job) -> dict:
 
     await job.read()
     if not job.open:
+        job.raise_problems()
         raise Stop("nothing_to_do", f"Nothing to do for {words.month_name(job.period)}",
                    "Every invoice the registrars have raised is already submitted.")
     if job.books:
@@ -1054,10 +1090,14 @@ async def _run(job: Job) -> dict:
             return {"how": "closed"}
         await job.done("Your check", f"{len(ticked)} ticked")
     going = [r for r in job.regs if r not in job.aside and any(job.items[k]["registrar"] == r for k in ticked)]
-    if KFIN in going and time.monotonic() - job.portals_at > IDLE_S:
-        await job.again()
     for reg in job.regs:
         mine = [k for k in ticked if job.items[k]["registrar"] == reg]
+        if reg in job.problems:                          # stopped before Submit: reported at the end
+            continue
+        if reg == KFIN and reg in going and time.monotonic() - job.portals_at > IDLE_S:
+            await job.again()                            # KFintech's tab was last used over 20 minutes ago
+            if reg in job.problems:
+                continue
         if reg in job.aside or not mine:
             await job.done(NAMES[reg], job.aside.get(reg) or "nothing ticked")
             continue
@@ -1089,6 +1129,7 @@ async def download(host, period: str, registrars: list[str]) -> dict:
 
     async def steps(job: Job) -> dict:
         await job.enter()
+        job.raise_problems()                             # a download or a check is not a run: a stop ends it
         await job.status(listing_only=True)
         if not job.active():
             raise Stop("not_listed", f"{words.month_name(period)}'s invoices aren't listed yet",
@@ -1152,6 +1193,7 @@ async def check(host, period: str, registrars: list[str]) -> dict:
                 await asyncio.sleep(SHOWN_AGAIN_S)
             return {"how": "done", "news": job.month.facts.get("checkNews") or job.check_line()}
         await job.enter()
+        job.raise_problems()
         await job.status()
         job.month.facts["checkNews"] = job.check_line()
         job.month.save()

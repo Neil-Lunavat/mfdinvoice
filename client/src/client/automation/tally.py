@@ -592,8 +592,9 @@ class Session:
         going = sorted((p for p in self.rows if p["action"] == "import"), key=lambda p: not p["submitted"])
         self.order = [p["key"] for p in going]
         start = self.last if not self.sends else (self.said_last or self.last)
+        refused = numbering.rule_46(self.said_last) if self.sends else ""      # the person's typed number: Rule 46
         try:
-            at = numbering.default_counter(start) if start else -1
+            at = numbering.default_counter(start) if start and not refused else -1
             nexts = [numbering.bump(start, at, i + 1) for i in range(len(going))] if at >= 0 else []
         except numbering.NumberError:
             nexts = []
@@ -602,7 +603,9 @@ class Session:
         for i, p in enumerate(going):
             p["will"] = nexts[i] if nexts else ""
             if self.sends:
-                if p["will"] and p["will"] in taken:
+                if refused:
+                    p.update(action="stop", note=refused)
+                elif p["will"] and p["will"] in taken:
                     p.update(action="stop", note=f"{p['will']} is already another invoice in Tally.")
                 elif not p["will"]:
                     p.update(action="stop", note="Your last invoice number is needed first.")

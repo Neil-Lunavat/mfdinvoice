@@ -124,7 +124,7 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   that step once. KFintech: reused for 20 minutes of being left alone, then closed and signed in afresh. No sign-out;
   no counting of sign-ins. A CAMS lock says try again in 15 minutes.
 - Status words are matched as whole words, forgivingly (case, extra spaces, a trailing full stop). An unknown word
-  stops and shows the registrar's words. Several rows for one invoice: the latest wins. Both registrars' final state
+  stops and shows the registrar's words. Several rows for one invoice: the most final state wins (Approved over Rejected, whatever the order). Both registrars' final state
   shows as "Approved" (KFintech's "Payment processed" too).
 - CAMS and KFintech approve on their own; neither reads the PDF. The person's tick at Your check is the real check.
 - Status is read fresh by every run. Submitted and approved invoices are not shown at Your check; rejected ones come
