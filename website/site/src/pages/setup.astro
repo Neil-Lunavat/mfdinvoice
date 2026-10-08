@@ -13,20 +13,17 @@ const STEPS: { h: string; p: string[] }[] = [
   { h: 'Sign in', p: [
     `Type the email of your ${NAME} account, then the code we send to it. New here? <a class="tlink" href="/signin">Sign up</a> on this website first: the software signs in to an account, it doesn’t make one.`,
   ] },
-  { h: 'Your ARN', p: [
-    `Your ARN as on your AMFI certificate. You tick one sentence allowing ${NAME} to sign in and act for you on CAMS and KFintech for this ARN.`,
-  ] },
   { h: 'CAMS', p: [
-    `The email registered with CAMS for this ARN. The software signs in to CAMS once to verify it, and reads the ARN CAMS shows: it must be the one you typed.`,
+    `The email registered with CAMS. You tick one sentence allowing ${NAME} to sign in and act for you on CAMS. The software signs in to CAMS once to verify it, and reads your ARN from what CAMS shows: you never type it.`,
     `Nothing on CAMS? Choose “I don’t use CAMS”. You need at least one of CAMS and KFintech.`,
   ] },
   { h: 'KFintech', p: [
-    `Your KFintech distributor login. The software signs in once to verify it, and you type the captcha it shows. The ARN KFintech shows must be yours too.`,
+    `Your KFintech distributor login. You tick the same sentence for KFintech. The software signs in once to verify it, and you type the captcha it shows. The ARN KFintech shows must be the one CAMS showed: both logins must be for the same ARN.`,
     `Nothing on KFintech? Choose “I don’t use KFintech”.`,
   ] },
-  { h: 'Name and GSTIN', p: [
-    `The software reads them from KFintech: your name and your GSTIN. Without KFintech, CAMS gives the name and you type the GSTIN.`,
-    `It asks “Is this correct?”. Change anything that isn’t.`,
+  { h: 'Your ARN, name and GSTIN', p: [
+    `Your ARN is read from your logins. The software reads your name and your GSTIN from KFintech. Without KFintech, CAMS gives the name and you type the GSTIN.`,
+    `It asks “Is this correct?”. Change the name or GSTIN if they aren’t. The ARN is not typed and does not change.`,
   ] },
   { h: 'Signature', p: [
     `A photo of your signature on plain paper. The software cleans it and shows it on a real invoice before you go on. Or use your USB signing token.`,
@@ -54,7 +51,7 @@ const STEPS: { h: string; p: string[] }[] = [
 <Layout title={`Setup · ${NAME}`} description={`Setting up ${NAME}, step by step: about ten minutes, once.`} path="/setup" navOn="/setup">
 <main>
   <section class="narrow">
-    <div class="head"><h1 class="h2 rv">Setup</h1><p class="lede rv">About ten minutes, once. Have your ARN, your CAMS email and your KFintech login to hand.</p></div>
+    <div class="head"><h1 class="h2 rv">Setup</h1><p class="lede rv">About ten minutes, once. Have your CAMS email and your KFintech login to hand.</p></div>
     <ol class="how">
       {STEPS.map((s, i) => <li class="rv">
         <span class="n">{i + 1}</span>

@@ -545,9 +545,10 @@ class Window:
         self.store.put_secret("gmail_app_password", password)
         return {"ok": True, "found": found, "as": address.strip()}
 
-    async def test_cams(self, email: str, arn: str) -> dict:
-        """Sign in to CAMS with this email, once, and say which ARN CAMS shows; then sign out, so the first run's
-        sign-in is one press and not two. CAMS saying no comes back in its own words (`said`); anything else that
+    async def test_cams(self, email: str, arn: str = "") -> dict:
+        """Sign in to CAMS with this email, once, and say which ARN CAMS shows (and the holder's name beside it); then
+        sign out, so the first run's sign-in is one press and not two. Setup never types the ARN: the window compares
+        what CAMS shows with the other login's. CAMS saying no comes back in its own words (`said`); anything else that
         goes wrong is ours (`ours`), in a sentence of our own, with the detail in the log."""
         if self._task is not None:
             return {"ok": False, "said": "A run is going. Verify once it has ended.", "ours": True}
@@ -561,7 +562,8 @@ class Window:
             try:
                 page = await host.fresh_page()
                 found = await auto.cams.arn_of(page, email.strip())
-                name = await auto.cams.name_of(page, _the_arn(found, arn)) if hasattr(auto.cams, "name_of") else ""
+                cams_arn = _the_arn(found, arn)
+                name = await auto.cams.name_of(page, cams_arn) if hasattr(auto.cams, "name_of") else ""
                 await auto.cams.sign_out(page)
             except auto.page.Refused as e:
                 log.info("the CAMS test: CAMS said %r", e.said)
@@ -576,11 +578,12 @@ class Window:
                         await page.close()
                 await host.close()
         self._log("Verified the CAMS email", registrar="CAMS")
-        return {"ok": True, "arn": _the_arn(found, arn), "name": name}
+        return {"ok": True, "arn": cams_arn, "name": name}
 
-    async def test_kfintech(self, username: str, password: str, arn: str = "") -> dict:
+    async def test_kfintech(self, username: str, password: str, expect: str = "") -> dict:
         """A test login, with the captcha asked in the window; `arn` in the answer is the ARN KFintech's dashboard
-        shows. A pass keeps the username and the password in this PC's vault; what the window is told it logged in
+        shows (one ARN per login: none or several is a stop). `expect` is the ARN the other login showed, '' if none:
+        the profile is read only when it is the same. A pass keeps the username and the password in this PC's vault; what the window is told it logged in
         as is the username's masked form, never the username itself."""
         username = username.strip()
         if self._task is not None:
@@ -589,15 +592,21 @@ class Window:
             auto = await loader.latest()
         except (loader.Unreachable, loader.NotOurs):
             return {"ok": False, "said": NO_STEPS, "ours": True}
-        host = Host(self, arn.strip().upper(), "")
+        host = Host(self, expect.strip().upper(), "")
         async with self._portal:
             page = None
             try:
                 page = await host.fresh_page()
                 found = await auto.kfin.arn_of(page, username, password, host.captcha)
+                if len(found) != 1:
+                    log.info("the KFintech test: the page showed %d ARNs: %s", len(found), sorted(found))
+                    return {"ok": False, "ours": True,
+                            "said": "KFintech showed no ARN." if not found
+                            else "KFintech showed more than one ARN: " + ", ".join(sorted(found)) + "."}
+                kf_arn = next(iter(found))
                 seen = {"name": "", "gstin": ""}
-                if hasattr(auto.kfin, "profile_of") and _the_arn(found, arn) == arn.strip().upper():
-                    seen = await auto.kfin.profile_of(page)          # only for the ARN typed: never another's name
+                if hasattr(auto.kfin, "profile_of") and (not expect or kf_arn == expect.strip().upper()):
+                    seen = await auto.kfin.profile_of(page)          # only for the ARN already read: never another's name
             except auto.kfin.Cancelled:
                 return {"ok": False, "said": "", "ours": True}
             except auto.page.Refused as e:
@@ -615,7 +624,7 @@ class Window:
         self.store.put_secret("kfintech_password", password)
         self.store.put_secret("kfintech_username", username)
         self._log("Verified the KFintech login", registrar="KFINTECH")
-        return {"ok": True, "as": shown(username), "arn": _the_arn(found, arn),
+        return {"ok": True, "as": shown(username), "arn": kf_arn,
                 "name": seen["name"], "gstin": seen["gstin"]}
 
     async def prepare_signature(self, bytes: str) -> dict:  # noqa: A002 - the window's own name for it
@@ -741,7 +750,7 @@ class Window:
         if len(self.profiles()) >= 6:
             return {"ok": False, "said": "One account holds up to 6 ARNs. For more, talk to us."}
         if not (draft.get("consent") or {}).get("version"):
-            return {"ok": False, "said": f"Tick that you authorise {NAME} to act for this ARN (step 1)."}
+            return {"ok": False, "said": f"Tick that you authorise {NAME} to act for you on each registrar you use."}
         # Finishing binds the ARN to the account, now that KFintech's sign-in (a password) has shown it. An account
         # with a plan takes a slot here; one that has never had a plan is bound when it activates its free trial.
         # Without KFintech, CAMS's sign-in proves too little: the first run binds the ARN once it has read CAMS's
@@ -1619,10 +1628,11 @@ def invoices_of(p: dict) -> dict:
             "settings": {**BLANK_SETTINGS, **(got.get("settings") or {})}}
 
 
-def _the_arn(found: set[str], typed: str) -> str:
-    """The ARN a portal showed. A page can print more than one; the one typed counts if it is among them."""
-    typed = typed.strip().upper()
-    return typed if typed in found else sorted(found)[0]
+def _the_arn(found: set[str], expected: str = "") -> str:
+    """The ARN CAMS showed. Setup types none; if the page prints more than one, the expected one (a Change's own ARN)
+    counts when it is among them, else the first."""
+    expected = expected.strip().upper()
+    return expected if expected in found else sorted(found)[0]
 
 
 def _ours(portal: str, e: Exception) -> dict:

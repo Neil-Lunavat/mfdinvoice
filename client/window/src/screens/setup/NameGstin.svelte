@@ -1,8 +1,10 @@
 <script lang="ts">
-  /* Name and GSTIN: what the portals showed at Verify (KFintech's name and GSTIN first, else CAMS's name), offered
-     for the person to confirm; both stay typeable. No CAMS page shows the GSTIN, so without KFintech it is typed.
-     In Settings (`editing`) it is just the two boxes. */
+  /* Your ARN, name and GSTIN: the ARN the logins showed (never typed), and what the portals showed at Verify
+     (KFintech's name and GSTIN first, else CAMS's name), offered for the person to confirm; name and GSTIN stay
+     typeable. No CAMS page shows the GSTIN, so without KFintech it is typed. In Settings (`editing`) the ARN is
+     the ARN's own and does not change. */
   import type { ProfileDraft } from '../../bridge';
+  import { provenBy } from '../../logic/details';
   import { gstinError, gstinInput, gstinOk, panOf, stateOf } from '../../logic/validate';
   import { ui } from '../../state/ui.svelte';
   import Help from './Help.svelte';
@@ -30,6 +32,11 @@
 </script>
 
 {#if !editing}<p class="line">{note} Is this correct?</p>{/if}
+<div class="field">
+  <label for="arn">ARN</label>
+  <input id="arn" class="input mono" style="max-width:220px" disabled value={d.arn} />
+  <span class="hint">{editing ? 'An ARN never changes. Wrong? Send it to support.' : `Read from ${provenBy(d) || 'your logins'}.`}</span>
+</div>
 <div class="field">
   <label for="gst">GSTIN <Help text="GST registration certificate, first line: “Registration Number”" /></label>
   <input id="gst" class="input mono" maxlength="15" style="max-width:260px" class:bad={gstBad}

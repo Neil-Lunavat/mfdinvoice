@@ -183,15 +183,15 @@ export class FakeApp implements App {
     return { ok: true as const, found: 3, as: m.provider === 'outlook' ? 'rkmehta@outlook.com' : m.address };
   }
 
-  /* The portal the fake stands in for knows one ARN per login: the one being set up, unless the email or the
-     username starts with "other" (another ARN's login). An email starting with "locked" is one CAMS has locked. */
-  async testCams(c: { email: string; arn: string }) {
+  /* The portal the fake stands in for knows one ARN per login: ARN-12345, unless the email or the username starts
+     with "other" (another ARN's login: ARN-99999). An email starting with "locked" is one CAMS has locked. */
+  async testCams(c: { email: string }) {
     await sleep(1400);
     if (/^locked/i.test(c.email)) return { ok: false as const, said: 'Your email ID is locked. Please try again after 30 minutes' };
-    return { ok: true as const, arn: /^other/i.test(c.email) ? 'ARN-118830' : c.arn, name: 'R K MEHTA' };
+    return { ok: true as const, arn: /^other/i.test(c.email) ? 'ARN-99999' : 'ARN-12345', name: 'R K MEHTA' };
   }
 
-  async testKfintech(k: { username: string; password: string; arn: string }) {
+  async testKfintech(k: { username: string; password: string; expect?: string }) {
     await sleep(900);
     try {
       await this.captchaLoop('setup');
@@ -201,7 +201,7 @@ export class FakeApp implements App {
     await sleep(600);
     if (/wrong/i.test(k.password)) return { ok: false as const, said: 'Invalid username or password.' };
     const other = /^other/i.test(k.username);
-    return { ok: true as const, as: other || k.username.toLowerCase().startsWith('sr') ? 'S R MEHTA' : 'R K MEHTA', arn: other ? 'ARN-118830' : k.arn,
+    return { ok: true as const, as: other || k.username.toLowerCase().startsWith('sr') ? 'S R MEHTA' : 'R K MEHTA', arn: other ? 'ARN-99999' : 'ARN-12345',
       name: 'R K MEHTA & CO', gstin: /^nogst/i.test(k.username) ? '' : '27ABCPM1234F1Z3' };
   }
 

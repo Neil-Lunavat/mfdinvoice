@@ -4,6 +4,7 @@
   import { app } from '../bridge';
   import type { DevFakeApp } from './devFake';
   import type { MonthState } from '../bridge/fake/data';
+  import { consentNow } from '../logic/consent';
   import { STEP } from '../logic/details';
   import { timing } from '../state/timing';
   import { ui } from '../state/ui.svelte';
@@ -30,11 +31,10 @@
   }
   function fill() {
     const d = ui.draft;
-    const a = ui.adding
-      ? { arn: 'ARN-121904', gstin: '27AAKPM5678K1ZY', name: 'A. R. Mehta', camsEmail: 'armehta.mfd@gmail.com', camsUsed: true }
-      : { arn: 'ARN-104512', gstin: '27ABCPM1234F1Z3', name: 'R. K. Mehta', camsEmail: 'rkmehta@gmail.com', camsUsed: true };
-    Object.assign(d, a);
-    if (ui.step >= STEP.kfintech) d.camsArn = a.arn;
+    const a = { arn: 'ARN-12345', gstin: '27ABCPM1234F1Z3', name: 'R K MEHTA', camsEmail: 'rkmehta@gmail.com', camsUsed: true };
+    Object.assign(d, { gstin: a.gstin, name: a.name, camsEmail: a.camsEmail, camsUsed: true });
+    d.ticks = { cams: consentNow(['CAMS']), kfintech: consentNow(['KFintech']) };
+    if (ui.step >= STEP.kfintech) { d.arn = a.arn; d.camsArn = a.arn; }
     if (ui.step >= STEP.name) d.kfintech = { used: true, username: 'rkmehta_dss', loggedInAs: 'R K MEHTA', arn: a.arn };
     if (ui.step >= STEP.books) d.signature = { way: 'image', present: true, image: signature(0), size: 100, cert: null };
     if (ui.step >= STEP.invoices) d.tally = { company: 'Lunavat & Co', guid: 'g1', gstin: a.gstin, same: true, sure: false };

@@ -27,6 +27,7 @@
   }
   let remove = $state(false);
   let agreed = $state(false);
+  const registrars = $derived([store.snap?.profile?.camsUsed && 'CAMS', store.snap?.profile?.kfintech.used && 'KFintech'].filter(Boolean) as string[]);
   async function signOut() {
     sending = true;
     await app.signOut(remove);
@@ -35,7 +36,7 @@
   }
   async function agree() {
     sending = true;
-    const r = await app.agree(consentNow(store.snap?.arn ?? ''));
+    const r = await app.agree(consentNow(registrars));
     sending = false; agreed = false;
     ui.close();
     store.toast(r.ok ? 'Saved' : r.said);
@@ -102,7 +103,7 @@
       <div class="m-bd ask-close">
         <div class="work-hd"><h3>Before {NAME} acts for you</h3></div>
         <p>{NAME} signs in to CAMS and KFintech with your own logins, from this PC, and does only what you would do by hand.</p>
-        <label class="check"><input type="checkbox" bind:checked={agreed} /> {consentText(store.snap?.arn ?? '')}</label>
+        <label class="check"><input type="checkbox" bind:checked={agreed} /> {consentText(registrars)}</label>
       </div>
       {#snippet foot()}
         <button class="btn ghost" onclick={() => ui.close()}>Cancel</button>

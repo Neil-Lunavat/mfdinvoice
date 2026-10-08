@@ -9,7 +9,7 @@
   import Kfintech from './Kfintech.svelte';
   import Mailbox from './Mailbox.svelte';
   import Signature from './Signature.svelte';
-  import WhoYouAre from './WhoYouAre.svelte';
+  import NameGstin from './NameGstin.svelte';
   import InvoicePreview from '../../ui/InvoicePreview.svelte';
   import RegistrarPreview from '../../ui/RegistrarPreview.svelte';
   import { nextInvoice } from '../../logic/details';
@@ -53,7 +53,7 @@
 <div class={layout === 'modal' ? 'm-bd' : 'rm-stage'}>
   <div class="work-hd"><h3>{TITLE[which]}</h3></div>
   <div class="part edbody">
-    {#if which === 'who'}<WhoYouAre bind:d editing arnLocked={p.arnConfirmed} />
+    {#if which === 'who'}<NameGstin bind:d editing />
     {:else if which === 'cams'}<CamsEmail bind:d signInEmail={store.snap?.account?.email ?? ''} saved={p.camsEmail} />
     {:else if which === 'mb'}<Mailbox bind:d />
     {:else if which === 'kf'}<Kfintech bind:d saved={p.kfintech.username} />

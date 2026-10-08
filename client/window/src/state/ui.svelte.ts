@@ -25,7 +25,8 @@ export const blankDraft = (): ProfileDraft => ({
   kfintech: { used: true, username: '', loggedInAs: '', arn: '' },
   signature: { way: 'image', present: false, image: '', size: 100, cert: null },
   invoices: blankInvoices(),
-  consent: null
+  consent: null,
+  ticks: { cams: null, kfintech: null }
 });
 
 export const blankSettings = (): InvoiceSettings => ({
@@ -55,7 +56,7 @@ class Ui {
   returnTo = $state<number | null>(null);                // opened from Check everything's Change
   adding = $state(false);                                // Add ARN, not a first setup
   draft = $state<ProfileDraft>(blankDraft());
-  /* What the portals showed at Verify, for the Name and GSTIN step to offer. `version` counts the readings; the step
+  /* What the portals showed at Verify, for the ARN, name and GSTIN step to offer. `version` counts the readings; the step
      takes them once per reading, so what the person has typed over is not put back. */
   read = $state({ cams: '', kf: '', gstin: '', version: 0, taken: 0 });
 

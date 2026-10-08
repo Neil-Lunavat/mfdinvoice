@@ -4,7 +4,7 @@
      every step to hold and a portal's sign-in to have shown the ARN: finishing binds the ARN to the account. */
   import { onMount } from 'svelte';
   import { app } from '../../bridge';
-  import { arnProven, bookKind, booksLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP, STEP_TITLES, stepValid } from '../../logic/details';
+  import { arnProven, bookKind, consentOf, booksLine, invoicesLine, kfintechLine, mailboxLine, provenBy, signatureLine, STEP, STEP_TITLES, stepValid } from '../../logic/details';
   import { store } from '../../state/store.svelte';
   import { ui } from '../../state/ui.svelte';
   import { icons } from '../../ui/icons';
@@ -13,13 +13,14 @@
   import Mailbox from './Mailbox.svelte';
   import NameGstin from './NameGstin.svelte';
   import SignatureStep from './SignatureStep.svelte';
-  import WhoYouAre from './WhoYouAre.svelte';
   import BooksStep from './BooksStep.svelte';
   import YourInvoices from './YourInvoices.svelte';
 
   const LAST = STEP_TITLES.length - 1;
   const email = $derived(store.snap?.account?.email ?? '');
-  const valid = $derived(stepValid[ui.step](ui.draft));
+  // an ARN read that this software already has cannot be set up again
+  const already = $derived(!!ui.draft.arn && !!store.snap?.arns.some(a => a.arn.replace(/\D/g, '') === ui.draft.arn.replace(/\D/g, '')));
+  const valid = $derived(stepValid[ui.step](ui.draft) && !already);
   const current = $derived(store.snap?.arns.find(a => a.arn === store.snap?.arn));
   const used = $derived(store.snap?.arns.length ?? 0);
   let saving = $state(false);
@@ -33,7 +34,7 @@
     if (!valid || saving) return;
     if (ui.step === LAST) {
       saving = true;
-      const r = await app.finishSetup($state.snapshot(ui.draft), ui.adding);
+      const r = await app.finishSetup({ ...$state.snapshot(ui.draft), consent: consentOf($state.snapshot(ui.draft)) }, ui.adding);
       saving = false;
       if (r.ok) { ui.adding = false; ui.go('overview'); }
       else store.toast(r.said);
@@ -73,8 +74,7 @@
         <div id="parts"><div class="part">
           <div class="part-hd"><h2 class="step-h">{STEP_TITLES[ui.step]}</h2>
             {#if ui.step < LAST}<button class="btn ghost sm vid" onclick={() => app.open('help')}>{@html icons.play}How to · {ui.step === STEP.mailbox ? '2 min' : '1 min'}</button>{/if}</div>
-          {#if ui.step === STEP.arn}<WhoYouAre bind:d={ui.draft} />
-          {:else if ui.step === STEP.cams}<CamsEmail bind:d={ui.draft} signInEmail={email} />
+          {#if ui.step === STEP.cams}<CamsEmail bind:d={ui.draft} signInEmail={email} />
           {:else if ui.step === STEP.kfintech}<Kfintech bind:d={ui.draft} />
           {:else if ui.step === STEP.name}<NameGstin bind:d={ui.draft} />
           {:else if ui.step === STEP.signature}<SignatureStep bind:d={ui.draft} />
@@ -87,7 +87,7 @@
             {@const d = ui.draft}
             <div class="cklist">
               {#each [
-                ['ARN', d.arn, STEP.arn, true], ['GSTIN', `${d.gstin} · ${d.name}`, STEP.name, true], ['CAMS email', d.camsUsed ? d.camsEmail : 'Not used', STEP.cams, false],
+                ['ARN', d.arn, STEP.cams, true], ['GSTIN', `${d.gstin} · ${d.name}`, STEP.name, true], ['CAMS email', d.camsUsed ? d.camsEmail : 'Not used', STEP.cams, false],
                 ['KFintech', kfintechLine(d.kfintech), STEP.kfintech, false],
                 ...(d.camsUsed ? [['Mailbox', mailboxLine(d.mailbox).replace(/ · not connected$/, ''), STEP.mailbox, false]] : [])
               ] as [k, v, step, mono] (k)}
@@ -106,7 +106,7 @@
                 <a href="#change" onclick={e => { e.preventDefault(); change(STEP.invoices); }}>Change</a></div>
             </div>
             {#if !arnProven(d)}
-              <div class="banner bad" role="alert"><div><b>{d.arn} isn't confirmed yet.</b> {d.kfintech.used ? 'Verify your KFintech login' : 'Verify your CAMS email'}: it shows whose ARN this is.</div>
+              <div class="banner bad" role="alert"><div><b>Your ARN isn't confirmed yet.</b> {d.kfintech.used ? 'Verify your KFintech login' : 'Verify your CAMS email'}: it shows whose ARN this is.</div>
                 <button class="btn secondary sm" onclick={() => change(d.kfintech.used ? STEP.kfintech : STEP.cams)}>{d.kfintech.used ? 'Verify KFintech' : 'Verify CAMS'}</button></div>
             {:else}
               <p class="line">{d.arn} is confirmed by {provenBy(d)}.</p>

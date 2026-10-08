@@ -64,9 +64,9 @@ edits this; where it and he disagree, he wins.
 - **Accounts:** email + code. An account is made on the website only; the software signs in to one and never makes
   one (`/api/app/code` answers `no_account`). One free trial per account, 15 days; a second ARN is bought. Finishing
   setup binds the ARN (on a plan); Activate free trial binds it and starts the trial. An ARN set up without KFintech
-  is bound by its first run once CAMS's files for it are read (`bindOnRun`, `confirm_arn`). The law: the ARN typed =
-  the ARN CAMS shows = the ARN KFintech shows, at setup and on every run; a mismatch stops, and nothing is
-  suggested. An ARN belongs to one account while that account's plan runs; once it has ended, another account that
+  is bound by its first run once CAMS's files for it are read (`bindOnRun`, `confirm_arn`). The law: the ARN read at
+  setup = the ARN CAMS shows = the ARN KFintech shows, at setup and on every run; a mismatch (two logins of two
+  different ARNs) stops, and nothing is suggested. An ARN belongs to one account while that account's plan runs; once it has ended, another account that
   binds it takes it.
 
 ## Where the code is
@@ -99,11 +99,16 @@ Each ARN's data: `%LOCALAPPDATA%\MFDInvoice\workspace\arns\<ARN>\<OCT-2026>\` (`
 
 ## Setup, as Neil decided it
 
-Your ARN → CAMS → KFintech → Name and GSTIN → Signature → Books → Your invoices → Mailbox → Check everything.
+CAMS → KFintech → Your ARN, name and GSTIN → Signature → Books → Your invoices → Mailbox → Check everything
+(8 steps). **The ARN is never typed:** it is read from the portals, one ARN per login.
 
-- Name and GSTIN: CAMS gives the name; KFintech (Distributor Profile, View Uploaded) gives the name and GSTIN and
-  overrides CAMS's. The step shows them, "Is this correct?", editable. KFintech skipped: the name is prefilled, the
-  GSTIN typed. No CAMS page shows the GSTIN.
+- CAMS and KFintech each carry their own consent tick ("I authorise MFDInvoice to sign in and act for me on CAMS",
+  the same for KFintech).
+- CAMS gives the ARN (its header "ARN-n / Name") and the name. KFintech gives the ARN, the name (Distributor Profile)
+  and the GSTIN (View Uploaded); with both, KFintech's name wins. No CAMS page shows the GSTIN.
+- "Your ARN, name and GSTIN" shows what was read: the ARN not editable, the name and GSTIN prefilled and editable
+  ("Is this correct?"). CAMS only: the GSTIN is typed.
+- Binding: with KFintech, the ARN is bound when setup finishes. CAMS only: bound by the first run (below).
 - Books: Tally, Zoho Books, or neither; one per ARN, whichever they pick. Before Your invoices, so the last invoice
   number is read from the books.
 - "I don't use CAMS" exists like "I don't use KFintech"; one of the two must be used.
@@ -113,8 +118,8 @@ Your ARN → CAMS → KFintech → Name and GSTIN → Signature → Books → Yo
 Check (sign in, ARN, status, listing) → Get → Read → Sign → **Your check** → per registrar: prepare, the registrar's
 own check, Submit, status again. Your check comes before anything is prepared, so there is one round for every case.
 
-- A run needs nothing asked first, except on own invoices: "Is this still your last invoice number?" (with books
-  connected, the number shown is read from them).
+- A run needs nothing asked first, except on own invoices without books: "Is this still your last invoice number?"
+  With books connected nothing is asked: the books are read inside the run (see "Invoice numbers").
 - Sessions: CAMS keeps one browser for good, and signs in again only on its expiry toast or sign-in form, then redoes
   that step once. KFintech: reused for 20 minutes of being left alone, then closed and signed in afresh. No sign-out;
   no counting of sign-ins. A CAMS lock says try again in 15 minutes.

@@ -57,7 +57,7 @@ export interface SurveyAsk { id: number; title: string; questions: SurveyQuestio
 export interface SurveyQuestion { key: string; q: string; type: 'one' | 'many' | 'text'; options: string[]; other: boolean }
 export type SurveyAnswers = Record<string, { picked: string[]; text: string }>;
 
-/** The person's authority to act for an ARN: the sentence ticked at setup step 1. */
+/** The person's authority to act for an ARN: the sentence ticked at setup, on the CAMS and KFintech steps. */
 export interface Consent {
   version: number;
   text: string;                    // exactly as shown
@@ -115,7 +115,7 @@ export interface Profile {
   books: '' | 'tally' | 'zoho';    // the books connected to this ARN: its own invoices go into them during a run
   usedTop: string;                 // own invoices without books: the highest invoice number used this financial year; ''
   kept: { kind: '' | 'tally' | 'zoho'; company: string; gstin?: string; ledgers: number };   // the Tally company or Zoho Books organisation this ARN imports into, its GSTIN there, and how many fund houses are matched
-  consent: Consent | null;         // what was agreed at setup step 1; null for an ARN set up before it was asked
+  consent: Consent | null;         // what was agreed at setup, on the CAMS and KFintech steps; null for an ARN set up before it was asked
 }
 
 /** The KFintech login. `arn`: the ARN KFintech showed when the login was tested, '' before a test passes. */
@@ -391,11 +391,13 @@ export interface ProfileDraft {
   camsUsed: boolean;
   camsEmail: string;               // as typed, in setup or a Change; empty in a Change until the person types it
   camsArn: string;                 // the ARN CAMS showed for that email; '' until Verify sign-in passes, and after an edit
+                                   // In setup `arn` is read, not typed: the first portal verified sets it, the second must show the same.
   mailbox: { provider: MailProvider; address: string; connected: boolean };
   kfintech: Kfintech;
   signature: Signature;
   invoices: Invoices;
-  consent: Consent | null;         // setup step 1's tick; required to finish setup
+  consent: Consent | null;         // what setup keeps: made from `ticks` when it finishes; required to finish setup
+  ticks?: { cams: Consent | null; kfintech: Consent | null };   // setup's ticks, one on each registrar's step
   tally?: TallyPick;               // setup's books step: the Tally company the invoices go into; absent when skipped
   zoho?: ZohoPick;                 // ... or the Zoho Books organisation (one of the two)
 }
@@ -412,7 +414,7 @@ export interface BooksSetup { state: 'off' | 'closed' | 'ready'; said: string; c
 /** Letting Zoho Books in, in the person's own browser: `state` says why not (cancelled, denied, timeout, off). */
 export type ZohoConnect = { ok: true } | { ok: false; state: 'cancelled' | 'denied' | 'timeout' | 'off'; said: string }
 
-export type DetailsPatch = Partial<Omit<ProfileDraft, 'arn' | 'consent'>>;
+export type DetailsPatch = Partial<Omit<ProfileDraft, 'arn' | 'consent' | 'ticks'>>;
 
 /** Every answer the website gives to sign-in, in its own code (`website/site/API.md`); `unreachable`: no answer. */
 export type CodeRefusal = 'bad_email' | 'no_account' | 'wait' | 'locked' | 'too_many_codes' | 'send_failed' | 'unreachable';
@@ -442,9 +444,9 @@ export interface App {
   // setup, and every "Change" (the same controls)
   testMailbox(m: { provider: MailProvider; address: string; appPassword: string }): Promise<Result<{ found: number; as: string }>>;
   /** Sign in to CAMS with this email, once, and read the ARN CAMS shows. `arn`: the ARN being set up. */
-  testCams(c: { email: string; arn: string }): Promise<Result<{ arn: string; name: string }>>;
+  testCams(c: { email: string }): Promise<Result<{ arn: string; name: string }>>;
   /** A test login; `arn` in the answer is the ARN KFintech shows. A captcha Ask arrives meanwhile. */
-  testKfintech(k: { username: string; password: string; arn: string }): Promise<Result<{ as: string; arn: string; name: string; gstin: string }>>;
+  testKfintech(k: { username: string; password: string; expect?: string }): Promise<Result<{ as: string; arn: string; name: string; gstin: string }>>;
   prepareSignature(photo: { bytes: string }): Promise<Result<{ image: string }>>;   // the photo, base64; cleaned on this PC
   rotateSignature(): Promise<{ image: string }>;
   /** A photo that was prepared and then not kept (Discard, Cancel, a setup begun afresh): forget it. */
