@@ -70,5 +70,4 @@ Do not read old chat transcripts.
 - Before trusting a new wait or retry on a portal, say it is untested live; he tests it. When something new hangs on
   the live page, go back to the code that worked first (he asked for that), then design the fix.
 - Checks before handing back: `cd client && uv run python -m compileall -q src`, import the touched modules,
-  `cd client/window && bunx svelte-check --threshold warning`, `bun run build`; screens on the made-up backend
-  (`bun run dev`, dev panel at the bottom) with a screenshot looked at.
+  `cd client/window && bunx svelte-check --threshold warning`, `bun run build`. No screenshots (Neil, 8 Oct).

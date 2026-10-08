@@ -19,8 +19,8 @@ edits this; where it and he disagree, he wins.
   "contract", "SOFTWARE.md"). Read what the code does, question every inherited rule, and clean the stale words in a
   file when touching it.
 - **Neil is the tester, by hand, in the real software, with real credentials.** No test suites, and nothing faked for
-  him unless he says "fake". I check my own work before handing it over (type-check, build, a script that drives it,
-  looking at the image it drew) and say exactly what was checked and what was not.
+  him unless he says "fake". I check my own work before handing it over (type-check, build, a script that drives it)
+  and say exactly what was checked and what was not. No screenshots of screens for my own checks (Neil, 8 Oct).
 - **One working piece at a time:** build it, he runs it, he reports with screenshots, I fix, then the next piece.
 - **He is blunt and fast.** Match the pace: no hedging, no padding, no obvious questions. When I am unsure of
   something he knows (what a portal shows), I say so and he shows me.
