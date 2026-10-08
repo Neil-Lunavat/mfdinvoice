@@ -514,7 +514,8 @@ def read_zip(outer: Path, folder: Path) -> list[dict]:
         raise Changed("none of the KFintech spreadsheets could be read; their layout may have changed")
     # One payment can carry two invoices under one reference: GST on top ("ExclusiveGST", with KFintech's serial) and
     # GST within ("InclusiveGST", no serial). Seen 8 Oct, Bank of India, June 2026. KFintech's status lists the reference
-    # once: it is one invoice here, its figures the two together, its PDF the one with the serial, and `parts` both.
+    # once, with the first's figures: it is one invoice here, with the first's figures and PDF (KFintech's grid matches
+    # by them), and `parts` both. What the books should hold is a question for a CA (TODO.md, Neil 8 Oct).
     by_ref: dict[str, list[dict]] = {}
     for one in invoices:
         by_ref.setdefault(one["ref"], []).append(one)
@@ -524,10 +525,7 @@ def read_zip(outer: Path, folder: Path) -> list[dict]:
             out.append(parts[0])
             continue
         main = max(parts, key=lambda p: (bool(p.get("serial")), p["taxable"]))
-        merged = {**main, "parts": parts}
-        for k in ("taxable", "cgst", "sgst", "igst"):
-            merged[k] = round(sum(p[k] for p in parts), 2)
-        out.append(merged)
+        out.append({**main, "parts": parts})
     return out
 
 

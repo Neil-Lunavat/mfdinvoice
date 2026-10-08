@@ -47,11 +47,28 @@ software.
 
 Then the fixes his pass turns up, and a last pass over the words on every screen.
 
+**Pass of 8 Oct: done** (setup, runs to just before Submit, Tally numbering into MFD Real, downloads of every month).
+Still never run by Neil in the real software:
+- A real Submit on CAMS and on KFintech (`[dev] submit = true`): reading their answers after Submit.
+- KFintech's retry on an empty table (66413b7) and its own words when Upload stays disabled: wait for KFintech to
+  misbehave live.
+- The before-write number check against a live Tally; the last invoice number typed when the books are empty.
+- Zoho Books' browser connect; Gmail and forwarding (several months' emails asked together, Check mail); a DSC token;
+  a second ARN; an ARN with CAMS only; Send to support; sign out; Update now.
+- Add CAMS's files → Add N months; files dropped from Explorer on the run's file box.
+- Tally: MFD Real holds test vouchers 1–9 from this pass; Neil cancels them and sets the Sales type's numbering.
+
 ## In Neil's hands
 
 - [ ] Ask the partner (the CA): for invoices CAMS or KFintech made, should the voucher number in Tally be the
       registrar's invoice number (the one the AMC holds and matches in GSTR-2B)? Today Tally's registrar import gives
       Tally's own next numbers and keeps the registrar's as a reference; Zoho stores the registrar's number.
+- [ ] Ask the CA: KFintech sometimes raises two invoices for one payment under one reference (Bank of India, June
+      2026, ref 116260601005784): "ExclusiveGST" (taxable 7,156.56 + GST 1,288.18, serial BMTI/2026-27/003) and
+      "InclusiveGST" (taxable 20.21, GST within, no serial). KFintech's own status table shows only the first.
+      Decided for now (8 Oct): the software shows and imports KFintech's figure (the first) and keeps the second's
+      PDF and figures attached, unused; such an invoice still open to send is held back with the reason. What should
+      the books hold, and should the second be sent or entered at all? (`automation/kfin.py` `read_zip`)
 
 - [ ] Cloudflare Email Routing on `mailback.mfdinvoice.co.in` (check it changes no record of the apex, where
       Hostinger's MX is), then `cams@mailback.mfdinvoice.co.in` → Send to a Worker → `software`.

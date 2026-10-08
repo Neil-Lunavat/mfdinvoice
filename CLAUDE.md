@@ -170,7 +170,8 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   first, nothing waits per month; then all are waited for together (10 minutes, "Don't wait"), each read in as it
   comes; any later one is read in by itself while the software is open.
 - KFintech can raise two invoices under one reference (GST on top and GST within, Bank of India June 2026): read as one
-  invoice with both parts; if one is ever open, it is held back with the reason until we see how KFintech takes it.
+  invoice with KFintech's own figures (the first's, as its table shows), the second kept attached; one still open is
+  held back with the reason. What the books should hold is a question for a CA (TODO.md).
 - Run is one month (the month picker at the top right of Overview). Downloads takes any months at once.
 - Check now: a reading under 10 minutes old is shown again.
 - IGST on own invoices: set aside at Your check, for now. Keep the door open.
