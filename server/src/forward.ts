@@ -191,11 +191,14 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
     return;
   }
 
+  /* every refusal is logged with what it saw (`wrangler tail software`): the sender only gets a bounce */
+  const refuse = (why: string, saw: string) => { console.log(`refused: ${why} ${saw}`); message.setReject(why); };
+
   /* a CAMS mailback: from CAMS, signed by CAMS (Cloudflare refuses mail that fails CAMS's own DMARC) */
-  if (!/@camsonline\.com\b/.test(from)) return message.setReject('This address takes only CAMS mailbacks for MFDInvoice.');
+  if (!/@camsonline\.com\b/.test(from)) return refuse('This address takes only CAMS mailbacks for MFDInvoice.', `from ${JSON.stringify(from)}`);
   const auth = h('authentication-results') + ' ' + h('arc-authentication-results');
-  if (auth.trim() && !/dkim=pass[^;]*camsonline\.com/i.test(auth)) return message.setReject('Not signed by CAMS.');
-  if (message.rawSize > MAIL_MAX) return message.setReject('Too large.');
+  if (auth.trim() && !/dkim=pass[^;]*camsonline\.com/i.test(auth)) return refuse('Not signed by CAMS.', `auth ${JSON.stringify(auth.slice(0, 1500))}`);
+  if (message.rawSize > MAIL_MAX) return refuse('Too large.', `size ${message.rawSize}`);
   for (const to of emails(h('to'))) {
     const box = await env.DB.prepare('SELECT who, pub FROM boxes WHERE who = ? AND pub IS NOT NULL').bind(await who(to)).first<{ who: string; pub: string }>();
     if (!box) continue;
@@ -205,5 +208,5 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
     await env.FILES.put(`forward/${row!.id}`, await seal(box.pub, raw));
     return;
   }
-  return message.setReject('No MFDInvoice user has set this email up for forwarding.');
+  return refuse('No MFDInvoice user has set this email up for forwarding.', `to ${JSON.stringify(h('to'))}, delivered-to ${JSON.stringify(h('delivered-to'))}`);
 }
