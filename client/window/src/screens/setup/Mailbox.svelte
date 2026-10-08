@@ -49,15 +49,18 @@
     busy = false;
     if (r.ok) d.mailbox.connected = true; else said = r.said ?? "That code isn't right.";
   }
-  // Gmail's confirmation code: looked for every few seconds once the email is proved, until it comes
+  // Gmail's confirmation code: looked for every few seconds once the email is proved, until it comes; Check again
+  // looks at once
+  let looking = $state(false);
+  async function lookCode() { looking = true; const c = await app.forwardGmailCode(); looking = false; if (c) gmailCode = c; }
   $effect(() => {
     if (picked !== 'forward' || !d.mailbox.connected || gmailCode) return;
-    let alive = true;
-    const look = async () => { const c = await app.forwardGmailCode(); if (alive && c) gmailCode = c; };
-    void look();
-    const t = setInterval(look, 5000);
-    return () => { alive = false; clearInterval(t); };
+    void lookCode();
+    const t = setInterval(lookCode, 5000);
+    return () => clearInterval(t);
   });
+  // our own forwarding address typed as the CAMS email
+  const ours = (e: string) => /@(mailback\.)?mfdinvoice\.co\.in\s*$/i.test(e);
   function copy(text: string) { void navigator.clipboard?.writeText(text); store.toast('Copied'); }
 </script>
 
@@ -79,8 +82,9 @@
       <span class="hint">A code goes to it, to show it's yours.</span></div>
     {#if !d.mailbox.connected}
       {#if !sent}
-        <div class="testrow"><button class="btn secondary" disabled={busy || !emailOk(d.mailbox.address)} onclick={sendCode}>Send me a code</button>
+        <div class="testrow"><button class="btn secondary" disabled={busy || !emailOk(d.mailbox.address) || ours(d.mailbox.address)} onclick={sendCode}>Send me a code</button>
           {#if busy}<span class="spin"></span>{/if}</div>
+        {#if ours(d.mailbox.address)}<span class="err">That's {NAME}'s address. Type the email CAMS sends your mailbacks to.</span>{/if}
       {:else}
         <div class="field"><label for="fc">The code from that email</label>
           <input id="fc" class="input mono" style="max-width:160px" inputmode="numeric" maxlength="6" bind:value={code} /></div>
@@ -90,13 +94,19 @@
       {#if said}<span class="err">{said}</span>{/if}
     {:else}
       <div class="testrow"><span class="okl">{@html icons.tickSm}{d.mailbox.address} is yours</span></div>
-      <div class="field"><span class="flabel">2. In Gmail: Settings › See all settings › Forwarding and POP/IMAP › Add a forwarding address</span>
-        <div class="testrow"><span class="mono">{FORWARD}</span><button class="btn ghost sm" onclick={() => copy(FORWARD)}>{@html icons.copy}Copy</button></div>
+      <div class="field"><span class="flabel">2. In Gmail, the filter for CAMS's mailbacks</span>
+        <span class="hint">In Gmail's search box: <span class="mono">from:donotreply@camsonline.com has:attachment</span> › the filter icon › Create filter › tick "Forward it to" › add forwarding address › paste this › Next › Proceed.</span>
+        <div class="testrow"><span class="mono">{FORWARD}</span><button class="btn ghost sm" onclick={() => copy(FORWARD)}>{@html icons.copy}Copy</button></div></div>
+      <div class="field"><span class="flabel">3. Gmail's code, to type in Gmail's Forwarding settings › Verify</span>
         {#if gmailCode}
-          <div class="testrow"><span>Gmail's code to type there: <b class="mono">{gmailCode}</b></span><button class="btn ghost sm" onclick={() => copy(gmailCode)}>{@html icons.copy}Copy</button></div>
-        {:else}<span class="hint"><span class="spin"></span> Gmail's code shows here once you've added the address.</span>{/if}</div>
-      <div class="field"><span class="flabel">3. Then the filter, so only CAMS's mails come</span>
-        <span class="hint">In Gmail's search box: <span class="mono">from:donotreply@camsonline.com</span> › the filter icon › Create filter › tick "Forward it to" ({FORWARD}) and "Never send it to Spam" › Create filter.</span></div>
+          <div class="testrow"><b class="mono">{gmailCode}</b><button class="btn ghost sm" onclick={() => copy(gmailCode)}>{@html icons.copy}Copy</button></div>
+        {:else}
+          <div class="testrow"><span class="hint"><span class="spin"></span> It shows here once Gmail sends it.</span>
+            <button class="btn ghost sm" disabled={looking} onclick={lookCode}>Check again</button></div>
+          <span class="hint">Not here after a minute? In Gmail's Forwarding settings, press Re-send email.</span>
+        {/if}</div>
+      <div class="field"><span class="flabel">4. Back to the filter</span>
+        <span class="hint">Search <span class="mono">from:donotreply@camsonline.com has:attachment</span> again › Create filter › tick "Forward it to" ({FORWARD}) and "Never send it to Spam" › Create filter. Leave Gmail's Forwarding on "Disable forwarding": the filter alone sends CAMS's mailbacks on.</span></div>
     {/if}
   </div>
 {:else if picked === 'gmail'}
