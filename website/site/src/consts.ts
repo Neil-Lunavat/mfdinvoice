@@ -94,18 +94,6 @@ export type Release = { version: string; date: string; size: string; sha256: str
   changes: { tag: 'New' | 'Better' | 'Fixed'; text: string }[] };
 export const RELEASES: Release[] = [
   /* ops/release.py writes the newest release here */
-  { version: '1.0.3', date: '4 October 2026', size: 'About 87 MB',
-    sha256: '93c2733977121ebb5d163d9127c913be71a06e2263c63a710562507ee3a00f80', note: 'Sign up on the website, a Tally step in setup, and a tidier Tally tab.',
-    changes: [{ tag: 'New', text: 'Sign up on the website, a Tally step in setup, and a tidier Tally tab.' }] },
-  { version: '1.0.2', date: '4 October 2026', size: 'About 87 MB',
-    sha256: '0e9ef665c4f59357ca17b535f8d3c03162f6ebae9cc74ee99087eaf4029f24e4', note: 'Sign up on the website, a Tally step in setup, and a tidier Tally tab.',
-    changes: [{ tag: 'New', text: 'Sign up on the website, a Tally step in setup, and a tidier Tally tab.' }] },
-  { version: '1.0.1', date: '4 October 2026', size: 'About 87 MB',
-    sha256: '70364775102beedf53d18cc9359244f5e4b498f0af782454a50cb7a6b1e49e64', note: 'Small fixes.',
-    changes: [{ tag: 'New', text: 'Small fixes.' }] },
-  { version: '1.0.0', date: '4 October 2026', size: 'About 87 MB',
-    sha256: '82763d73aff8609fa10eb1128f232d8699061b92b28d988453075113eeb5f8d3', note: 'The first release.',
-    changes: [{ tag: 'New', text: 'The first release.' }] },
 ];
 
 /* The app's current version, which is also the oldest that may run: an older app shows only Update now (the app reads

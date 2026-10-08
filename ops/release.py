@@ -1,7 +1,7 @@
 """Release the app that `client/packaging/build.py` just built.
 
     uv run --project client python ops/release.py "What is new, in one sentence"
-    uv run --project client python ops/release.py "..." --fixed "A second line" --better "A third"
+    uv run --project client python ops/release.py "..." --new "A second line" --better "A third" --fixed "A fourth"
 
 1. uploads `client/packaging/dist/MFDInvoice-Setup.exe` to the website's file store, replacing the one before
    (`bun run installer` in website/site: the live bucket)
@@ -37,6 +37,7 @@ def ts(text: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Upload the built installer and write the release into the website.")
     ap.add_argument("new", help="what is new, in one sentence: also the sentence on the app's update screen")
+    ap.add_argument("--new", dest="more", action="append", default=[], help="another line, tagged New")
     ap.add_argument("--better", action="append", default=[], help="another line, tagged Better")
     ap.add_argument("--fixed", action="append", default=[], help="another line, tagged Fixed")
     ap.add_argument("--no-upload", action="store_true", help="only write consts.ts (the installer is already up)")
@@ -62,7 +63,7 @@ def main() -> None:
             sys.exit("The upload failed. Nothing was written. Are you signed in? (bunx wrangler login)")
 
     today = date.today()
-    changes = [("New", a.new)] + [("Better", x) for x in a.better] + [("Fixed", x) for x in a.fixed]
+    changes = [("New", a.new)] + [("New", x) for x in a.more] + [("Better", x) for x in a.better] + [("Fixed", x) for x in a.fixed]
     entry = ("  { version: " + ts(built["version"]) + ", date: " + ts(f"{today.day} {MONTHS[today.month - 1]} {today.year}")
              + ", size: " + ts(f"About {round(built['bytes'] / 1e6)} MB") + ",\n    sha256: " + ts(built["sha256"])
              + ", note: " + ts(a.new) + ",\n    changes: ["
