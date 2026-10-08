@@ -73,17 +73,31 @@ async def dismiss_cookie_banner_when_seen(page: Page) -> None:
     await page.add_locator_handler(page.locator(C["cookie_essential"]), lambda b: b.click())
 
 
+async def _opens(page: Page, opener: Locator, inside: Locator, within_ms: int = 30_000) -> bool:
+    """Click a list open and wait for what it holds. A click that lands while the page is still loading its data is
+    swallowed: the list never opens, and a person would simply click again (8 Oct: CAMS's fund house list sat shut
+    until Neil clicked it). So does this: a list not open within 3 s is closed and clicked again, until `within_ms`."""
+    tries = max(1, within_ms // 3_000)
+    for i in range(tries):
+        await opener.click()
+        try:
+            await expect(inside).to_be_visible(timeout=3_000)
+            return True
+        except AssertionError:
+            if i + 1 < tries:
+                await page.keyboard.press("Escape")          # a list half open would swallow the next click
+                await page.wait_for_timeout(300)
+    return False
+
+
 async def mat_select_all(page: Page, select: str) -> int:
     """Open a multi mat-select, make sure every option is ticked, close it. Returns how many there were.
 
     'All Mutual Funds' is a custom option that toggles, so clicking it when everything is already selected would clear
     the lot. Hence the count check and not an unconditional click.
     """
-    await page.locator(select).click()
     options = page.locator(C["mat_option"])
-    try:
-        await seen(options.first, 30_000)
-    except Changed:
+    if not await _opens(page, page.locator(select), options.first):
         raise missing(C["mat_option"], "the fund house list did not open") from None
     total = await options.count()
     if await page.locator(C["mat_option_selected"]).count() != total:
@@ -99,8 +113,10 @@ async def ng_pick(page: Page, select: str, option: str) -> None:
     copies of the same control, and filling one of those silently does nothing."""
     pattern = re.compile(rf"^\s*{re.escape(str(option))}\s*$")
     box = page.locator(select).filter(visible=True).first
-    await box.locator(C["ng_container"]).click()
-    await page.locator(C["ng_option"]).filter(has_text=pattern).click()
+    choice = page.locator(C["ng_option"]).filter(has_text=pattern)
+    if not await _opens(page, box.locator(C["ng_container"]), choice.first):
+        raise missing(C["ng_option"], f"the list holding {option!r} did not open")
+    await choice.first.click()
     await expect(box.locator(C["ng_value"])).to_have_text(pattern)
 
 
