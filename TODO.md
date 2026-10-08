@@ -14,10 +14,9 @@ are in `IDEAS.md`. Delete a line when it is done, a section when it is empty.
 - [x] Forwarding, proven live 8 Oct: Email Routing on `mailback.` (the apex's MX at Hostinger untouched); Gmail's
       confirmation (a link now, opened by Confirm in Gmail); CAMS → pritamutha@ → neillunavat3192@ → us → September's
       10 invoices read in by themselves; the filter forwards nothing else.
-- [ ] Neil writes the first release notes.
-- [ ] Publish the steps (`ops/automation.py publish`, `cd server && bun run deploy`): without them the built software
-      does no portal work.
-- [ ] Version 1.0.0, `uv lock`, build, `ops/release.py`, deploy the website.
+- [x] The first release notes, Neil's (`ops/release-1.0.0.sh`).
+- [x] Steps 2026.10.08.1056 published and live.
+- [x] 1.0.0 released 8 Oct (installer up, the website deployed with one PC per account and the emails' logo).
 
 ## The partner's PC, a fresh slate
 
