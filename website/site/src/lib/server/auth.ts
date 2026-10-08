@@ -63,12 +63,9 @@ export async function requestCode(req: Request, email: string) {
   }
 }
 
-/* Checks a code and returns the account (a new account for a new email), with delete_after if its deletion is
-   pending. A waiting gift for this email starts here (gifts.ts), for the site and the app alike. gift_revoked: this
-   sign-in made the account, and the email had a gift that was revoked before it was used (the page says it expired).
-   deleted_by: this sign-in made the account, and the email had one before that was deleted: 'buyer' or an admin.
-   Errors: wrong (tries_left), locked (three wrong tries), expired (no live code). */
-export async function verifyCode(req: Request, email: string, code: unknown): Promise<{ id: number; delete_after: string | null; gift_until: string | null; gift_revoked: boolean; deleted_by: string | null }> {
+/* The check alone: throws as verifyCode does (bad_code, expired, locked, wrong; a wrong try is counted), but a right
+   code is not used up. The app's "this account is on another PC" question uses it, then the same code is sent again. */
+export async function checkCode(req: Request, email: string, code: unknown): Promise<Code> {
   if (typeof code !== 'string' || !/^\d{6}$/.test(code)) throw new HttpError(fail(400, 'bad_code'));
   await hit('try:' + ip(req), IP_TRIES_PER_HOUR);
   const c = await latestCode(email);
@@ -79,6 +76,16 @@ export async function verifyCode(req: Request, email: string, code: unknown): Pr
     const left = r ? r.tries_left : 0;
     throw new HttpError(fail(400, left ? 'wrong' : 'locked', { tries_left: left }));
   }
+  return c;
+}
+
+/* Checks a code and returns the account (a new account for a new email), with delete_after if its deletion is
+   pending. A waiting gift for this email starts here (gifts.ts), for the site and the app alike. gift_revoked: this
+   sign-in made the account, and the email had a gift that was revoked before it was used (the page says it expired).
+   deleted_by: this sign-in made the account, and the email had one before that was deleted: 'buyer' or an admin.
+   Errors: wrong (tries_left), locked (three wrong tries), expired (no live code). */
+export async function verifyCode(req: Request, email: string, code: unknown): Promise<{ id: number; delete_after: string | null; gift_until: string | null; gift_revoked: boolean; deleted_by: string | null }> {
+  const c = await checkCode(req, email, code);
   /* spend the code: only one request can */
   const used = await env.DB.prepare('UPDATE codes SET used_at = ? WHERE id = ? AND used_at IS NULL AND tries_left > 0').bind(now(), c.id).run();
   if (!used.meta.changes) throw new HttpError(fail(400, 'expired'));
@@ -96,24 +103,38 @@ export async function verifyCode(req: Request, email: string, code: unknown): Pr
 }
 
 /* A new session. Returns the raw token (the only time it exists outside the hash). */
-export async function newSession(accountId: number, kind: 'web' | 'app', life: number) {
+export async function newSession(accountId: number, kind: 'web' | 'app', life: number, device: string | null = null) {
   const t = token();
-  await env.DB.prepare('INSERT INTO sessions (hash, account_id, kind, created_at, expires_at, last_seen) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(await sha256(t), accountId, kind, now(), later(life), now()).run();
+  await env.DB.prepare('INSERT INTO sessions (hash, account_id, kind, created_at, expires_at, last_seen, device) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(await sha256(t), accountId, kind, now(), later(life), now(), device).run();
   return t;
 }
 
-export type Session = { id: number; account_id: number; email: string; kind: 'web' | 'app'; expires_at: string; last_seen: string; delete_after: string | null };
+/* The app sessions of an account that are alive (not expired, not ended), the most recently used first. One PC per
+   account: normally one. */
+export const liveAppSessions = (accountId: number) =>
+  env.DB.prepare("SELECT device, last_seen FROM sessions WHERE account_id = ? AND kind = 'app' AND ended_at IS NULL AND expires_at > ? ORDER BY last_seen DESC")
+    .bind(accountId, now()).all<{ device: string | null; last_seen: string }>().then(r => r.results);
+
+/* Ends every live app session of the account (another PC signed in): kept, marked, until they expire. */
+export const endAppSessions = (accountId: number, by: string | null) =>
+  env.DB.prepare("UPDATE sessions SET ended_at = ?, ended_by = ? WHERE account_id = ? AND kind = 'app' AND ended_at IS NULL AND expires_at > ?")
+    .bind(now(), by, accountId, now()).run();
+
+export type Session = { id: number; account_id: number; email: string; kind: 'web' | 'app'; expires_at: string; last_seen: string; ended_at: string | null; ended_by: string | null; delete_after: string | null };
 
 /* An account whose deletion is pending has no usable session (pending: true finds it anyway, for "Keep my account"). */
 export async function findSession(t: string | null, kind: 'web' | 'app', pending = false): Promise<Session | null> {
   if (!t || t.length > 100) return null;
   const s = await env.DB.prepare(
-    `SELECT s.id, s.account_id, s.kind, s.expires_at, s.last_seen, a.email, a.delete_after FROM sessions s JOIN accounts a ON a.id = s.account_id
+    `SELECT s.id, s.account_id, s.kind, s.expires_at, s.last_seen, s.ended_at, s.ended_by, a.email, a.delete_after FROM sessions s JOIN accounts a ON a.id = s.account_id
      WHERE s.hash = ? AND s.kind = ? AND s.expires_at > ?${pending ? '' : ' AND a.delete_after IS NULL'}`).bind(await sha256(t), kind, now()).first<Session>();
   if (!s) return null;
-  /* the app's token stays alive while the app is used: a year from its last use (checked at most daily) */
-  if (Date.now() - Date.parse(s.last_seen) > (kind === 'app' ? DAY : HOUR))
+  /* a token that another PC signed out: every /api/app/* route (and the download) answers this, once, here */
+  if (s.ended_at) throw new HttpError(fail(401, 'signed_in_elsewhere', { device: s.ended_by }));
+  /* the app's token stays alive while the software is used: a year from its last use. last_seen is the PC's "last
+     used", so it is written at most hourly */
+  if (Date.now() - Date.parse(s.last_seen) > HOUR)
     await env.DB.prepare(`UPDATE sessions SET last_seen = ?${kind === 'app' ? ', expires_at = ?' : ''} WHERE id = ?`)
       .bind(...(kind === 'app' ? [now(), later(APP_LIFE), s.id] : [now(), s.id])).run();
   return s;

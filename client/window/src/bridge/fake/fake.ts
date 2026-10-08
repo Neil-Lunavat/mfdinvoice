@@ -130,7 +130,8 @@ export class FakeApp implements App {
       fy: '2026-27',
       run: this.run && c ? { run: this.run.id, registrars: this.run.registrars, startedAt: new Date(this.run.started).toISOString(), what: this.run.what, period: this.run.period } : null,
       clash: this.clash,
-      deleting: ''
+      deleting: '',
+      elsewhere: ''
     };
   }
 
@@ -153,8 +154,10 @@ export class FakeApp implements App {
     return { ok: true as const };
   }
 
-  async verifyCode(email: string, code: string) {
+  async verifyCode(email: string, code: string, replace = false) {
     await sleep(700);
+    // other@…: the account is on another PC until the question is answered with "Sign it out and sign in here"
+    if (/^other@/i.test(email.trim()) && !replace) return { ok: false as const, reason: 'other_pc' as const, left: 0, deleteAfter: '', device: 'DESKTOP-4K2P', lastSeen: new Date(Date.now() - 2 * 3600_000).toISOString() };
     if (/^gone@/i.test(email.trim())) return { ok: false as const, reason: 'pending_deletion' as const, left: 0, deleteAfter: `${D.TODAY}T18:30:00` };
     if (code === '000000') {
       const left = --this.codeTries;

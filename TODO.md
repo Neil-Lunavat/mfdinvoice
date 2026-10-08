@@ -10,7 +10,7 @@ are in `IDEAS.md`. Delete a line when it is done, a section when it is empty.
       order, receipt, events, answers, trial, deletion. Receipt numbers start again at 1.
 - [x] The keys backed up: `Desktop\MFDInvoice-keys\` (automation.key, server-admin.key, zoho.json, a README). Neil
       moves it somewhere safe.
-- [ ] One PC per account (`CLAUDE.md`, Accounts): decided 8 Oct, being built. Website and software.
+- [x] One PC per account (`CLAUDE.md`, Accounts): built 8 Oct, website and software; live with the next deploy.
 - [x] Forwarding, proven live 8 Oct: Email Routing on `mailback.` (the apex's MX at Hostinger untouched); Gmail's
       confirmation (a link now, opened by Confirm in Gmail); CAMS → pritamutha@ → neillunavat3192@ → us → September's
       10 invoices read in by themselves; the filter forwards nothing else.

@@ -46,6 +46,7 @@ export interface Snapshot {
   plan: Plan | null;               // what the account's plan says, as the website last said it; null before it has
   survey?: SurveyAsk | null;       // a survey written in the panel, asked on Overview until answered or closed
   deleting: string;                // signed out because the account's deletion was asked for: the ISO time it goes; else ''
+  elsewhere: string;               // signed out because the account signed in on another PC: that PC's name; else ''
 }
 
 /** The account's plan, from the website. 'unknown' is the website giving no answer just now, never "no plan".
@@ -428,7 +429,7 @@ export type DetailsPatch = Partial<Omit<ProfileDraft, 'arn' | 'consent' | 'ticks
 
 /** Every answer the website gives to sign-in, in its own code (`website/site/API.md`); `unreachable`: no answer. */
 export type CodeRefusal = 'bad_email' | 'no_account' | 'wait' | 'locked' | 'too_many_codes' | 'send_failed' | 'unreachable';
-export type VerifyRefusal = 'bad_email' | 'bad_code' | 'wrong' | 'locked' | 'expired' | 'pending_deletion' | 'unreachable';
+export type VerifyRefusal = 'bad_email' | 'bad_code' | 'wrong' | 'locked' | 'expired' | 'pending_deletion' | 'other_pc' | 'unreachable';
 
 export type Link = 'site' | 'signup' | 'status' | 'billing' | 'help';
 
@@ -440,7 +441,8 @@ export interface App {
 
   // sign in, with the website (wait: seconds before another code may be sent; left: tries; deleteAfter: ISO time)
   sendCode(email: string): Promise<{ ok: true } | { ok: false; reason: CodeRefusal; wait: number }>;
-  verifyCode(email: string, code: string): Promise<{ ok: true } | { ok: false; reason: VerifyRefusal; left: number; deleteAfter: string }>;
+  /** `replace`: the account is signed in on another PC (`other_pc`, with its `device` and `lastSeen`) and the person chose to sign it out. */
+  verifyCode(email: string, code: string, replace?: boolean): Promise<{ ok: true } | { ok: false; reason: VerifyRefusal; left: number; deleteAfter: string; device?: string; lastSeen?: string }>;
   /** Sign out of this PC; `remove`: also take the passwords and the signature off it. */
   signOut(remove: boolean): Promise<void>;
 

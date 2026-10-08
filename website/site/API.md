@@ -23,13 +23,19 @@ Send it as `Authorization: Bearer <token>`. Don't send an `Origin` header (if on
 - `502 send_failed`: the email couldn't be sent; try again
 
 ### `POST /api/app/verify`
-`{ "email": "a@b.com", "code": "123456", "version": "1.0.0", "device": "DESKTOP-4K2P" }` → `200 { "token": "<43 chars>", "email": "a@b.com" }`.
+`{ "email": "a@b.com", "code": "123456", "version": "1.0.0", "device": "DESKTOP-4K2P", "replace": false }` → `200 { "token": "<43 chars>", "email": "a@b.com" }`.
 Keep the token; it is shown once. `version` (the app's) and `device` (the PC's name) are optional; they show in the
-account's activity in the admin panel.
+account's activity in the admin panel; `device` is also kept on the session.
+
+One PC per account. If the account is already signed in on a PC and `replace` is not `true`, a right code answers
+`409 other_pc` and is **not used up**: send the same code again with `"replace": true` to sign the other PC out
+and this one in, or send nothing (the code still expires after its 10 minutes). A wrong code is wrong as ever.
 - `400 bad_email`, `400 bad_code` (not six digits)
 - `400 wrong` `{ tries_left: 1|2 }`
 - `400 locked`: three wrong tries; send a new code (after `wait`, see above)
 - `400 expired`: no live code for this email (expired, used, or replaced by a newer one); send a new code
+- `409 other_pc` `{ device, last_seen }`: the account is signed in on that PC (`device` is null for a session
+  that gave no name; say "another PC"), last used at `last_seen` (ISO time, written at most hourly).
 - `409 pending_deletion` `{ delete_after }`: the person asked on the website to delete this account, and it will be
   deleted after `delete_after` (ISO time, about a day after they asked). No token is given. Signing in on the website
   before then lets them keep it; tell them so.
@@ -38,8 +44,13 @@ A gift (a free plan given to an email) starts when that email signs in here or o
 shows it with `source: "grant"`. The free trial starts when the app binds the account's first ARN
 (`/api/app/bind`); it then shows with `source: "trial"`.
 
+**Every route below** (and `/api/download`) answers `401 signed_in_elsewhere` `{ device }` for a token that another PC
+signed out by signing in with `replace: true` (`device`: that PC's name, or null). Treat it as `bad_token`, and tell
+the person which PC took the account.
+
 ### `POST /api/app/signout`
-Bearer token, no body needed (send `{}`) → `200 { "ok": true }`. The token stops working. Always 200.
+Bearer token, no body needed (send `{}`) → `200 { "ok": true }`. The token stops working. Always 200, also for a token
+another PC signed out.
 
 ### `GET /api/app/me`
 Bearer token →

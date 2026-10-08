@@ -48,8 +48,8 @@ export class RealApp implements App {
   }
 
   sendCode(email: string) { return this.call<{ ok: true } | { ok: false; reason: CodeRefusal; wait: number }>('sendCode', email); }
-  verifyCode(email: string, code: string) {
-    return this.call<{ ok: true } | { ok: false; reason: VerifyRefusal; left: number; deleteAfter: string }>('verifyCode', email, code);
+  verifyCode(email: string, code: string, replace = false) {
+    return this.call<{ ok: true } | { ok: false; reason: VerifyRefusal; left: number; deleteAfter: string; device?: string; lastSeen?: string }>('verifyCode', email, code, replace);
   }
   signOut(remove: boolean) { return this.call<void>('signOut', remove); }
   activateTrial() { return this.call<Result>('activateTrial'); }

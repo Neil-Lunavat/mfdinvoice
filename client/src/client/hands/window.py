@@ -264,7 +264,10 @@ class Window:
             local.put(self.store, "survey", got.get("survey") or None)      # the live survey, asked on Overview
         elif got["reason"] == "bad_token":
             self.condition = "normal"
-            self._signed_out()
+            if site.elsewhere is None:
+                self._signed_out()
+            else:
+                await self._elsewhere()
         else:
             self.condition = "down" if await asyncio.to_thread(_internet) else "offline"
             local.put(self.store, "licence", {"state": "unknown", "checkedAt": local.note_now()})
@@ -407,6 +410,7 @@ class Window:
             "plan": self._plan_view() if acct else None,
             "survey": (local.get(self.store, "survey") or None) if acct else None,
             "deleting": "" if acct else (local.get(self.store, "deleting") or ""),
+            "elsewhere": "" if acct else (local.get(self.store, "elsewhere") or ""),
             "arns": [{"arn": a, "name": q.get("name", ""), "status": status if a == self.selected() else
                       "Not submitted", "rejected": rejected if a == self.selected() else 0}
                      for a, q in self.profiles().items()],
@@ -486,14 +490,18 @@ class Window:
     async def send_code(self, email: str) -> dict:
         return await asyncio.to_thread(site.send_code, email.strip())
 
-    async def verify_code(self, email: str, code: str) -> dict:
-        got = await asyncio.to_thread(site.verify, email.strip(), code.strip(), APP_VERSION, platform.node()[:60])
+    async def verify_code(self, email: str, code: str, replace: bool = False) -> dict:
+        """The code. `other_pc` comes back when the account is signed in on another PC and the code is still good: the
+        window asks, and sends the same code again with `replace` to sign that PC out."""
+        got = await asyncio.to_thread(site.verify, email.strip(), code.strip(), APP_VERSION, platform.node()[:60], replace)
         if not got["ok"]:
             return got
         self.store.put_secret(TOKEN, got["token"])
         local.put(self.store, "account", {"email": got["email"]})
         local.put(self.store, "licence", None)
         local.put(self.store, "deleting", None)
+        local.put(self.store, "elsewhere", None)
+        site.elsewhere = None
         self._log(f"Signed in as {got['email']}")
         await self.read_plan()
         return {"ok": True}
@@ -502,6 +510,7 @@ class Window:
         """The survey on Overview: its answers, or its X (`answers` None). Either way it is not asked again."""
         token = self.token()
         sent = bool(token) and await asyncio.to_thread(site.survey_reply, token, int(survey_id), answers)
+        await self._elsewhere()
         if sent:
             local.put(self.store, "survey", None)
             await self.changed()
@@ -528,6 +537,18 @@ class Window:
         self._log("Signed out of this PC" + (", and removed the passwords and signature" if remove else ""))
         await self.changed()
 
+    async def _elsewhere(self) -> None:
+        """Another PC signed this account in (a website call answered `signed_in_elsewhere`): this PC is signed out, as
+        for a `bad_token`, and remembers which PC took it for the sign-in screen. A run, check or download going on
+        finishes first; `_drive` calls this again when it ends. Nothing else on the PC is touched."""
+        if site.elsewhere is None or self._task is not None:
+            return
+        device, site.elsewhere = site.elsewhere or "another PC", None
+        local.put(self.store, "elsewhere", device)
+        self._signed_out()
+        self._log(f"Signed out: this account signed in on {device}")
+        await self.changed()
+
     def _signed_out(self) -> None:
         self.store.put_secret(TOKEN, None)
         local.put(self.store, "account", None)
@@ -548,6 +569,7 @@ class Window:
             return {"ok": True}
         got = await asyncio.to_thread(site.bind, self.token(), p["arn"], p.get("name") or p["arn"])
         if not got["ok"]:
+            await self._elsewhere()
             return {"ok": False, "said": BIND_SAID.get(got["reason"], UNREACHABLE)}
         self._log(f"Activated the free trial for {p['arn']}" if got["trial_until"] else f"Added {p['arn']} to the plan")
         await self.read_plan()
@@ -561,6 +583,7 @@ class Window:
             return {"ok": True}
         got = await asyncio.to_thread(site.bind, self.token(), arn, p.get("name") or arn)
         if not got["ok"]:
+            await self._elsewhere()
             return {"ok": False, "said": BIND_SAID.get(got["reason"], UNREACHABLE)}
         p.pop("bindOnRun", None)
         p.pop("bindAsked", None)
@@ -868,6 +891,7 @@ class Window:
         if state == "active" and not bind_on_run:
             got = await asyncio.to_thread(site.bind, self.token(), arn, draft["name"].strip() or arn)
             if not got["ok"]:
+                await self._elsewhere()
                 return {"ok": False, "said": BIND_SAID.get(got["reason"], UNREACHABLE)}
         self._keep_signature(arn, draft["signature"])
         # The credentials go into the vault, as the ones being worked on (the KFintech pair is already there from the
@@ -1347,6 +1371,7 @@ class Window:
         log.info("the %s for %s ended after %ss: %s", what, period, seconds,
                  {k: v for k, v in out.items() if k != "stop"} | {"stop": (out.get("stop") or {}).get("kind")})
         await self._ended(run, what, period, out, host, seconds)
+        await self._elsewhere()
 
     async def _downloads(self, auto, host: Host, run: str, periods: list[str], registrars: list[str]) -> dict:
         """Several months' downloads in one go, one after another: the portals stay signed in between them. A month

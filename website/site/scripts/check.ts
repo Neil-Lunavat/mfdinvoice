@@ -210,7 +210,7 @@ async function appToken(id: number) {
   const app = new Client('site', freshIp()), mark = LOG.length;
   await app.post('/api/app/code', { email });
   const code = (await mailTo(email, mark, /is your/))!.subject.slice(0, 6);
-  const token = (await app.post('/api/app/verify', { email, code })).json.token as string;
+  const token = (await app.post('/api/app/verify', { email, code, replace: true })).json.token as string;
   appTokens.set(id, token);
   return token;
 }
@@ -433,7 +433,7 @@ async function main() {
     const app = new Client('site', freshIp()), mark = LOG.length;
     await app.post('/api/app/code', { email: 'buyer@check.test' });
     const code = (await mailTo('buyer@check.test', mark, /is your/))!.subject.slice(0, 6);
-    const tok = (await app.post('/api/app/verify', { email: 'buyer@check.test', code })).json.token;
+    const tok = (await app.post('/api/app/verify', { email: 'buyer@check.test', code, replace: true })).json.token;
     const dl = await new Client('site', freshIp()).get('/api/download', { authorization: `Bearer ${tok}` });
     expect(dl.status === 503 && dl.json.error === 'installer_missing', `download: ${dl.status}`);
     const bad = await new Client('site', freshIp()).get('/api/download', { authorization: 'Bearer nope' });
@@ -646,7 +646,7 @@ async function main() {
       await app.req('POST', '/api/app/code', { email: 'del2@check.test' });
       return (await mailTo('del2@check.test', mark, /is your/))!.subject.slice(0, 6);
     };
-    const token = (await app.req('POST', '/api/app/verify', { email: 'del2@check.test', code: await appCode() })).json.token;
+    const token = (await app.req('POST', '/api/app/verify', { email: 'del2@check.test', code: await appCode(), replace: true })).json.token;
     const me = () => new Client('site', freshIp()).get('/api/app/me', { authorization: `Bearer ${token}` });
     expect((await me()).status === 200, 'the app’s token doesn’t work before');
     await c.post('/api/account/delete', { confirm: 'DELETE MY ACCOUNT' });
@@ -724,6 +724,35 @@ async function main() {
     const m = await mailTo('buyer@check.test', mark2, /A copy of your data/);
     expect(m && m.text.includes('-data.json') && m.text.includes('MFDI/'), 'no data email with the JSON and the receipt');
     return /"status":\s*"solved"/.test(sql(`SELECT status FROM requests WHERE id = ${r.json.id}`)) ? true : 'not solved';
+  });
+  await check('one PC per account: a second PC gets 409 other_pc, the same code works with replace, the first token is signed_in_elsewhere', async () => {
+    const email = 'onepc@check.test';
+    await signIn(email);
+    const app = new Client('site', freshIp());
+    const newCode = async () => {
+      sql(`UPDATE codes SET created_at = '2020-01-01T00:00:00.000Z' WHERE email = '${email}'`);
+      const mark = LOG.length;
+      await app.req('POST', '/api/app/code', { email });
+      return (await mailTo(email, mark, /is your/))!.subject.slice(0, 6);
+    };
+    const verify = (code: string, device: string, replace?: boolean) => new Client('site', freshIp()).req('POST', '/api/app/verify', { email, code, device, replace });
+    const first = await verify(await newCode(), 'PC-ONE');
+    expect(first.status === 200 && first.json.token, `first PC: ${first.text}`);
+    const me = (t: string) => new Client('site', freshIp()).get('/api/app/me', { authorization: `Bearer ${t}` });
+    const code = await newCode();
+    const wrong = await verify(code === '000000' ? '111111' : '000000', 'PC-TWO');
+    expect(wrong.status === 400 && wrong.json.error === 'wrong', `a wrong code: ${wrong.text}`);
+    const ask = await verify(code, 'PC-TWO');
+    expect(ask.status === 409 && ask.json.error === 'other_pc' && ask.json.device === 'PC-ONE' && ask.json.last_seen, `second PC: ${ask.text}`);
+    expect((await me(first.json.token)).status === 200, 'the first PC was signed out by the question alone');
+    const again = await verify(code, 'PC-TWO', true);
+    expect(again.status === 200 && again.json.token, `replace with the same code: ${again.text}`);
+    expect((await verify(code, 'PC-TWO', true)).status === 400, 'the code was used twice');
+    const dead = await me(first.json.token);
+    expect(dead.status === 401 && dead.json.error === 'signed_in_elsewhere' && dead.json.device === 'PC-TWO', `first token: ${dead.text}`);
+    const out = await new Client('site', freshIp()).req('POST', '/api/app/signout', {}, { authorization: `Bearer ${first.json.token}` });
+    expect(out.status === 200, `signout with an ended token: ${out.status}`);
+    return (await me(again.json.token)).status === 200 ? true : 'the new PC’s token does not work';
   });
   await check('survey: written in the panel, sent live, asked by /api/app/me, answered once, closed with the X, results in the panel', async () => {
     await signIn('survey1@check.test'); await signIn('survey2@check.test');

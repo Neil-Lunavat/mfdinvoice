@@ -5,7 +5,7 @@
      website gives is said in its own words. */
   import { onDestroy, onMount } from 'svelte';
   import { app, type CodeRefusal, type VerifyRefusal } from '../bridge';
-  import { dayMonYear, hhmm, maskEmail } from '../logic/format';
+  import { ago, dayMonYear, hhmm, maskEmail } from '../logic/format';
   import { emailOk } from '../logic/validate';
   import { store } from '../state/store.svelte';
   import { ui } from '../state/ui.svelte';
@@ -26,6 +26,11 @@
   // this PC's sign-in ended by the deletion (Snapshot.deleting).
   let deleting = $state(store.snap?.deleting ?? '');
   $effect(() => { if (store.snap?.deleting) deleting = store.snap.deleting; });
+  // other_pc: the account is signed in on another PC; the code is still good and is sent again if the person agrees.
+  let other = $state<{ device: string; lastSeen: string } | null>(null);
+  // this PC was signed out because the account signed in on another (Snapshot.elsewhere): that PC's name.
+  let elsewhere = $state(store.snap?.elsewhere ?? '');
+  $effect(() => { if (store.snap?.elsewhere) elsewhere = store.snap.elsewhere; });
   let shake = $state(false);
   let resendIn = $state(45);
   let boxes: HTMLInputElement[] = $state([]);
@@ -65,7 +70,7 @@
     if (!r.ok && r.reason !== 'wait' && r.reason !== 'locked') { emailErr = SEND_SAID[r.reason]; return; }
     sentTo = to;
     digits = ['', '', '', '', '', ''];
-    locked = false; deleting = '';
+    locked = false; deleting = ''; other = null; elsewhere = '';
     if (r.ok) { hint = { text: HINT, bad: false }; countdown(); }
     else if (r.reason === 'wait') { hint = { text: `A code was sent a moment ago and still works. ${HINT}`, bad: false }; countdown(r.wait); }
     else { locked = true; hint = { text: `The last code had three wrong tries. You can send a new one in ${clock(r.wait)}.`, bad: true }; countdown(r.wait); }
@@ -80,21 +85,23 @@
       case 'bad_code': return HINT;
       case 'bad_email': return "That email doesn't look right.";
       case 'unreachable': return `${NAME} can't reach its website right now. Try again in a minute.`;
-      case 'pending_deletion': return '';
+      case 'pending_deletion': case 'other_pc': return '';
     }
   }
 
-  async function signIn() {
-    if (!canSignIn) return;
+  async function signIn(replace = false) {
+    if (!replace && !canSignIn) return;
     busy = true;
-    const r = await app.verifyCode(sentTo, code);
+    const r = await app.verifyCode(sentTo, code, replace);
     busy = false;
     if (r.ok) {
+      other = null;
       const s = store.snap;
       if (s?.arns.length) ui.go('overview'); else ui.startSetup(false);
       return;
     }
     if (r.reason === 'pending_deletion') { deleting = r.deleteAfter; return; }
+    if (r.reason === 'other_pc') { other = { device: r.device || 'another PC', lastSeen: r.lastSeen ?? '' }; return; }
     shake = true; setTimeout(() => (shake = false), 320);
     if (r.reason !== 'unreachable') digits = ['', '', '', '', '', ''];
     locked = r.reason === 'locked' || r.reason === 'expired';
@@ -121,7 +128,7 @@
     (boxes[t.length] ?? boxes[5]).focus();
   }
   function different() {
-    sentTo = ''; digits = ['', '', '', '', '', '']; locked = false; deleting = ''; hint = { text: HINT, bad: false };
+    sentTo = ''; digits = ['', '', '', '', '', '']; locked = false; deleting = ''; other = null; hint = { text: HINT, bad: false };
     setTimeout(() => emailField?.focus());
   }
   async function resend() {
@@ -141,7 +148,18 @@
         Sign in on the website before then to keep it.</div>
         <button class="btn secondary sm" onclick={() => app.open('billing')}>Open the website</button></div>
     {/if}
-    {#if !sentTo}
+    {#if elsewhere && !sentTo}
+      <div class="banner bad" role="alert"><div><b>Signed out:</b> this account signed in on {elsewhere}.</div></div>
+    {/if}
+    {#if other}
+      <div class="enter">
+        <h2>This account is signed in on {other.device}</h2>
+        {#if other.lastSeen}<p class="sub">Last used {ago(other.lastSeen)}</p>{/if}
+      </div>
+      <button class="btn primary lg" data-primary disabled={busy} onclick={() => signIn(true)}>
+        {#if busy}<span class="spin" style="border-color:rgba(255,255,255,.35);border-top-color:#fff"></span>Signing in{:else}Sign it out and sign in here{/if}</button>
+      <button class="btn secondary lg" disabled={busy} onclick={different}>Keep it there</button>
+    {:else if !sentTo}
       <div class="field">
         <label for="email">Email</label>
         <input id="email" bind:this={emailField} class="input" type="email" autocomplete="off" placeholder="you@example.com" class:bad={!!emailErr || noAccount}
@@ -164,11 +182,11 @@
         <p class="resend">{#if resendIn > 0}Resend code in <span class="mono">{clock(resendIn)}</span>{:else}<a href="#resend" onclick={e => { e.preventDefault(); resend(); }}>Resend code</a>{/if}</p>
       </div>
     {/if}
-    {#if !sentTo}
+    {#if other}{:else if !sentTo}
       <button class="btn primary lg" data-primary disabled={!canSend} onclick={send}>
         {#if busy}<span class="spin" style="border-color:rgba(255,255,255,.35);border-top-color:#fff"></span>Sending{:else}Send code{/if}</button>
     {:else}
-      <button class="btn primary lg" data-primary disabled={!canSignIn} onclick={signIn}>
+      <button class="btn primary lg" data-primary disabled={!canSignIn} onclick={() => signIn()}>
         {#if busy}<span class="spin" style="border-color:rgba(255,255,255,.35);border-top-color:#fff"></span>Signing in{:else}Sign in{/if}</button>
     {/if}
   </div>

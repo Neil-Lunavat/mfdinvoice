@@ -28,6 +28,19 @@ export const dayMonYear = (iso: string) => { const d = parse(iso); return `${day
 /** "3 October" */
 export const dayMonth = (iso: string) => { const d = parse(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
 /** "09:12" */
+/** How long ago, in a few words: "just now", "5 minutes ago", "2 hours ago", "yesterday", "3 days ago", else the date. */
+export function ago(iso: string, now = Date.now()) {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  const m = Math.max(0, Math.round((now - t) / 60_000));
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} ${m === 1 ? 'minute' : 'minutes'} ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} ${h === 1 ? 'hour' : 'hours'} ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'yesterday';
+  return d < 14 ? `${d} days ago` : dayMonYear(new Date(t).toISOString());
+}
 export const hhmm = (iso: string) => { const d = parse(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 export const monthName = (iso: string) => MONTHS[parse(iso).getMonth()];
 
