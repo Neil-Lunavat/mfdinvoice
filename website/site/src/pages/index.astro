@@ -281,7 +281,6 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
 .win{position:relative;margin-top:64px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sheet);box-shadow:var(--e-sheet);overflow:hidden;font-size:14px;line-height:1.55;text-align:left}
 .win-bar{height:36px;display:flex;align-items:center;gap:8px;padding-left:12px;border-bottom:1px solid var(--line-2);background:var(--subtle);font-size:12.5px;font-weight:500;color:var(--ink-2)}
 .win-bar .mark{width:16px;height:16px;border-radius:5px}
-.win-bar .mark svg{width:10px;height:10px}
 .win-ctl{margin-left:auto;display:flex}
 .win-ctl i{width:44px;height:36px;display:grid;place-items:center;color:var(--muted)}
 .win .spin{width:18px;height:18px;border:2px solid var(--blue-line);border-top-color:var(--blue);flex-shrink:0}
@@ -289,7 +288,6 @@ const lock = '<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" 
 .side{border-right:1px solid var(--line);background:var(--surface);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
 .side-brand{display:flex;align-items:center;gap:9px;padding:2px 8px 12px;font-size:14px;font-weight:600}
 .side-brand .mark{width:22px;height:22px;border-radius:6px}
-.side-brand .mark svg{width:13px;height:13px}
 .arnpick{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;background:var(--subtle)}
 .arnpick b{display:block;font-family:var(--mono);font-size:12px;font-weight:600}
 .arnpick span{font-size:11.5px;color:var(--muted)}
@@ -431,7 +429,6 @@ table.inv .num{text-align:right}
 .cmp .us{color:var(--ink);font-weight:600;border-bottom-color:var(--line-2)}
 .cmp .us.hd{color:var(--blue);gap:9px;font-weight:600}
 .cmp .us.hd .mark{width:20px;height:20px;border-radius:6px}
-.cmp .us.hd .mark svg{width:12px;height:12px}
 .cmp > .bg{position:absolute;top:-20px;bottom:-20px;right:0;width:21.1%;z-index:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--e-sheet);transition:box-shadow 600ms var(--ease) 900ms}
 /* ours: a blue line sweeps round it the first time the table comes into view, and it lifts (as .way.us on a phone) */
 .cmp > .bg::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;background:conic-gradient(from 200deg,var(--blue) var(--sweep),transparent 0);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;transition:--sweep 1100ms var(--ease) 300ms}
@@ -460,7 +457,6 @@ table.inv .num{text-align:right}
   .way.us.in{box-shadow:var(--e-sheet),0 0 0 5px rgba(29,78,216,.08)}
   .way.us h3{color:var(--blue)}
   .way.us h3 .mark{width:20px;height:20px;border-radius:6px}
-  .way.us h3 .mark svg{width:12px;height:12px}
   .way.us dd{color:var(--ink);font-weight:600}
 }
 
