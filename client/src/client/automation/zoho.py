@@ -34,7 +34,7 @@ from pathlib import Path
 
 from client.automation import numbering, words
 from client.automation.month import Month
-from client.automation.tally import (OURS, SUBMITTED, D, Off, Refused, _load, _money, _now, _when, _write, gstin_ok)
+from client.automation.tally import (OURS, _typed_next, SUBMITTED, D, Off, Refused, _load, _money, _now, _when, _write, gstin_ok)
 from client.automation.words import CAMS, NAMES
 
 log = logging.getLogger(__name__)
@@ -491,12 +491,37 @@ class Session:
         return numbering.highest([str(i["invoice_number"]) for i in live], sample, at) if at >= 0 else ""
 
     def _first_of_year(self) -> str:
+        """The first invoice number of this financial year: when Zoho Books holds none this year and the person typed
+        their last invoice number at setup, the one after it; else last year's style moved on; else ''."""
+        if typed := _typed_next(self.profile):
+            return typed
         prev = sorted((i for i in _invoices(self.api, self.fy - 1) if i.get("invoice_number")),
                       key=lambda i: i.get("created_time", ""))
         if not prev:
             return ""
         at = numbering.default_counter(str(prev[-1]["invoice_number"]))
         return numbering.next_year(str(prev[-1]["invoice_number"]), at) if at >= 0 else ""
+
+    def predict(self, keys: list[str], first: str = "") -> dict:
+        """The numbers the invoices of `keys` that would be written now will carry, worked out before anything is
+        written: {numbers, where}. Reads only."""
+        going = [p for k in keys if (p := self.plan.get(k)) and p["action"] == "import" and not p.get("block")]
+        if not going or not self.own:
+            return {"numbers": [], "where": NAME}
+        top = self._top(self.invoices)
+        start = ""
+        try:
+            if self.auto and self.next_auto:
+                start = self.next_auto
+            elif top:
+                start = numbering.bump(top, numbering.default_counter(top))
+            else:
+                start = (first or "").strip()
+            at = numbering.default_counter(start) if start else -1
+            out = [start] + [numbering.bump(start, at, i) for i in range(1, len(going))] if at >= 0 else ([start] if start else [])
+        except numbering.NumberError:
+            out = [start] if start else []
+        return {"numbers": out[:len(going)], "where": NAME}
 
     def place(self, key: str, first: str = "") -> dict:
         """Put one invoice into Zoho Books and read its number back: {number, mid, date, fresh, adopted}. Already there

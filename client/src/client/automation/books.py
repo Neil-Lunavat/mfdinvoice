@@ -6,6 +6,7 @@ kept. What a books class must do:
 
     glance(keys)        read only. {state: ready | off | closed | pick, company, rows (action, note, block, why),
                         asks, first, after, peek, renumbers}. Anything but ready means the books are not answering.
+    predict(keys, first)    read only. {numbers, where}: the numbers the invoices about to be written will carry.
     place(key, first)   write one invoice and read its number back: {number, mid, date, fresh, adopted}. An invoice
                         already there under our id is found, not written again. Raises `Refused` (the books' own
                         words) for that one invoice, and `Off` (with `.said`) when the books stop answering.
@@ -74,6 +75,9 @@ class Tally:
             raise Refused("Tally wasn't looked at first.")
         return self.session.place(key, first)
 
+    def predict(self, keys: list[str], first: str = "") -> dict:
+        return self.session.predict(keys, first) if self.session else {"numbers": [], "where": ""}
+
     def answer(self, answers: dict[str, str]) -> None:
         self.answers.update(answers)
         tally.keep_answers(self.base, answers, (self.session.books.get("gstin", "") if self.session else ""))
@@ -117,6 +121,9 @@ class Zoho:
         if self.session is None:
             raise Refused("Zoho Books wasn't looked at first.")
         return self.session.place(key, first)
+
+    def predict(self, keys: list[str], first: str = "") -> dict:
+        return self.session.predict(keys, first) if self.session else {"numbers": [], "where": ""}
 
     def answer(self, answers: dict[str, str]) -> None:
         self.answers.update(answers)

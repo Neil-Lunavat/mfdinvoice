@@ -11,12 +11,13 @@
      `choiceOnly`: just the two options (Settings' Change). `settingsOnly`: everything but the two options (Settings'
      own page, where Change is beside it). Setup shows both, and `noSignature`: the signature has its own step there. */
   import { app, type ProfileDraft } from '../../bridge';
-  import { continuesLine, continuesLineNoNext } from '../../logic/books';
+  import { continuesLine, tallyAutomaticLine } from '../../logic/books';
   import { bookKind, booked, nextInvoice } from '../../logic/details';
   import { counterOf, parts, rule46 } from '../../logic/numbering';
   import InvoicePreview from '../../ui/InvoicePreview.svelte';
   import RegistrarPreview from '../../ui/RegistrarPreview.svelte';
   import Signature from './Signature.svelte';
+  import { ui } from '../../state/ui.svelte';
 
   let { d = $bindable(), settingsOnly = false, choiceOnly = false, noSignature = false }: { d: ProfileDraft; settingsOnly?: boolean; choiceOnly?: boolean; noSignature?: boolean } = $props();
 
@@ -26,14 +27,15 @@
   const refused = $derived(rule46(d.invoices.last));
   const next = $derived(nextInvoice(d.invoices));
   let addressText = $state(d.invoices.settings.address.join('\n'));
-  // with books connected: where the invoice numbers continue from, read from them (nothing is written there)
-  let continues = $state('');
+  // with books connected: the last invoice this financial year, read from them (nothing is written there). Empty
+  // `last`: none yet, so the person types it; `hint` (last year's style) is then only the placeholder.
+  let booksLast = $state(''), booksNext = $state(''), booksMethod = $state('');
   const bookName = $derived(d.zoho?.org ? d.zoho.org : d.tally?.company ?? '');
   $effect(() => {
     const company = bookName, kind = bookKind(d);
-    continues = '';
+    booksLast = booksNext = booksMethod = ''; ui.booksEmpty = ui.booksBare = false;
     if (!company || !kind || d.invoices.source !== 'own') return;
-    void app.booksNext({ company, arn: d.arn, kind, orgId: d.zoho?.orgId ?? '' }).then(r => { if (bookName === company && r.state === 'ready') continues = r.next; });
+    void app.booksNext({ company, arn: d.arn, kind, orgId: d.zoho?.orgId ?? '' }).then(r => { if (bookName === company && r.state === 'ready') { booksLast = r.last; booksNext = r.next; booksMethod = r.method; ui.booksEmpty = !r.last; ui.booksBare = !!r.bare; } });
   });
 
   function choose(source: 'registrar' | 'own') { d.invoices.source = source; }
@@ -74,12 +76,12 @@
       <div class="field"><label for="tpl">Template</label>
         <select id="tpl" class="input" style="max-width:300px" bind:value={d.invoices.settings.template}>
           <option value="tally">Tally standard print</option></select></div>
-      {#if booked(d)}
-        <p class="line">{continues ? continuesLine(continues, bookKind(d)) : continuesLineNoNext(bookName, bookKind(d))}</p>
+      {#if booked(d) && booksLast}
+        <p class="line">{continuesLine(booksLast, booksNext, bookKind(d))}</p>
       {:else}
       <div class="field">
-        <label for="last">Your last invoice number, exactly as printed</label>
-        <input id="last" class="input mono" style="max-width:300px" placeholder="RKM/26-27/073" value={d.invoices.last}
+        <label for="last">What was your last invoice number?</label>
+        <input id="last" class="input mono" style="max-width:300px" placeholder={booked(d) && booksNext ? booksNext : 'RKM/26-27/073'} value={d.invoices.last}
           oninput={e => typed(e.currentTarget.value)} />
         {#if segs.some(p => p.digits)}
           <div class="segs"><span class="hint">Which part goes up by 1?</span>
@@ -92,6 +94,7 @@
         {/if}
         {#if refused}<span class="err" role="alert">{refused}</span>{/if}
         {#if next}<div class="derived"><span>Your next invoice <b>{next}</b></span></div>{/if}
+        {#if booked(d) && bookKind(d) === 'tally' && booksMethod === 'Automatic' && ui.booksBare}<p class="line">{tallyAutomaticLine}</p>{/if}
       </div>
       {/if}
       {#if !noSignature}
@@ -115,6 +118,6 @@
       {/if}
       <p class="line">Each fund house's name, GSTIN and address come from the registrar's invoice for it, every month. The figures and dates are always the registrar's.</p>
     </div>
-    <InvoicePreview settings={s} number={continues || next || d.invoices.last || '1'} name={d.name} gstin={d.gstin} signature={d.signature} />
+    <InvoicePreview settings={s} number={(booksLast ? booksNext : '') || next || d.invoices.last || '1'} name={d.name} gstin={d.gstin} signature={d.signature} />
   </div>
 {/if}

@@ -747,8 +747,36 @@ def _dmy(iso_or_dmy: str) -> str:
 async def find_submit(page: Page):
     """The one button, "Upload Selected Invoices", which uploads whatever the grid holds."""
     button = page.locator(U["submit"])
-    await expect(button).to_be_enabled()
+    try:
+        await expect(button).to_be_enabled()
+    except AssertionError:
+        said = await _why_disabled(page, button)
+        if not said:
+            raise
+        raise Stop("portal_validation", "KFintech didn't take the invoices", "Nothing was sent to KFintech.",
+                   said=said, registrar=REG) from None
     return button
+
+
+async def _why_disabled(page: Page, button) -> str:
+    """KFintech's own reason the Upload button stays disabled: the tooltip on the button's wrapper ("Enter a valid
+    invoice number and date for ...") and the badge near it ("4 fund(s) incomplete"). '' when it shows neither."""
+    said: list[str] = []
+    try:
+        await button.locator("xpath=..").hover(force=True, timeout=3_000)
+        tip = page.locator("[role=tooltip]").last
+        await tip.wait_for(state="visible", timeout=3_000)
+        said.append(re.sub(r"\s+", " ", await tip.inner_text()).strip())
+    except Exception:                                       # noqa: BLE001 - the reason is a courtesy; no tooltip is fine
+        pass
+    try:
+        near = button.locator("xpath=ancestor::*[position()<=3]").locator("xpath=.//*[contains(., 'incomplete')]").last
+        badge = re.sub(r"\s+", " ", await near.inner_text(timeout=2_000)).strip()
+        if badge and len(badge) < 80 and badge not in said:
+            said.append(badge)
+    except Exception:                                       # noqa: BLE001
+        pass
+    return "\n".join(x for x in said if x)
 
 
 async def click_submit(page: Page, button) -> tuple[bool, str, bool]:

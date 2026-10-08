@@ -8,6 +8,7 @@
   import { runOffOf } from '../../logic/runoff';
   import { store } from '../../state/store.svelte';
   import { ui } from '../../state/ui.svelte';
+  import CheckMail from '../../ui/CheckMail.svelte';
   import { icons } from '../../ui/icons';
 
   let { period }: { period: string } = $props();
@@ -61,6 +62,7 @@
     <div class="hdr-r">
       <span class="chkd">{checkedLine(month?.checkedAt ?? '', store.snap?.today ?? '')}</span>
       <button class="btn ghost" disabled={runOff} onclick={check}>{@html icons.sync}Check status</button>
+      <CheckMail />
       {#if store.snap?.profile && registrarsOf(store.snap.profile).includes('CAMS')}<button class="btn secondary" onclick={() => ui.open({ type: 'cams_files' })}>Add CAMS's files</button>{/if}
       <button class="btn secondary" onclick={exportIt}>{@html icons.dl}Export</button>
       {#if rows.length}<button class="btn secondary" onclick={() => { ui.booksMonth = period; ui.go('books'); }}>{@html icons.book}Import into your books</button>{/if}

@@ -5,6 +5,7 @@ import type { Consent, ProfileDraft } from '../bridge/types';
 import { CONSENT_VERSION, consentText } from './consent';
 import { arnOk, emailOk, gstinOk } from './validate';
 import { bump, counterOf, rule46 } from './numbering';
+import { ui } from '../state/ui.svelte';
 
 /** The details alone, as a Change in Settings checks them. */
 export const detailsValid = (d: ProfileDraft) => arnOk(d.arn) && gstinOk(d.gstin) && d.name.trim().length >= 3;
@@ -66,11 +67,11 @@ export const nextInvoice = (i: ProfileDraft['invoices']) => (i.last.trim() && !r
 export const booked = (d: Pick<ProfileDraft, 'tally' | 'zoho'>) => !!(d.tally?.company || d.zoho?.org);
 export const bookKind = (d: Pick<ProfileDraft, 'tally' | 'zoho'>): '' | 'tally' | 'zoho' => (d.zoho?.org ? 'zoho' : d.tally?.company ? 'tally' : '');
 
-/** Which invoice is uploaded is chosen; their own needs the last number (with a part that counts, unless Tally gives
-    the numbers) and an address. */
+/** Which invoice is uploaded is chosen; their own needs the last number (with a part that counts, unless the books
+    hold this year's invoices and give it) and an address. */
 export const invoicesValid = (d: ProfileDraft) =>
   d.invoices.source === 'registrar'
-  || (d.invoices.source === 'own' && (booked(d) || !!nextInvoice(d.invoices)) && d.invoices.settings.address.some(a => a.trim().length > 2));
+  || (d.invoices.source === 'own' && ((booked(d) && !ui.booksEmpty) || !!nextInvoice(d.invoices)) && d.invoices.settings.address.some(a => a.trim().length > 2));
 
 /** Your invoices: which invoice is uploaded, and the signature that goes on it, seen on that invoice. */
 export const invoicesStepValid = (d: ProfileDraft) => invoicesValid(d) && signatureValid(d);

@@ -731,6 +731,19 @@ class Job:
         await self.at("Your books", "Fetching your last invoice number")
         await self._books_call(self.books.glance, ticked)
         await asyncio.sleep(max(0.0, MIN_SHOWN_S - (time.monotonic() - started)))
+        # every number the books will give is checked before the first write: KFintech refuses what Rule 46 or its own
+        # length rule refuses, and an invoice written into the books keeps its number for good
+        guess = await self._books_call(self.books.predict, ticked, self.first)
+        for n in guess.get("numbers") or []:
+            if numbering.rule_46(n):
+                if self.kind == "zoho":
+                    fix = ("In Zoho Books, set the invoice numbering to start from your next number (with its prefix), "
+                           "or to manual.")
+                else:
+                    fix = (f"In Tally, set {guess.get('where') or 'the sales voucher type'}'s numbering to start from "
+                           "your next number (with its prefix or suffix), or to Manual.")
+                raise Stop("numbering", f"{self.bname} would number this invoice {n}",
+                           f"KFintech needs invoice numbers of at least 3 characters. {fix} Nothing was written to {self.bname}.")
         order = sorted(ticked, key=lambda k: (self.items[k].get("dated") or self.items[k]["date"], self.items[k]["registrar"] != CAMS,
                                               self.items[k]["house"].lower()))
         said = []

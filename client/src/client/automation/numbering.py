@@ -27,12 +27,17 @@ class NumberError(ValueError):
 
 
 RULE_46 = "GST allows up to 16 characters: letters, digits, - and / only."
+KFIN_SHORT = "KFintech needs at least 3 characters."
 
 
 def rule_46(text: str) -> str:
     """"" when the invoice number may be used (GST Rule 46: at most 16 characters, only letters, digits, - and /; empty
-    is not set yet), else the words to refuse it with. The window checks the same at its box (logic/numbering.ts)."""
-    return "" if re.fullmatch(r"[A-Za-z0-9/-]{0,16}", (text or "").strip()) else RULE_46
+    is not set yet; KFintech also refuses fewer than 3 characters), else the words to refuse it with. The window
+    checks the same at its box (logic/numbering.ts)."""
+    t = (text or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9/-]{0,16}", t):
+        return RULE_46
+    return KFIN_SHORT if 0 < len(t) < 3 else ""
 
 
 def counter_at(text: str, at: int) -> tuple[int, int]:

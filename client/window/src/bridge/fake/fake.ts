@@ -337,7 +337,12 @@ export class FakeApp implements App {
   async zohoConnect() { await sleep(1500); return { ok: true as const }; }
   async zohoCancel() {}
   async zohoDisconnect() { return { ok: true }; }
-  async booksNext() { await sleep(300); return { state: 'ready', company: 'Lunavat & Co', last: '73/26-27', next: '74/26-27', at: 0, method: 'Manual' }; }
+  async booksNext() {
+    await sleep(300);
+    // dev: ?books=none gives a company with no invoice this year on plain Automatic numbering
+    if (new URLSearchParams(location.search).get('books') === 'none') return { state: 'ready', company: 'Lunavat & Co', last: '', next: '', at: -1, method: 'Automatic' };
+    return { state: 'ready', company: 'Lunavat & Co', last: '73/26-27', next: '74/26-27', at: 0, method: 'Manual' };
+  }
   async refreshBooks() { this.refreshed = true; }
   private refreshed = false;
   async booksForget() { return { ok: true }; }
@@ -354,6 +359,7 @@ export class FakeApp implements App {
   private addPeriod(period: string, count: number, name: string) {
     this.box.added = [...this.box.added.filter(a => a.period !== period), { period, count, name }];
   }
+  async checkMail() { await sleep(900); return { got: [{ period: 'SEP-2026', count: 10 }], waiting: ['OCT-2026'], said: '' }; }
   async camsFilesStart() { this.box = { added: [], refused: [], waiting: [] }; return this.snapBox(); }
   async chooseCamsFiles() {
     await sleep(500);

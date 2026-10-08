@@ -10,11 +10,14 @@ export const waitingLine = (kind: string, company: string, said: string) =>
 export const waitingSub = (kind: string, said: string) =>
   kind === 'zoho' ? 'The run goes on by itself when Zoho Books answers. Or press Refresh.' : said || 'The run goes on by itself when Tally answers. Or press Refresh.';
 
-/** Setup's line under Your invoices when books are connected. */
-export const continuesLine = (next: string, kind = 'tally') =>
-  `Your invoices continue from ${next}. Anything typed into ${booksName(kind)} meanwhile is picked up on its own.`;
-export const continuesLineNoNext = (company: string, kind = 'tally') =>
-  `Your invoices continue from the last one in ${company}. Anything typed into ${booksName(kind)} meanwhile is picked up on its own.`;
+/** Setup's and Settings' line under Your invoices when the books hold an invoice this financial year: fixed, not typed. */
+export const continuesLine = (last: string, next: string, kind = 'tally') =>
+  `Your last invoice in ${booksName(kind)} is ${last}. The next is ${next}.`;
+
+/** Plain Automatic numbering in Tally with no invoice yet this year: Tally ignores what is typed and starts from 1. */
+export const tallyAutomaticLine =
+  'Tally numbers these invoices itself, starting from 1, whatever you type here. KFintech needs at least 3 characters. '
+  + "In Tally, set this voucher type's numbering to start from your next number (with its prefix or suffix), or to Manual.";
 
 /** Letting Zoho Books in, from Settings, the Books tab or setup: one organisation is used at once. */
 export const connectWords = (state: string, said: string) =>

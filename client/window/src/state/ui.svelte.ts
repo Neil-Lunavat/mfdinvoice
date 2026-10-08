@@ -60,6 +60,8 @@ class Ui {
   /* What the portals showed at Verify, for the ARN, name and GSTIN step to offer. `version` counts the readings; the step
      takes them once per reading, so what the person has typed over is not put back. */
   read = $state({ cams: '', kf: '', gstin: '', version: 0, taken: 0 });
+  booksEmpty = $state(false);   // the connected books hold no invoice this financial year: the last number is typed
+  booksBare = $state(false);    // ... and Tally numbers them itself from a bare 1 (no prefix): its warning shows
 
   go(p: Page) {
     if (this.page === 'settings' && p !== 'settings' && this.settingsDirty) {

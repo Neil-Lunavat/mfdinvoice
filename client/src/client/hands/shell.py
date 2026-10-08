@@ -67,7 +67,7 @@ METHODS = {
     "activateTrial": ("activate_trial", "pos"), "checkPlan": ("check_plan", "pos"), "agree": ("agree", "pos"),
     "here": ("here", "pos"), "pickFile": ("pick_file", "pos"), "dropFile": ("drop_file", "kw"),
     "camsFilesStart": ("cams_files_start", "pos"), "chooseCamsFiles": ("choose_cams_files", "pos"),
-    "dropCamsFiles": ("drop_cams_files", "pos"),
+    "dropCamsFiles": ("drop_cams_files", "pos"), "checkMail": ("check_mail", "pos"),
     "booksLook": ("books_look", "kw"), "booksImport": ("books_import", "kw"), "booksNext": ("books_next", "kw"), "refreshBooks": ("refresh_books", "pos"),
     "booksSetup": ("books_setup", "kw"), "booksUse": ("books_use", "kw"), "booksForget": ("books_forget", "pos"),
     "zohoConnect": ("zoho_connect", "pos"), "zohoCancel": ("zoho_cancel", "pos"), "zohoDisconnect": ("zoho_disconnect", "pos"),

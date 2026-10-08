@@ -149,13 +149,24 @@ class Window:
             except Exception:
                 log.exception("picking up CAMS's email")
 
-    async def _pickup(self) -> None:
+    async def check_mail(self) -> dict:
+        """Check mail (Downloads, a month's page): CAMS's emails looked for now, for every month waiting on one, instead
+        of at the loop's next turn. {got: [{period, count}], waiting: [periods], said}."""
+        if self._task is not None:
+            return {"got": [], "waiting": [], "said": "A run is going. Check once it has ended."}
+        try:
+            return await self._pickup()
+        except (loader.Unreachable, loader.NotOurs):
+            return {"got": [], "waiting": [], "said": NO_STEPS}
+
+    async def _pickup(self) -> dict:
         waiting = [(arn, period) for arn in self.profiles() for period in local.cams_waiting(self.base(arn))]
+        out: dict = {"got": [], "waiting": [p for a, p in waiting if a == self.selected()], "said": ""}
         if not waiting or self._task is not None:
-            return
+            return out
         auto = await loader.latest()
         if not hasattr(auto, "pickup"):
-            return
+            return out
         async with self._portal:
             for arn, period in waiting:
                 host = Host(self, arn, "")
@@ -172,7 +183,11 @@ class Window:
                               tone="plain", who="")
                     self._note("cams_came", f"CAMS's invoices for {label} are in", "overview",
                                f"{got['got']} invoices, read from CAMS's email")
+                    if arn == self.selected():
+                        out["got"].append({"period": period, "count": got["got"]})
+                        out["waiting"].remove(period)
         await self.changed()
+        return out
 
     async def _tick(self) -> None:
         while True:

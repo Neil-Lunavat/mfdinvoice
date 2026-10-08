@@ -8,6 +8,7 @@
   import { inr, regName } from '../logic/format';
   import { store } from '../state/store.svelte';
   import { ui } from '../state/ui.svelte';
+  import CheckMail from '../ui/CheckMail.svelte';
   import { icons } from '../ui/icons';
 
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -73,6 +74,7 @@
       {/each}
     {/if}
     <span class="line">{regs.includes('CAMS') && p.mailbox.provider !== 'folder' ? 'You can Skip CAMS and continue without waiting; the email is automatically read whenever it arrives.' : ''}</span>
+    <CheckMail />
     {#if registrarsOf(p).includes('CAMS')}<button class="btn camsbtn" onclick={camsFiles}>Add CAMS's files</button>{/if}
     <button class="btn primary" data-primary disabled={!picked.length || !regs.length} onclick={go}>{@html icons.dl}
       {picked.length ? `Download ${picked.length} ${picked.length === 1 ? 'month' : 'months'}` : 'Pick months'}</button>

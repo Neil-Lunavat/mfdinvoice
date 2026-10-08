@@ -2,10 +2,15 @@
    No format codes and no financial-year field: the number is fixed text with one counting part, tapped by the person.
    The run keeps the same rules (automation/numbering.py): zero padding is kept (073 -> 074). */
 
-/** GST Rule 46: at most 16 characters, only letters, digits, - and /. '' when the number may be used (empty is not set
+/** GST Rule 46: at most 16 characters, only letters, digits, - and /; and KFintech's own: at least 3. '' when the number may be used (empty is not set
     yet), else the words to refuse it with. The Python side holds the same rule (automation/numbering.py). */
 export const RULE_46 = 'GST allows up to 16 characters: letters, digits, - and / only.';
-export function rule46(text: string): string { return /^[A-Za-z0-9/-]{0,16}$/.test(text.trim()) ? '' : RULE_46; }
+export const KFIN_SHORT = 'KFintech needs at least 3 characters.';
+export function rule46(text: string): string {
+  const t = text.trim();
+  if (!/^[A-Za-z0-9/-]{0,16}$/.test(t)) return RULE_46;
+  return t.length > 0 && t.length < 3 ? KFIN_SHORT : '';
+}
 
 export interface Part { text: string; digits: boolean; start: number }
 

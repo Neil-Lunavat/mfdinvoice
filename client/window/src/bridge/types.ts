@@ -499,7 +499,7 @@ export interface App {
   /** Put the month in. `adopt`: the invoices typed by hand to change to the registrar's figures. */
   booksImport(q: BooksLookQuery & { adopt: string[] }): Promise<BooksLook>;
   /** Where the person's own invoice numbers continue from, in their books; `company`, `arn` and `kind` while setup is still open. */
-  booksNext(q?: { company?: string; arn?: string; kind?: '' | 'tally' | 'zoho'; orgId?: string }): Promise<{ state: string; company: string; last: string; next: string; at: number; method: string }>;
+  booksNext(q?: { company?: string; arn?: string; kind?: '' | 'tally' | 'zoho'; orgId?: string }): Promise<{ state: string; company: string; last: string; next: string; at: number; method: string; bare?: boolean }>;
   /** Refresh, while a run waits for the books. */
   refreshBooks(run: string): Promise<void>;
   /** Setup's books step: the companies open in Tally, or the organisations in Zoho Books, each with its GSTIN beside this ARN's. */
@@ -516,6 +516,7 @@ export interface App {
   zohoDisconnect(arn?: string): Promise<{ ok: boolean }>;
   /** CAMS's files for any months, at once. Opening the box clears it; each call returns the box's whole state so far. */
   camsFilesStart(): Promise<CamsFiles>;
+  checkMail(): Promise<{ got: { period: string; count: number }[]; waiting: string[]; said: string }>;   // CAMS's emails looked for now
   chooseCamsFiles(): Promise<CamsFiles>;
   dropCamsFiles(files: { name: string; bytes: string }[]): Promise<CamsFiles>;
   /** One of CAMS's two files, from Windows' own Open box. Only the file's name comes back ('' if cancelled). */

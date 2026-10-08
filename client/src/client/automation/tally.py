@@ -182,8 +182,25 @@ def read_vtypes(company: str) -> dict:
         series = re.findall(r"<VOUCHERNUMBERSERIES.LIST>(.*?)</VOUCHERNUMBERSERIES.LIST>", b, re.DOTALL)
         vtypes[_unxml(n)] = {"parent": _g(b, "PARENT"), "reserved": _unxml(res),
                              "method": _g(series[0], "NUMBERINGMETHOD") if series else _g(b, "NUMBERINGMETHOD"),
-                             "sub": _g(series[0], "NUMBERINGSUBMETHOD") if series else _g(b, "NUMBERINGSUBMETHOD")}
+                             "sub": _g(series[0], "NUMBERINGSUBMETHOD") if series else _g(b, "NUMBERINGSUBMETHOD"),
+                             "bare": _bare_start(series[0] if series else b)}
     return vtypes
+
+
+def _bare_start(xml: str) -> tuple[int, int] | None:
+    """Automatic numbering with no prefix or suffix: (the number it starts the year from, its width when zero-filled),
+    else None. Tally's tags as TallyPrime 7.1 sends them (MFD Real, 8 Oct): PREFIXLIST.LIST and SUFFIXLIST.LIST empty
+    when unset; BEGINNINGNUMBER; PREFILLZERO and WIDTHOFNUMBER; a yearly restart's PERIODBEGINNIGNUM (Tally's spelling).
+    Anything unclear is None, and no number is guessed for it."""
+    for tag in ("PREFIXLIST.LIST", "SUFFIXLIST.LIST"):
+        for inner in re.findall(rf"<{re.escape(tag)}>(.*?)</{re.escape(tag)}>", xml, re.DOTALL):
+            if re.sub(r"<[^>]*>", "", inner).strip():
+                return None
+    start = _g(xml, "PERIODBEGINNIGNUM").strip() or _g(xml, "BEGINNINGNUMBER").strip() or "1"
+    if not start.isdigit():
+        return None
+    width = int(_g(xml, "WIDTHOFNUMBER").strip() or 0) if _g(xml, "PREFILLZERO").strip() == "Yes" else 0
+    return int(start), width
 
 
 def read(company: str, fy_from: str, fy_to: str) -> dict:
@@ -684,7 +701,10 @@ class Session:
         return {**self._answer("ready"), "first": first, "after": after, "peek": peek, "renumbers": renumbers}
 
     def _first_of_year(self) -> str:
-        """The first invoice number of this financial year in the style of last year's last, or ''."""
+        """The first invoice number of this financial year: when Tally holds none this year and the person typed their
+        last invoice number at setup, the one after it; else last year's style moved on; else ''."""
+        if typed := _typed_next(self.profile):
+            return typed
         prev = [v for v in _sales_vouchers(self.company, self.fy - 1) if v["type"] == self.vtype and not v["off"]
                 and v["number"]]
         prev.sort(key=lambda v: v["mid"])
@@ -697,6 +717,32 @@ class Session:
         """Our company must be open in Tally right now: a company that is not open reads back empty with no error."""
         if not alive() or self.company not in [c["name"] for c in companies()]:
             raise Off("the company is not open")
+
+    def predict(self, keys: list[str], first: str = "") -> dict:
+        """The numbers the invoices of `keys` that would be written now will carry, worked out before anything is
+        written: {numbers, where}. Manual: the ones we send. Automatic: the ones Tally gives (the next ones, or from 1
+        when this year has none). Reads only."""
+        going = [p for k in keys if (p := self.plan.get(k)) and p["action"] == "import" and not p.get("block")]
+        if not going or self.method == "None":
+            return {"numbers": [], "where": self.vtype}
+        live = [v for v in _sales_vouchers(self.company, self.fy) if v["type"] == self.vtype and not v["off"] and v["number"]]
+        live.sort(key=lambda v: v["mid"])
+        sample = live[-1]["number"] if live else ""
+        at = numbering.default_counter(sample) if sample else -1
+        top = numbering.highest([v["number"] for v in live], sample, at) if sample else ""
+        out: list[str] = []
+        try:
+            if top:
+                out = [numbering.bump(top, numbering.default_counter(top), i + 1) for i in range(len(going))]
+            elif self.sends and (first or "").strip():
+                f = first.strip()
+                out = [f] + [numbering.bump(f, numbering.default_counter(f), i) for i in range(1, len(going))]
+            elif not self.sends and (bare := self.books["vtypes"].get(self.vtype, {}).get("bare")):
+                start, width = bare                                 # none this year: Tally starts from its own number
+                out = [str(start + i).zfill(width) for i in range(len(going))]
+        except numbering.NumberError:
+            out = []
+        return {"numbers": out, "where": self.vtype}
 
     def place(self, key: str, first: str = "") -> dict:
         """Put one invoice into Tally and read its number back: {number, mid, date, fresh, adopted}. Already there
@@ -969,7 +1015,22 @@ def books_next(base: Path, company: str = "") -> dict:
             at = numbering.default_counter(prev[-1]["number"])
             nxt = numbering.next_year(prev[-1]["number"], at) if at >= 0 else ""
     return {"state": "ready", "company": s.company, "last": last, "next": nxt,
-            "at": numbering.default_counter(nxt or last) if (nxt or last) else -1, "method": method}
+            "at": numbering.default_counter(nxt or last) if (nxt or last) else -1, "method": method,
+            "bare": bool(vtypes.get(vtype, {}).get("bare"))}       # Automatic from a bare 1: setup warns
+
+
+def _typed_next(profile: dict) -> str:
+    """The invoice after the last number the person typed at setup (their own series), or ''."""
+    inv = profile.get("invoices") or {}
+    last = str(inv.get("last") or "").strip()
+    if not last or numbering.rule_46(last):
+        return ""
+    at = inv.get("at")
+    at = at if isinstance(at, int) and at >= 0 else numbering.default_counter(last)
+    try:
+        return numbering.bump(last, at)
+    except numbering.NumberError:
+        return ""
 
 
 def keep_answers(base: Path, answers: dict, books_gstin: str = "") -> None:

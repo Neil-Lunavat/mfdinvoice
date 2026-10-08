@@ -98,6 +98,7 @@ export class RealApp implements App {
   zohoCancel() { return this.call<void>('zohoCancel'); }
   zohoDisconnect(arn = '') { return this.call<{ ok: boolean }>('zohoDisconnect', arn); }
   camsFilesStart() { return this.call<CamsFiles>('camsFilesStart'); }
+  checkMail() { return this.call<{ got: { period: string; count: number }[]; waiting: string[]; said: string }>('checkMail'); }
   chooseCamsFiles() { return this.call<CamsFiles>('chooseCamsFiles'); }
   dropCamsFiles(files: { name: string; bytes: string }[]) { return this.call<CamsFiles>('dropCamsFiles', files); }
   pickFile(kind: 'zip' | 'xls') { return this.call<{ kind: string; name: string }>('pickFile', kind); }
