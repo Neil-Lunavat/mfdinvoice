@@ -28,7 +28,7 @@ from playwright.async_api import Error as PWError, Page, expect
 
 from client.automation import files, signature, widgets as w, words
 from client.automation.invoices import parties
-from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, seen, texts
+from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, quiet, seen, texts
 from client.automation.widgets import CAMS as S, grid, missing, toasts
 from client.automation.words import CAMS as REG, MONTHS
 
@@ -198,9 +198,23 @@ async def sign_in(page: Page, email: str) -> set[str]:
 async def _land(page: Page) -> None:
     """From the page CAMS shows right after a sign-in to its GST invoice pages: every fund house, then the GST tab."""
     await page.wait_for_url(L["logged_in_url"], timeout=SLOW_MS)
-    await w.mat_select_all(page, L["mf_select"])
-    await w.nav_tab(page, T["gst_tab"]).click()
-    await page.wait_for_url(D["route"], timeout=SLOW_MS)
+    funds = page.locator(L["mf_select"]).first.locator(C["mat_value"])
+    for _ in range(3):                    # CAMS loads its data after drawing: a choice made meanwhile can be wiped
+        await quiet(page)
+        await w.mat_select_all(page, L["mf_select"])
+        await quiet(page)
+        if await w.visible(funds):
+            break
+    else:
+        raise Changed("CAMS's fund house list would not keep every fund ticked (3 tries)")
+    for _ in range(3):                    # ...and a tab clicked while it is busy does not open
+        await w.nav_tab(page, T["gst_tab"]).click()
+        try:
+            await page.wait_for_url(D["route"], timeout=8_000)
+            return
+        except PWError:
+            await quiet(page)
+    raise Changed("CAMS's GST Invoice Management tab would not open (3 clicks)")
 
 
 async def sign_out(page: Page) -> None:

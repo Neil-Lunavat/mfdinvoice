@@ -36,6 +36,41 @@ class Stop(Exception):
         super().__init__(f"{kind}: {title}")
 
 
+async def quiet(page: Page, still_ms: int = 800, within_ms: int = 20_000) -> None:
+    """Wait until the page has stopped fetching: no call of its own (fetch, XHR) under way, and none started or ended
+    for `still_ms`. CAMS's pages load their data after they draw, and a click made meanwhile is swallowed, or undone
+    when the data lands (8 Oct: the fund house list wiped, the GST tab not opened). Gives up quietly after
+    `within_ms`: what follows checks its own result."""
+    import time
+    going: set = set()
+    last = [time.monotonic()]
+
+    def began(r) -> None:
+        if r.resource_type in ("fetch", "xhr"):
+            going.add(r)
+            last[0] = time.monotonic()
+
+    def ended(r) -> None:
+        if r in going:
+            going.discard(r)
+            last[0] = time.monotonic()
+
+    page.on("request", began)
+    page.on("requestfinished", ended)
+    page.on("requestfailed", ended)
+    try:
+        end = time.monotonic() + within_ms / 1000
+        while time.monotonic() < end:
+            if not going and (time.monotonic() - last[0]) * 1000 >= still_ms:
+                return
+            await page.wait_for_timeout(100)
+        log.debug("the page was still fetching after %d s: %d calls", within_ms // 1000, len(going))
+    finally:
+        page.remove_listener("request", began)
+        page.remove_listener("requestfinished", ended)
+        page.remove_listener("requestfailed", ended)
+
+
 async def seen(locator: Locator, timeout: int = SLOW_MS) -> None:
     """Wait until this is on screen."""
     log.debug("> seen %s", locator)

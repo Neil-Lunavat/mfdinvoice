@@ -14,6 +14,7 @@ left_menu_item = "li.csp-class-4"     # filter by [texts]
 mat_panel = ".mat-select-panel"
 mat_option = ".mat-select-panel mat-option"
 mat_option_selected = ".mat-select-panel mat-option.mat-selected"
+mat_value = ".mat-select-value-text"          # what a mat-select shows once something is chosen
 mat_select_all = ".mat-select-panel mat-option-select-all .mat-option"
 ng_container = ".ng-select-container"
 ng_value = ".ng-value .ng-value-label"   # .ng-value also holds the × clear icon
