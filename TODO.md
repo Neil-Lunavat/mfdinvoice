@@ -10,7 +10,7 @@ are in `IDEAS.md`. Delete a line when it is done, a section when it is empty.
       order, receipt, events, answers, trial, deletion. Receipt numbers start again at 1.
 - [x] The keys backed up: `Desktop\MFDInvoice-keys\` (automation.key, server-admin.key, zoho.json, a README). Neil
       moves it somewhere safe.
-- [ ] One PC per account (`CLAUDE.md`, Accounts): design with Neil, then build. Website and software.
+- [ ] One PC per account (`CLAUDE.md`, Accounts): decided 8 Oct, being built. Website and software.
 - [x] Forwarding, proven live 8 Oct: Email Routing on `mailback.` (the apex's MX at Hostinger untouched); Gmail's
       confirmation (a link now, opened by Confirm in Gmail); CAMS → pritamutha@ → neillunavat3192@ → us → September's
       10 invoices read in by themselves; the filter forwards nothing else.
@@ -25,8 +25,11 @@ Neil signs up on the website, activates the free trial, downloads and installs o
 every screen (Windows' "protected your PC", antivirus, the installer). Then:
 - The installed build fetches the signed steps from the server, checks them and runs them.
 - Setup from zero, with his DSC token at the signature step.
-- **A real Submit on CAMS and on KFintech**, by the plan agreed with Neil (few invoices first; read what each portal
-  accepts). Reading their answers after Submit, CAMS's survey, status again.
+- **A real Submit on CAMS and on KFintech**, own invoices (Neil, 8 Oct): one invoice per portal first (ticked alone at
+  Your check); before Submit, the signed PDF opened in Acrobat (DSC valid; number, date, GSTIN, SAC, amounts as on an
+  invoice he once sent by hand and was accepted); CAMS first, then KFintech; after each, the portal's answer and
+  Check now; both matching what the portal shows by hand, the rest of that portal the same day. Anything unexpected
+  stops it. No browser to watch: the run's record reaches the panel, and that is how support is tested.
 - Sign out.
 - What it turns up: the steps (publish, no update) or 1.0.1, which is also the first real test of Update now.
 - After it: `/setup`'s pictures from his screenshots.

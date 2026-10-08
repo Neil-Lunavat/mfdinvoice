@@ -67,7 +67,7 @@
 <p class="line">{NAME} reads only CAMS's invoice mails. It never sends, moves or deletes anything.</p>
 <div class="tiles" role="radiogroup" aria-label="How CAMS's email reaches {NAME}">
   <button class="tile" class:on={picked === 'forward'} role="radio" aria-checked={picked === 'forward'} onclick={() => pick('forward')}>
-    {@html icons.mark(14)}<span><b>Forward them to {NAME}</b><br /><span class="line">No password given</span></span></button>
+    {@html icons.mark(14)}<span><b>Forward them to {NAME}</b><br /><span class="line">From Gmail · no password given</span></span></button>
   <button class="tile" class:on={picked === 'gmail'} role="radio" aria-checked={picked === 'gmail'} onclick={() => pick('gmail')}>
     <span class="logo g">G</span><span><b>Gmail app password</b><br /><span class="line">{NAME} reads them in Gmail</span></span></button>
   <button class="tile" class:on={picked === 'folder'} role="radio" aria-checked={picked === 'folder'} onclick={() => pick('folder')}>
@@ -77,14 +77,14 @@
 {#if picked === 'forward'}
   <div class="sub-part enter">
     <p class="line">Your Gmail sends only CAMS's invoice mails on to {NAME}. Each one is locked so only this PC can open it, and deleted from our side once it's here.</p>
-    <div class="field"><label for="fa">1. Your CAMS email</label>
+    <div class="field"><label for="fa">1. The Gmail that forwards to {NAME}</label>
       <input id="fa" class="input" bind:value={d.mailbox.address} disabled={d.mailbox.connected} oninput={() => { sent = false; }} />
-      <span class="hint">A code goes to it, to show it's yours.</span></div>
+      <span class="hint">Where you set the filter below. A code goes to it, to show it's yours.</span></div>
     {#if !d.mailbox.connected}
       {#if !sent}
         <div class="testrow"><button class="btn secondary" disabled={busy || !emailOk(d.mailbox.address) || ours(d.mailbox.address)} onclick={sendCode}>Send me a code</button>
           {#if busy}<span class="spin"></span>{/if}</div>
-        {#if ours(d.mailbox.address)}<span class="err">That's {NAME}'s address. Type the email CAMS sends your mailbacks to.</span>{/if}
+        {#if ours(d.mailbox.address)}<span class="err">That's {NAME}'s address. Type the Gmail that will forward to it.</span>{/if}
       {:else}
         <div class="field"><label for="fc">The code from that email</label>
           <input id="fc" class="input mono" style="max-width:160px" inputmode="numeric" maxlength="6" bind:value={code} /></div>

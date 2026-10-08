@@ -68,8 +68,11 @@ edits this; where it and he disagree, he wins.
   setup = the ARN CAMS shows = the ARN KFintech shows, at setup and on every run; a mismatch (two logins of two
   different ARNs) stops, and nothing is suggested. An ARN belongs to one account while that account's plan runs; once it has ended, another account that
   binds it takes it.
-- **One PC per account** (Neil, 8 Oct; not built yet): signing in on a second PC asks there, as CAMS does, whether to
-  sign the other PC out and sign in here, or keep the other PC and not sign in here.
+- **One PC per account** (Neil, 8 Oct; in 1.0.0): signing in on a second PC asks there, after the code, naming the
+  other PC and when it was last used: sign it out and sign in here, or keep it there (nothing changes). The other PC
+  learns it at its next contact with the website and shows sign-in with "Signed out: this account signed in on
+  <PC>"; a run going there finishes first. Its data (passwords, months, numbers, signature) stays. No exceptions: an
+  account with several ARNs is still one PC. The website stays signed in anywhere.
 
 ## Where the code is
 
