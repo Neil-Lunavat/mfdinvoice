@@ -22,6 +22,20 @@ const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map(x => x.toString(16).p
 const sha = async (s: string) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
 const who = (email: string) => sha(email.trim().toLowerCase());
 const emails = (s: string) => [...s.matchAll(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g)].map(m => m[0].toLowerCase());
+/* RFC 2047 words in a header (=?UTF-8?B?...?=, =?UTF-8?Q?...?=) made plain */
+const plain = (s: string) => s.replace(/=\?[^?]+\?([BQ])\?([^?]*)\?=/gi, (_, enc: string, t: string) => {
+  try { return enc.toUpperCase() === 'B' ? atob(t) : t.replace(/_/g, ' ').replace(/=([0-9A-F]{2})/gi, (_x, c: string) => String.fromCharCode(parseInt(c, 16))); }
+  catch { return t; }
+});
+/* a mail's readable text: as sent, with quoted-printable and base64 parts undone */
+async function readable(message: ForwardableEmailMessage): Promise<string> {
+  const raw = await new Response(message.raw).text();
+  const out = [raw, raw.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_x, c: string) => String.fromCharCode(parseInt(c, 16)))];
+  for (const m of raw.matchAll(/\r?\n\r?\n([A-Za-z0-9+/=\r\n]{120,})/g)) {
+    try { out.push(atob(m[1].replace(/\s/g, ''))); } catch { /* not base64 */ }
+  }
+  return out.join('\n');
+}
 
 let ready = false;
 async function schema(env: Env) {
@@ -155,12 +169,21 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
   const h = (n: string) => message.headers.get(n) || '';
   const from = h('from').toLowerCase(), subject = h('subject');
 
-  /* Gmail's "confirm forwarding" mail: its code is shown in the software, for the person to type in Gmail */
+  /* Gmail's "confirm forwarding" mail: its code is shown in the software, for the person to type in Gmail. The code
+     and the Gmail address are read from the subject, else from the body ("x@gmail.com has requested ...",
+     "Confirmation code: 123456789"). */
   if (from.includes('forwarding-noreply@google.com')) {
-    const code = subject.match(/#(\d{6,})/)?.[1], gmail = emails(subject)[0];
-    if (!code || !gmail) return message.setReject('Not a forwarding confirmation this address understands.');
+    const subj = plain(subject), body = await readable(message);
+    const theirs = (e: string) => !/@(google\.com|(mailback\.)?mfdinvoice\.co\.in)$/.test(e);
+    const code = subj.match(/#(\d{6,})/)?.[1] || body.match(/confirmation code:?\s*(\d{6,})/i)?.[1] || body.match(/#(\d{6,})/)?.[1];
+    const gmail = emails(subj).find(theirs) || emails(body.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\s+has requested/i)?.[0] || '')[0]
+      || emails(body).find(theirs);
+    if (!code || !gmail) {
+      console.log(`forwarding confirmation not understood: subject ${JSON.stringify(subj)}, code ${code ? 'found' : 'missing'}, gmail ${gmail ? 'found' : 'missing'}`);
+      return message.setReject('Not a forwarding confirmation this address understands.');
+    }
     await env.DB.prepare("INSERT INTO mails (who, kind, subject, code, size, received_at) VALUES (?, 'confirm', ?, ?, 0, ?)")
-      .bind(await who(gmail), subject.slice(0, 300), code, now()).run();
+      .bind(await who(gmail), subj.slice(0, 300), code, now()).run();
     return;
   }
 
