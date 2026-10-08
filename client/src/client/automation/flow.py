@@ -53,7 +53,6 @@ log = logging.getLogger(__name__)
 
 MAIL_EVERY_S = 15                # CAMS's email takes from a minute to several (asked 17:07, sent 17:09 on 6 Oct)
 MAIL_GIVE_UP_S = 10 * 60
-ASKED_KEPT_S = 2 * 24 * 60 * 60  # an email asked for longer ago than this is not waited for; CAMS is asked again
 # An own invoice dated before the newest invoice in an Auto Renumber type would make Tally renumber the ones after it.
 # The person may date it the day it is sent instead: in Tally, on the drawn PDF and in KFintech's date box (`dated` on
 # the item; CAMS's upload carries no date). Switch this off and the invoice can only be put aside.
@@ -315,8 +314,9 @@ class Job:
                 host.activity(f"CAMS's email couldn't be read ({said}): its files are asked for instead", CAMS)
                 by_hand = True
         asked = m.facts.get("asked") or {}
-        waiting = (asked.get("listed") == self.listed[CAMS]
-                   and time.time() - datetime.fromisoformat(asked["at"]).timestamp() < ASKED_KEPT_S)
+        # CAMS's last request is waited on while CAMS still lists what it listed then: its email holds every invoice.
+        # Anything new listed since, and CAMS is asked again (Neil, 8 Oct: by what CAMS lists, not by the clock)
+        waiting = bool(asked) and asked.get("listed") == self.listed[CAMS]
         # an email of CAMS's for this month already on this PC (from the mailbox, or added by hand on Downloads) does,
         # whichever request it answered: CAMS isn't asked again. The mailbox is looked in first when it is read by itself
         found = await self._month_mail(fetch=not (by_hand or waiting))
@@ -369,7 +369,11 @@ class Job:
                     return False
                 if time.monotonic() > deadline:
                     # not here in time: by hand from here (the files from CAMS's email, if it has come elsewhere).
-                    # The request stands, so the email is still read when it comes.
+                    # The request stands, so the email is still read when it comes; a request already waited out
+                    # once (an email lost on the way) is forgotten, and the next run asks CAMS again
+                    if waiting:
+                        m.facts.pop("asked", None)
+                        m.save()
                     host.activity(f"CAMS's email hadn't come {MAIL_GIVE_UP_S // 60} minutes after it was asked "
                                   "for: its files were asked for instead", CAMS)
                     pair = await self._by_hand()
