@@ -148,6 +148,9 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   Excel gives the month and the ARN (BROKER CODE). Per month it says "October 2026: 5 invoices added"; another ARN's
   pair or a file without its partner is refused with the reason. Its "Add N months" reads them in (CAMS only); a
   run or download uses files on the PC when they hold every invoice CAMS lists now.
+- Forwarded to us: the email proved in the software is the mailbox whose filter forwards to us; CAMS's mail may pass
+  through others first (CAMS's registered email → another Gmail → us), and the server matches any mailbox on the way
+  (Neil, 8 Oct). Chains through other providers are seen after launch.
 - Waiting for CAMS's email with a mailbox read by itself (forwarded, Gmail): "Don't wait" in every run and download,
   one month as several (Neil, 8 Oct); the email is read in by itself when it comes.
 - "Check mail" (left of Add CAMS's files, only with Gmail or forwarding): CAMS's emails looked for now, for every
