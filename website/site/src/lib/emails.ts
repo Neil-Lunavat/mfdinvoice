@@ -2,7 +2,7 @@
    HTML (tables and inline CSS, system fonts, no images, so Gmail, Outlook and phone mail apps show it the same) and
    into its plain-text twin. Pure functions: the Worker sends them (lib/server/mail.ts), and `bun run emails -- preview`
    sends each one as a template with every variable shown as a highlighted {placeholder}. */
-import { NAME, WORDMARK } from '../consts';
+import { NAME, WORDMARK, SITE_URL } from '../consts';
 
 export type Mail = { subject: string; text: string; html: string };
 type Row = [label: string, value: string, href?: string];
@@ -51,9 +51,10 @@ function blockText(b: Block): string {
   }
 }
 
-/* The layout: the mark and the wordmark (text only), a white card, and why this email came. */
+/* The layout: the logo (the site's apple-touch-icon, on its blue in case images are off) and the wordmark, a white
+   card, and why this email came. */
 function layout(subject: string, blocks: Block[], why: string, preheader?: string): Mail {
-  /* the inbox's preview line: without it, mail apps show the wordmark ("✓ MFDInvoice …"). After it, only zero-width
+  /* the inbox's preview line: without it, mail apps show the wordmark ("MFDInvoice …"). After it, only zero-width
      characters (no spaces: those showed as a gap), enough to use up the preview so nothing from the body follows. */
   const pre = preheader ?? (blocks.find(b => b.t === 'p') as { s: string } | undefined)?.s ?? '';
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(subject)}</title></head>
@@ -62,7 +63,7 @@ function layout(subject: string, blocks: Block[], why: string, preheader?: strin
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.canvas}"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
 <tr><td style="padding:0 4px 16px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td width="24" height="24" align="center" valign="middle" style="width:24px;height:24px;background:${C.blue};border-radius:7px;font:700 14px/24px ${SANS};color:#ffffff">&#10003;</td>
+<td width="24" height="24" style="width:24px;height:24px;background:${C.blue};border-radius:7px"><img src="${SITE_URL}/apple-touch-icon.png" width="24" height="24" alt="" style="display:block;width:24px;height:24px;border:0;border-radius:7px"></td>
 <td style="padding-left:10px;font:15px/24px ${SANS};color:${C.muted};letter-spacing:-.01em"><b style="font-weight:700;color:${C.ink}">${esc(WORDMARK[0])}</b>${esc(WORDMARK[1])}</td>
 </tr></table></td></tr>
 <tr><td style="background:#ffffff;border:1px solid ${C.line};border-radius:14px;padding:30px 28px">
