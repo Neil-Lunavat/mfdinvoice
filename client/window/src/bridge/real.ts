@@ -85,6 +85,7 @@ export class RealApp implements App {
   forwardStart(email: string) { return this.call<{ ok: boolean; said?: string }>('forwardStart', email); }
   forwardVerify(email: string, code: string) { return this.call<{ ok: boolean; said?: string }>('forwardVerify', email, code); }
   forwardGmailCode() { return this.call<string>('forwardGmailCode'); }
+  forwardConfirm() { return this.call<boolean>('forwardConfirm'); }
   sendIdea(s: { text: string; picture?: { name: string; data: string } }) { return this.call<{ sent: boolean }>('sendIdea', s); }
   answerSurvey(id: number, answers: SurveyAnswers | null) { return this.call<{ sent: boolean }>('answerSurvey', id, answers); }
   booksLook(q: BooksLookQuery) { return this.call<BooksLook>('booksLook', q); }

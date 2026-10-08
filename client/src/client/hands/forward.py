@@ -13,6 +13,7 @@ import base64
 import json
 import logging
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -101,8 +102,17 @@ def _waiting(store: Store) -> list[dict]:
     return list(json.loads(raw).get("mails") or [])
 
 
+def is_gmail_link(text: str) -> bool:
+    """Gmail's confirmation link (https, on google.com), as the server read it from Gmail's mail."""
+    if not text.startswith("https://"):
+        return False
+    host = urllib.parse.urlsplit(text).hostname or ""
+    return host == "google.com" or host.endswith(".google.com")
+
+
 def gmail_code(store: Store) -> str:
-    """Gmail's forwarding confirmation code, once Gmail has sent it to our address; '' until then."""
+    """Gmail's forwarding confirmation, once Gmail has sent it to our address: its code, or its link (Gmail sends
+    only a link today); '' until then."""
     if not configured(store):
         return ""
     try:

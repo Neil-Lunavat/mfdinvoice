@@ -57,7 +57,7 @@ METHODS = {
     "finishSetup": ("finish_setup", "pos"), "saveDetails": ("save_details", "pos"), "switchArn": ("switch_arn", "pos"),
     "month": ("month", "pos"), "preview": ("preview", "pos"),
     "exportMonth": ("export_month", "pos"), "openPdf": ("open_pdf", "pos"), "showInFolder": ("show_in_folder", "pos"),
-    "openFolder": ("open_folder", "pos"), "uninstall": ("uninstall", "pos"), "sendIdea": ("send_idea", "kw"), "answerSurvey": ("answer_survey", "pos"), "skipCams": ("skip_cams", "pos"), "forwardStart": ("forward_start", "pos"), "forwardVerify": ("forward_verify", "pos"), "forwardGmailCode": ("forward_gmail_code", "pos"), "startRun": ("start_run", "kw"), "stopRun": ("stop_run", "pos"),
+    "openFolder": ("open_folder", "pos"), "uninstall": ("uninstall", "pos"), "sendIdea": ("send_idea", "kw"), "answerSurvey": ("answer_survey", "pos"), "skipCams": ("skip_cams", "pos"), "forwardStart": ("forward_start", "pos"), "forwardVerify": ("forward_verify", "pos"), "forwardGmailCode": ("forward_gmail_code", "pos"), "forwardConfirm": ("forward_confirm", "pos"), "startRun": ("start_run", "kw"), "stopRun": ("stop_run", "pos"),
     "closeRun": ("close_run", "pos"),
     "markNotesRead": ("mark_notes_read", "pos"),
     "sendSupport": ("send_support", "kw"), "open": ("open", "pos"),

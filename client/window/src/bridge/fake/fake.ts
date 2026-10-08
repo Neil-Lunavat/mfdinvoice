@@ -353,7 +353,8 @@ export class FakeApp implements App {
   async skipCams() {}
   async forwardStart() { await sleep(700); return { ok: true }; }
   async forwardVerify(_: string, code: string) { await sleep(700); return code === '123456' ? { ok: true } : { ok: false, said: "That code isn't right." }; }
-  async forwardGmailCode() { await sleep(400); return '815504211'; }
+  async forwardGmailCode() { await sleep(400); return 'https://mail-settings.google.com/mail/vf-example'; }
+  async forwardConfirm() { await sleep(200); return true; }
   private box: CamsFiles = { added: [], refused: [], waiting: [] };
   private snapBox(): CamsFiles { return { added: [...this.box.added], refused: [...this.box.refused], waiting: [...this.box.waiting], said: this.box.said }; }
   private addPeriod(period: string, count: number, name: string) {

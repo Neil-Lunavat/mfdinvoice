@@ -169,21 +169,25 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
   const h = (n: string) => message.headers.get(n) || '';
   const from = h('from').toLowerCase(), subject = h('subject');
 
-  /* Gmail's "confirm forwarding" mail: its code is shown in the software, for the person to type in Gmail. The code
-     and the Gmail address are read from the subject, else from the body ("x@gmail.com has requested ...",
-     "Confirmation code: 123456789"). */
+  /* Gmail's "confirm forwarding" mail. What the person needs from it is shown in the software: Gmail's code, to type
+     in Gmail, or (Gmail today, 8 Oct 2026: no code, only a link) the confirmation link, to open. Kept in `code`.
+     The Gmail address is read from the subject, else from the body ("x@gmail.com has requested ..."). */
   if (from.includes('forwarding-noreply@google.com')) {
     const subj = plain(subject), body = await readable(message);
     const theirs = (e: string) => !/@(google\.com|(mailback\.)?mfdinvoice\.co\.in)$/.test(e);
-    const code = subj.match(/#(\d{6,})/)?.[1] || body.match(/confirmation code:?\s*(\d{6,})/i)?.[1] || body.match(/#(\d{6,})/)?.[1];
+    const code = subj.match(/#(\d{6,})/)?.[1] || body.match(/confirmation code[^0-9]{0,80}?(\d{6,})/i)?.[1];
+    const links = [...body.replace(/&amp;/g, '&').matchAll(/https:\/\/(?:mail-settings|mail|isolated\.mail)\.google\.com\/[^\s"'<>()]+/g)]
+      .map(m => m[0]).sort((a, b) => b.length - a.length);
     const gmail = emails(subj).find(theirs) || emails(body.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\s+has requested/i)?.[0] || '')[0]
       || emails(body).find(theirs);
-    if (!code || !gmail) {
-      console.log(`forwarding confirmation not understood: subject ${JSON.stringify(subj)}, code ${code ? 'found' : 'missing'}, gmail ${gmail ? 'found' : 'missing'}`);
+    const need = code || links[0];
+    if (!need || !gmail) {
+      const hosts = [...body.matchAll(/https:\/\/[^\s"'<>()/]+\/[^\s"'<>()]{0,20}/g)].map(m => m[0]);
+      console.log(`forwarding confirmation not understood: subject ${JSON.stringify(subj)}, code ${code ? 'found' : 'missing'}, link ${links[0] ? 'found' : 'missing'}, gmail ${gmail ? 'found' : 'missing'}, urls ${JSON.stringify([...new Set(hosts)].slice(0, 12))}`);
       return message.setReject('Not a forwarding confirmation this address understands.');
     }
     await env.DB.prepare("INSERT INTO mails (who, kind, subject, code, size, received_at) VALUES (?, 'confirm', ?, ?, 0, ?)")
-      .bind(await who(gmail), subj.slice(0, 300), code, now()).run();
+      .bind(await who(gmail), subj.slice(0, 300), need, now()).run();
     return;
   }
 

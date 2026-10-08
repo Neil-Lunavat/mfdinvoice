@@ -596,8 +596,18 @@ class Window:
         return await asyncio.to_thread(forward.verify, self.store, email, code)
 
     async def forward_gmail_code(self) -> str:
+        """What Gmail's forwarding confirmation asks for: its code, or (Gmail today) its confirmation link."""
         from client.hands import forward
         return await asyncio.to_thread(forward.gmail_code, self.store)
+
+    async def forward_confirm(self) -> bool:
+        """Opens Gmail's forwarding confirmation link in the person's browser; only a link on google.com is opened."""
+        from client.hands import forward
+        link = await asyncio.to_thread(forward.gmail_code, self.store)
+        if not forward.is_gmail_link(link):
+            return False
+        webbrowser.open(link)
+        return True
 
     async def test_mailbox(self, provider: str, address: str, appPassword: str) -> dict:  # noqa: N803
         from client.hands import inbox, mail

@@ -492,8 +492,11 @@ export interface App {
   /** Forwarding CAMS's mailbacks to us: a code to the CAMS email, then that code typed here proves it is theirs. */
   forwardStart(email: string): Promise<{ ok: boolean; said?: string }>;
   forwardVerify(email: string, code: string): Promise<{ ok: boolean; said?: string }>;
-  /** Gmail's forwarding confirmation code, once Gmail has sent it to our address; '' until then. */
-  forwardGmailCode(): Promise<string>;                            // starts Windows' uninstaller and closes; '' or why not ('not_installed')
+  /** Gmail's forwarding confirmation once Gmail has sent it to our address: its code, or its link (an https URL;
+   *  Gmail sends only a link today); '' until then. */
+  forwardGmailCode(): Promise<string>;
+  /** Opens Gmail's confirmation link in the browser; false when there is none (or it isn't on google.com). */
+  forwardConfirm(): Promise<boolean>;
   /** What importing a month into the person's books (Tally or Zoho Books) would do. Nothing in the books changes. */
   booksLook(q: BooksLookQuery): Promise<BooksLook>;
   /** Put the month in. `adopt`: the invoices typed by hand to change to the registrar's figures. */

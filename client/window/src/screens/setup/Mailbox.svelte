@@ -97,8 +97,12 @@
       <div class="field"><span class="flabel">2. In Gmail, the filter for CAMS's mailbacks</span>
         <span class="hint">In Gmail's search box: <span class="mono">from:donotreply@camsonline.com has:attachment</span> › the filter icon › Create filter › tick "Forward it to" › add forwarding address › paste this › Next › Proceed.</span>
         <div class="testrow"><span class="mono">{FORWARD}</span><button class="btn ghost sm" onclick={() => copy(FORWARD)}>{@html icons.copy}Copy</button></div></div>
-      <div class="field"><span class="flabel">3. Gmail's code, to type in Gmail's Forwarding settings › Verify</span>
-        {#if gmailCode}
+      <div class="field"><span class="flabel">3. Gmail's confirmation</span>
+        {#if gmailCode.startsWith('https://')}
+          <div class="testrow"><button class="btn secondary" onclick={() => app.forwardConfirm()}>Confirm in Gmail</button>
+            <span class="hint">Opens Gmail's confirmation; press Confirm there.</span></div>
+        {:else if gmailCode}
+          <span class="hint">Type it in Gmail's Forwarding settings › Verify.</span>
           <div class="testrow"><b class="mono">{gmailCode}</b><button class="btn ghost sm" onclick={() => copy(gmailCode)}>{@html icons.copy}Copy</button></div>
         {:else}
           <div class="testrow"><span class="hint"><span class="spin"></span> It shows here once Gmail sends it.</span>
