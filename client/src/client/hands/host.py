@@ -31,10 +31,10 @@ OPEN_MS = 60_000
 # What is logged of a run: every action the steps take on a page, how long it took and how it ended, and what the
 # page itself did. What is typed may be a password, so only its length is logged. The portals' trackers and their
 # complaints about them are left out.
-ACTIONS = {Locator: ("click", "fill", "press", "check", "select_option", "set_input_files", "wait_for"),
+ACTIONS = {Locator: ("click", "fill", "press_sequentially", "press", "check", "select_option", "set_input_files", "wait_for"),
            Page: ("goto", "reload", "wait_for_url", "wait_for_function", "wait_for_load_state"),
            Keyboard: ("press", "type")}
-TYPED = ("fill", "type")
+TYPED = ("fill", "press_sequentially", "type")
 NOISE = ("google-analytics", "analytics.google", "google.com/ccm", "doubleclick", "facebook.com/tr",
          "Content Security Policy", "Loading.json")
 _logged = False

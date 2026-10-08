@@ -20,5 +20,5 @@
     <button class="btn primary" disabled={!text.trim()} onclick={go}>Continue</button>
     <a href="#new" onclick={e => { e.preventDefault(); onanswer('', true); }}>Can't read it? New image</a>
   </div>
-  <span class={message ? 'err' : 'hint'} style="font-size:12.5px">{message || "Case doesn't matter."}</span>
+  <span class={message ? 'err' : 'hint'} style="font-size:12.5px">{message || "Capital letters matter."}</span>
 </div>

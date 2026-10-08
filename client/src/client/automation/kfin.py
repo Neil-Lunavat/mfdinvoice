@@ -138,14 +138,38 @@ async def enter(page: Page, username: str, password: str, ask_captcha: AskCaptch
     shown = await who(page)
     if want in shown:
         return shown
-    await page.context.clear_cookies(domain=re.compile(r"kfintech\.com$"))
+    await _forget(page)
     return await sign_in(page, username, password, ask_captcha)
+
+
+async def _forget(page: Page) -> None:
+    """Forget everything KFintech kept in this browser: cookies, and the site's own storage, where its firewall's bot
+    check keeps its state. A sign-in cut off by the network left that state bad, and every later sign-in from this
+    browser was turned away ("Request Rejected") while a fresh browser got in (8 Oct). Done before every fresh
+    sign-in; a session still good was used before this is reached."""
+    await page.context.clear_cookies(domain=re.compile(r"kfintech\.com$"))
+    cdp = await page.context.new_cdp_session(page)
+    try:
+        for origin in ("https://dss.kfintech.com", "https://www.kfintech.com", "https://kfintech.com"):
+            await cdp.send("Storage.clearDataForOrigin", {"origin": origin, "storageTypes": "all"})
+    finally:
+        await cdp.detach()
 
 
 async def _snack(page: Page) -> str:
     """What KFintech's snackbar says. It is orange (a warning), never the red `.MuiAlert-colorError`, so it is read by
     what it is, not by colour."""
     return " ".join(await w.toasts(page, C["snackbar"]))
+
+
+async def _type(page: Page, selector: str, text: str) -> None:
+    """Type into a sign-in box key by key, as a person does. KFintech's firewall turned away a sign-in whose boxes
+    were filled in one go and whose button was clicked with no pointer near it (8 Oct); a person's own typing in the
+    same kind of browser got in."""
+    box = page.locator(selector)
+    await box.click()
+    await box.fill("")
+    await box.press_sequentially(text, delay=70)
 
 
 async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCaptcha) -> set[str]:
@@ -166,8 +190,8 @@ async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCapt
     try:
         for attempt in range(1, CAPTCHA_TRIES + 1):
             await seen(page.locator(L["username"]).first)
-            await page.locator(L["username"]).fill(username)
-            await page.locator(L["password"]).fill(password)
+            await _type(page, L["username"], username)
+            await _type(page, L["password"], password)
             picture = await page.locator(L["captcha_image"]).first.screenshot()
             answer = await ask_captcha(picture, attempt, "" if attempt == 1 else "Not quite. Here's a new one.")
             if answer.get("refresh"):
@@ -176,8 +200,10 @@ async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCapt
             typed = (answer.get("text") or "").strip()
             if not typed:
                 raise Cancelled()
-            await page.locator(L["captcha"]).fill(typed)
+            await _type(page, L["captcha"], typed)
             replies.clear()
+            await page.locator(L["submit"]).hover()
+            await page.wait_for_timeout(250)
             await page.locator(L["submit"]).click()
             said = ""
             for _ in range(SLOW_MS // 500):               # the dashboard, a reply from the server, or a snackbar
@@ -221,11 +247,10 @@ async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCapt
 
 
 async def arn_of(page: Page, username: str, password: str, ask_captcha: AskCaptcha) -> set[str]:
-    """Setup's Verify login: sign in afresh and return every ARN the dashboard shows. KFintech's cookies from before
-    are dropped first, as `enter` does: a sign-in left half-done (the network dropped) left cookies that KFintech's
-    firewall then turned away, while another browser got in (8 Oct)."""
+    """Setup's Verify login: sign in afresh and return every ARN the dashboard shows. What KFintech kept from before
+    is forgotten first, as `enter` does."""
     await page.add_locator_handler(page.locator(C["promo_close"]).first, lambda b: b.click())
-    await page.context.clear_cookies(domain=re.compile(r"kfintech\.com$"))
+    await _forget(page)
     return await sign_in(page, username, password, ask_captcha)
 
 
