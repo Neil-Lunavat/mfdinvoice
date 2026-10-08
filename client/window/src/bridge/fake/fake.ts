@@ -11,7 +11,7 @@ import { NAME } from '../../brand';
 import { clashAfter, type Clash } from '../../logic/clash';
 import { inr, sum } from '../../logic/format';
 import * as D from './data';
-import { captcha, signature } from './images';
+import { captcha, registrarPage, signature } from './images';
 
 export interface Scenario {
   signedIn: boolean;
@@ -286,7 +286,7 @@ export class FakeApp implements App {
 
   async preview() { return ''; }
   async previewInvoice() { await sleep(400); return ''; }
-  async previewRegistrar() { await sleep(400); return ''; }
+  async previewRegistrar() { await sleep(400); return registrarPage(); }
   async exportMonth(period: string) { await sleep(500); return { ok: true as const, name: `${NAME} ${period}.zip` }; }
   // Tally, made up: a company that numbers its own invoices, with whatever was imported in this session
   private inTally = new Map<string, string>();

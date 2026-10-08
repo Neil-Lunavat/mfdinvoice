@@ -22,3 +22,10 @@ export function signature(turns = 0): string {
   return url(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <g transform="${t}" fill="none" stroke="#1b2a5a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${INK}</g></svg>`);
 }
+
+/** A made-up registrar invoice page (400x518), for the setup previews. */
+export function registrarPage(): string {
+  const lines = Array.from({ length: 9 }, (_, i) => `<rect x="30" y="${150 + i * 26}" width="${i % 3 === 0 ? 340 : 280}" height="6" fill="#d6dbe4"/>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="518"><rect width="400" height="518" fill="#fff"/><rect x="30" y="30" width="140" height="12" fill="#334155"/>${lines}<image x="230" y="410" width="140" height="60" href="${signature(0)}"/></svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}

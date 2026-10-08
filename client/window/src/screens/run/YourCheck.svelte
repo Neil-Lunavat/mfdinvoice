@@ -76,7 +76,7 @@
           {#each g.rows as x (x.key)}
             <tr data-i class:sel={x === sel} class:out={!ticked.has(x.key)} onclick={e => { if (!(e.target as HTMLElement).closest('.cb')) sel = x; }}>
               <td class="cb"><label class="check"><input type="checkbox" checked={ticked.has(x.key)} disabled={!!x.blocked || !!x.renumber} aria-label="Include {x.amc}" onchange={() => flip(x)} /></label></td>
-              <td>{x.amc}{#if x.blocked}<span class="rowsay">{x.blocked}</span>{:else if x.rejection}<span class="rowsay bad">Rejected before: “{x.rejection}”</span>{/if}
+              <td class="fh"><span class="amc">{x.amc}</span>{#if x.blocked}<span class="rowsay bad">{x.blocked}</span>{:else if x.rejection}<span class="rowsay bad">Rejected before: “{x.rejection}”</span>{/if}
                 {#if x.note}<span class="rowsay">{x.note}</span>{/if}
                 {#if x.renumber}
                   <span class="rowsay">{CANT_GO} <a href="#why" onclick={e => { e.preventDefault(); toggleWhy(x.key); }}>Why?</a></span>

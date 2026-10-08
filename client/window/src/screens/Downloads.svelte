@@ -2,7 +2,7 @@
   /* Downloads: any months' invoices onto this PC, with every figure, in one go; nothing is signed or submitted.
      Overview runs one month; this is where invoices come in by the batch (and, later, from other places too).
      One sign-in per portal for all of them; CAMS emails each month, and Skip CAMS in the run window goes on without
-     waiting (each email is read when it comes). */
+     waiting (each email is read when it comes, unless the mailbox is by hand). */
   import type { Registrar } from '../bridge';
   import { registrarsOf } from '../logic/details';
   import { inr, regName } from '../logic/format';
@@ -65,7 +65,7 @@
         <label class="check"><input type="checkbox" checked={regs.includes(r)} onchange={() => toggleReg(r)} /> {regName(r)}</label>
       {/each}
     {/if}
-    <span class="line">{regs.includes('CAMS') ? "CAMS emails each month's files: Skip CAMS goes on without waiting, and each email is read when it comes." : ''}</span>
+    <span class="line">{regs.includes('CAMS') && p.mailbox.provider !== 'folder' ? 'You can Skip CAMS and continue without waiting; the email is automatically read whenever it arrives.' : ''}</span>
     <button class="btn primary" data-primary disabled={!picked.length || !regs.length} onclick={go}>{@html icons.dl}
       {picked.length ? `Download ${picked.length} ${picked.length === 1 ? 'month' : 'months'}` : 'Pick months'}</button>
   </div>

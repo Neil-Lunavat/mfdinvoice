@@ -351,7 +351,8 @@ p{margin:0}
 .sofar{background:var(--subtle);border:1px solid var(--line-2);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
 .spin.big{width:22px;height:22px;border-width:2.5px}
 .rm{transition:width var(--t-enter) var(--ease-out)}
-.rm.wide{width:min(980px,100%)}
+.rm.wide{width:min(1500px,100%);max-height:100%}
+.runov:has(.rm.wide){padding:24px}
 .banner.nospin{flex-direction:column;align-items:stretch;gap:10px}
 .bact{display:flex;gap:8px;justify-content:flex-end}
 .chip.wait{background:var(--amber-wash);color:var(--amber)}
@@ -359,7 +360,7 @@ p{margin:0}
 .facts2{display:flex;gap:18px;font-size:13px;color:var(--ink-2)}
 .facts2 span{display:flex;align-items:center;gap:6px}
 .facts2 .dt{width:16px;height:16px}
-.chk-grid{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;align-items:start}
+.chk-grid{display:grid;grid-template-columns:minmax(0,1fr) clamp(280px,36%,520px);gap:16px;align-items:start}
 .tblwrap{border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{text-align:left;font-size:12px;font-weight:500;color:var(--muted);height:34px;padding:0 12px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -375,6 +376,7 @@ p{margin:0}
 .tbl tr.more td{height:32px;font-size:12.5px}
 .tbl tfoot td{font-weight:600;border-bottom:0;border-top:1px solid var(--line);height:40px}
 .tbl td.cb{width:36px;padding-right:0}
+.chk-prev{position:sticky;top:0}
 .chk-prev .label{margin-bottom:8px}
 .chk-prev .page.full{width:100%}
 .fine{font-size:12px;color:var(--muted)}
@@ -605,6 +607,8 @@ a:focus-visible{border-radius:4px}
 /* Your own invoice: the fields on the left and the real invoice on the right, so the signature is seen where it goes */
 .row2.top.sub-part{flex-direction:row;gap:28px}
 .pane-in > #parts:has(.invprev){max-width:1040px}
+.pane-in > #parts:has(.sigstep){max-width:none}
+.pane-in > #parts:has(.bookstep){max-width:none}
 .invprev{flex:0 0 400px;position:sticky;top:0}
 .invprev img{width:400px}
 .invprev-wait{width:400px;height:518px}
@@ -621,8 +625,10 @@ a:focus-visible{border-radius:4px}
 .menu.months button{width:100%;font-size:13.5px}
 .menu.months button.on{background:var(--blue-wash);color:var(--blue)}
 /* Your check: why a row is as it is, under the fund house */
-/* (inline-block, so a left-out row's strike-through does not run through its reason) */
-.rowsay{display:inline-block;width:100%;font-size:12px;color:var(--muted);margin-top:2px;white-space:normal;max-width:260px}
+/* (the fund house is its own span: a left-out row's strike-through runs through the name only, not its reason) */
+.tbl tr.out td.fh{text-decoration:none}
+.tbl tr.out td.fh .amc{text-decoration:line-through;text-decoration-color:var(--line)}
+.rowsay{display:block;max-width:260px;font-size:12px;color:var(--muted);margin-top:2px;white-space:normal;text-align:left;font-weight:400}
 .rowsay.bad{color:var(--red)}
 /* CAMS's two files, dropped on the run window */
 .drop.files{min-height:110px;padding:16px}

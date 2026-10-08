@@ -73,8 +73,8 @@
 
 <p class="line">Each month's invoices can go into your books. This step is optional: you can connect your books later, from the Books tab.</p>
 
-<div class="field"><span class="flabel">Which books do you keep?</span>
-  <div class="tcs">
+<div class="field bookstep"><span class="flabel">Which books do you keep?</span>
+  <div class="tcs kinds">
     <button type="button" class="tile tc" class:on={kind === 'tally'} aria-pressed={kind === 'tally'} onclick={() => choose('tally')}>
       <b>Tally</b><span>TallyPrime on this PC</span></button>
     <button type="button" class="tile tc" class:on={kind === 'zoho'} aria-pressed={kind === 'zoho'} onclick={() => choose('zoho')}>
@@ -149,5 +149,7 @@
   .flabel { font-size: 13px; font-weight: 500; color: var(--ink-2); }
   .tcs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
   .tc { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 240px; text-align: left; }
+  .kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kinds .tc { min-width: 0; }
   .tc span { font-size: 12.5px; color: var(--muted); }
 </style>
