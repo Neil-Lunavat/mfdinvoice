@@ -11,8 +11,9 @@ are in `IDEAS.md`. Delete a line when it is done, a section when it is empty.
 - [x] The keys backed up: `Desktop\MFDInvoice-keys\` (automation.key, server-admin.key, zoho.json, a README). Neil
       moves it somewhere safe.
 - [ ] One PC per account (`CLAUDE.md`, Accounts): design with Neil, then build. Website and software.
-- [ ] Forwarding: Cloudflare Email Routing on `mailback.mfdinvoice.co.in` (the apex's MX at Hostinger untouched), then
-      `cams@mailback.mfdinvoice.co.in` → Send to a Worker → `software`. Proven without waiting on a CAMS mailback.
+- [x] Forwarding, proven live 8 Oct: Email Routing on `mailback.` (the apex's MX at Hostinger untouched); Gmail's
+      confirmation (a link now, opened by Confirm in Gmail); CAMS → pritamutha@ → neillunavat3192@ → us → September's
+      10 invoices read in by themselves; the filter forwards nothing else.
 - [ ] Neil writes the first release notes.
 - [ ] Publish the steps (`ops/automation.py publish`, `cd server && bun run deploy`): without them the built software
       does no portal work.
