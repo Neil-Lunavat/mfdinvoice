@@ -214,7 +214,9 @@ class Job:
             page = self.pages[reg]
             await self.at("Check", f"Reading what {NAMES[reg]} {'lists' if listing_only else 'already has'}")
             if reg == KFIN:
-                reading = await kfin.read_status(page, self.period)
+                # invoices KFintech listed for this month before: an empty table now is its site's trouble
+                known = bool((m.facts.get("status") or {}).get(KFIN)) or bool((m.facts.get("fetched") or {}).get(KFIN))
+                reading = await kfin.read_status(page, self.period, known)
                 self.portals_at = time.monotonic()
                 listed = None if reading is None else sorted(r["key"] for r in reading)
             else:

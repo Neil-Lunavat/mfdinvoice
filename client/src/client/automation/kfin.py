@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import calendar
 import contextlib
+import logging
 import re
 from collections.abc import Awaitable, Callable
 from datetime import date
@@ -34,6 +35,8 @@ from client.automation.invoices import parties
 from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, seen, texts
 from client.automation.widgets import KFIN as K, missing
 from client.automation.words import KFIN as REG, MONTHS
+
+log = logging.getLogger(__name__)
 
 C, L, D, U, PR = K["common"], K["login"], K["download"], K["upload"], K["profile"]
 
@@ -333,10 +336,36 @@ async def open_upload_tab(page: Page, period: str, tab: str, table: bool = False
     return True
 
 
-async def read_status(page: Page, period: str) -> list[dict] | None:
+# KFintech's table sometimes comes up empty for a month it lists (its site slow or failing, 8 Oct): another month and
+# back makes the page ask again, as a person does. Seconds before each new ask.
+AGAIN_AFTER_S = (2, 5, 10)
+
+
+def _trouble() -> Stop:
+    return Stop("kfin_trouble", "KFintech's website is having trouble", "Run again in a few minutes.", registrar=REG)
+
+
+async def _ask_again(page: Page, period: str, pause_s: int, wait: bool) -> None:
+    """Another month and back on the upload page, after a pause: the page asks KFintech for the table again."""
+    log.info("KFintech's table for %s came up empty: another month and back in %d s", period, pause_s)
+    await page.wait_for_timeout(pause_s * 1000)
+    select = page.locator(U["month"]).filter(visible=True).first
+    value = upload_value(period)
+    values = await select.locator("option").evaluate_all("os => os.map(o => o.value)")
+    other = next((v for v in values if v and v != value), "")
+    if other:
+        await select.select_option(other)
+        await page.wait_for_timeout(500)
+    with contextlib.suppress(PWError):
+        async with _answered(page, wait):
+            await select.select_option(value)
+
+
+async def read_status(page: Page, period: str, known: bool = False) -> list[dict] | None:
     """The upload page's Excel tab, which is KFintech's fullest view of the month: every fund with an invoice, under
     KFintech's own headings, as [{key, status, remarks, taxable, gst, amc, code}]. None when KFintech does not list
-    the month yet. Read-only and safe to repeat."""
+    the month yet. `known`: KFintech has listed invoices for this month before, so an empty table is its site's
+    trouble, not an empty month. Read-only and safe to repeat."""
     if not await open_upload_tab(page, period, "Excel Based Upload", table=True):
         return None
     label = download_label(period)
@@ -347,13 +376,20 @@ async def read_status(page: Page, period: str) -> list[dict] | None:
     shows = ("label => { const c = document.querySelector('main table tbody tr td'); const t = c ? c.innerText.trim() : '';"
              " return t === label ? 'rows' : /^no invoice details/i.test(t) ? 'none' : '' }")
     try:
-        for last in (False, True):
-            shown = await (await page.wait_for_function(shows, arg=label, timeout=SLOW_MS)).json_value()
+        for pause in (0, *AGAIN_AFTER_S):
+            if pause:
+                await _ask_again(page, period, pause, True)
+            for last in (False, True):
+                shown = await (await page.wait_for_function(shows, arg=label, timeout=SLOW_MS)).json_value()
+                if shown == "rows" or last:
+                    break
+                await page.wait_for_timeout(1000)
             if shown == "rows":
                 break
-            if last:
-                return None
-            await page.wait_for_timeout(1000)
+        else:
+            if known:
+                raise _trouble()
+            return None
     except PWError:
         # The month is in the list and the table showed neither: only a page with no table at all is a page that
         # changed.
@@ -579,18 +615,37 @@ async def fill_grid(page: Page, period: str, invoices: list[dict], signed: dict[
         raise Stop("not_listed", f"KFintech doesn't list {words.labels(period)[1]} yet",
                    "Nothing was sent to KFintech.", registrar=REG)
     own_path = numbers is not None
-    await page.locator(U["source_mfd"] if own_path else U["source_kfin"]).check()
+    source = page.locator(U["source_mfd"] if own_path else U["source_kfin"])
     heading = download_label(period).replace("-", " ")
-    await seen(page.locator(U["details_heading"]).filter(has_text=heading))
 
     # The rows lag the heading, like the status table. Wait until every taxable amount about to be matched is in the
-    # grid, or the matching below would read last month's numbers.
-    await page.wait_for_function(
-        """want => { const got = [...document.querySelectorAll('main table tbody tr')]
-               .filter(r => r.offsetParent)
-               .flatMap(r => [...r.cells].map(c => parseFloat(c.innerText.replace(/,/g, ''))));
-             return want.every(v => got.some(g => Math.abs(g - v) < 0.005)) }""",
-        arg=[i["taxable"] for i in invoices], timeout=SLOW_MS)
+    # grid ('all'), or the matching below would read last month's numbers. "No invoice details" ('none') for a month
+    # with invoices to send is KFintech's trouble: another month and back, as a person does (choosing a month resets
+    # the source, so it is chosen again). Rows without all the amounts: the matching says which invoice differs.
+    grid = """want => { const rows = [...document.querySelectorAll('main table tbody tr')].filter(r => r.offsetParent);
+               const t = rows.length ? rows[0].innerText.trim() : '';
+               if (/^no invoice details/i.test(t)) return 'none';
+               const got = rows.flatMap(r => [...r.cells].map(c => parseFloat(c.innerText.replace(/,/g, ''))));
+               return want.every(v => got.some(g => Math.abs(g - v) < 0.005)) ? 'all' : '' }"""
+    want = [i["taxable"] for i in invoices]
+    for pause in (0, *AGAIN_AFTER_S):
+        if pause:
+            await _ask_again(page, period, pause, False)
+        await source.check()
+        await seen(page.locator(U["details_heading"]).filter(has_text=heading))
+        shown = ""
+        for last in (False, True):
+            try:
+                shown = await (await page.wait_for_function(grid, arg=want, timeout=SLOW_MS)).json_value()
+            except PWError:
+                shown = ""                                  # rows, but not all the amounts: matched below
+            if shown != "none" or last:
+                break
+            await page.wait_for_timeout(1000)
+        if shown != "none":
+            break
+    else:
+        raise _trouble()
 
     table = page.locator("main table").filter(visible=True).first
     columns = {h.strip(): i for i, h in enumerate(await table.locator("thead th").all_inner_texts())}

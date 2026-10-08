@@ -155,9 +155,10 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   SGST (Duties & Taxes), and "Commission Received" (Sales Accounts) when the company has no sales ledger. Where one
   already exists and the choice is not obvious, the person picks, as before.
 - CAMS's upload holds only the ticked rows.
-- KFintech's server fails its table now and then (an error, a cut connection) and the page then shows an empty table
-  for good. Open: the switch-month retry (0cab72f) hung on the live page and was taken back out (8 Oct); the old wait
-  stands until a fix is found and tested.
+- KFintech's site is flaky: its table sometimes comes up "No invoice details" for a month it lists, and stays so.
+  Read from the page only (never its network answers, which serve many things): an empty table for a month KFintech
+  listed before, or with invoices to send, gets another month and back after 2, 5, 10 s; then "KFintech's website is
+  having trouble. Run again in a few minutes." A month never listed before keeps "not listed yet".
 - Both registrars stopped: the end screen says "CAMS and KFintech both stopped" and gives each its own block.
 - A problem at one registrar does not stop the other. Nothing is retried by itself. Stop is at once, except while a
   Submit's answer is being read. A stop is how a run ended (`run_ended.stop`), never a question.
