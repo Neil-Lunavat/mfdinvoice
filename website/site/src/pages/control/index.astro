@@ -6,6 +6,7 @@ import Panel from '../../layouts/Panel.astro';
 import { accessUser } from '../../lib/server/access';
 import { overview, tabCounts } from '../../lib/server/admin';
 import { rupees } from '../../lib/price';
+import { istWhen } from '../../lib/server/util';
 import { softwareStats } from '../../lib/server/software';
 export const prerender = false;
 
@@ -31,7 +32,7 @@ const toFix = st ? st.open.filter(x => x.kind === 'ours' || x.kind === 'run').re
     <a class="stat" href="/accounts?f=active"><span>Plans ending soon</span><b>{o.plansEnding}</b><small>Paid or gift, in the next 30 days</small></a>
     <a class="stat" href="/accounts"><span>Sign-ups, last 7 days</span><b>{o.signups}</b></a>
     <a class="stat" href="/gifts?status=waiting"><span>Gifts not yet used</span><b>{o.gifts}</b></a>
-    <a class:list={['stat', { hot: o.deletions > 0 }]} href="/accounts?f=deleting"><span>Deletions pending</span><b>{o.deletions}</b><small>Deleted at 2:00 am</small></a>
+    <a class:list={['stat', { hot: o.deletions > 0 }]} href="/accounts?f=deleting"><span>Deletions pending</span><b>{o.deletions}</b><small>{o.nextDeletion ? `Deletes after ${istWhen(o.nextDeletion)}` : 'Each goes a day after it is asked, at 2:00 am'}</small></a>
   </div>
 
   <section class="pc">

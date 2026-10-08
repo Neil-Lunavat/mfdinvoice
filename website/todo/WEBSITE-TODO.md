@@ -23,52 +23,32 @@ in `IDEAS.md` at the repo root; the software's list is `TODO.md`.
   rather than less until about 50 users; then it is redesigned (`IDEAS.md`).
 - **Analytics:** Cloudflare Web Analytics, no cookies.
 
-## Waiting on Neil
+## Before launch (8 Oct)
 
-- [ ] **The logo** is in (`brand/`, 7 Oct): the header, Downloads, the favicon, the Apple touch icon, the link preview
-      (`og.png`). Left: a default blog cover; the emails' mark (still the ✓; the site is on mfdinvoice.co.in now, so the
-      picture can load from it); a simpler 16px favicon if the tab icon looks smudged.
-- [ ] **His read of every page**, desktop and phone: Home, Setup, Security, Pricing, FAQ, Downloads, Release notes,
+- [ ] The logo: white on blue on Downloads (it drew dark there); a larger tile in the header. The emails' mark is still
+      the ✓ (the picture can load from mfdinvoice.co.in now). A simpler 16px favicon if the tab icon looks smudged.
+- [ ] The link preview (`og.png`): Neil checks it in WhatsApp and LinkedIn's Post Inspector once live.
+- [ ] The legal pages: Neil has read them; the "A draft" line goes. Acting on CAMS and KFintech sits inside their terms.
+- [ ] `www.mfdinvoice.co.in` redirects to the apex.
+- [ ] `INDEXING = true`; Google Search Console with the sitemap; one Lighthouse pass on a phone (Home, Pricing,
+      Downloads).
+- [ ] Cloudflare Web Analytics on (Neil, in the dashboard), and its line in Privacy.
+- [ ] The panel: the Deletions card says when the soonest one goes, and an account page's "Delete now"; the Software
+      tab's run view, wide, text left and pictures right. Anything else the panel should show, added as it comes up.
+- [ ] Neil's read of every page, desktop and phone: Home, Setup, Security, Pricing, FAQ, Downloads, Release notes,
       Contact, Support, Blog, Terms, Privacy, Refunds, 404, Sign in, Account, Checkout, a receipt.
-- [ ] **Every email** (`bun run emails`), including the new one: an ARN taken by another account.
-- [ ] **The admin panel, page by page** (`bun run check -- --keep`: panel on :8800 with sample data). The Software
-      table's width is his to judge.
-- [ ] **Checkout**, his pass. Kept for now: no word on why there is no GST; the UPI pays his own ID; four questions.
-- [ ] **The legal pages** read by the person he has for them.
+- [ ] Every email (`bun run emails`), including: an ARN taken by another account.
+- [ ] Checkout, his pass. Kept for now: no word on why there is no GST; the UPI pays his own ID; four questions.
+- [ ] Release notes back to one first release, 1.0.0, in Neil's words (`ops/release.py` writes `RELEASES`; never edit
+      the version or sha256 by hand: installed software reads them).
+- [ ] `/setup`: one picture per step, from Neil's screenshots on the partner's PC; then his videos.
+- [ ] Zoho Books and DSC signing stay claimed (Home, Pricing, FAQ): both are built.
+- [ ] A default blog cover: Neil makes it.
+- [ ] Follow-ups from support@, not the Gmail address: Gmail › Settings › Accounts › Send mail as › add
+      support@mfdinvoice.co.in (smtp.gmail.com, 587, the Gmail address and an app password); one reaches another inbox.
 
-## Waiting on the software (done after it, not here)
-
-- [ ] `/setup`: one picture per step, then his videos.
-- [ ] Release notes back to one first release, 1.0.0 (`ops/release.py` writes `RELEASES`; never edit the version or
-      sha256 by hand: installed software reads them).
-- [ ] Clean the live databases and the file store, and remove Neil's test account and ARN.
-- [ ] Zoho Books and DSC signing are on the site (Home, Pricing, FAQ) and being built. If either slips past launch,
-      change the pages.
-
-## Launch day
-
-- [ ] `www.mfdinvoice.co.in` answers (redirects to the apex).
-- [ ] Mail: support@ and hello@ arrive in Neil's inbox; no-reply@ lands in the inbox, not spam (Gmail and one other).
-- [ ] Support › Reply sends from support@ through Cloudflare: send one real reply and see it arrive (and not in spam).
-- [ ] Follow-ups happen in the mailbox. For them to go out from support@ and not the Gmail address: Gmail › Settings ›
-      Accounts › Send mail as › add support@mfdinvoice.co.in (SMTP smtp.gmail.com, port 587, the Gmail address and
-      an app password), then check one reaches another inbox, not spam.
-- [ ] Cloudflare Access: the blog's writers (and Anand, if he wants the panel).
-- [ ] Cloudflare Web Analytics on, and one line in Privacy ("Cloudflare counts visits, without cookies"); move
-      `TERMS_VERSION`.
-- [ ] `INDEXING = true` in `src/consts.ts`; Google Search Console with the sitemap; then one Lighthouse pass on a phone
-      (Home, Pricing, Downloads).
-- [ ] Neil's own pass on the live site, end to end: sign up, Try for Free, download, trial, pay by UPI, approve in
-      the panel, receipt, Buy more ARNs, support request, a copy of my data, delete the account, sign up again with
-      the same email (no second trial).
-
-## After launch
-
-- [ ] Blog posts (delegated). The blog stays empty, with its footer link, until then.
-- [ ] Read the checkout answers and the analytics after October.
-- [ ] The Software tab: an account's runs on its own page (later).
-- [ ] When the software blanks encoded passwords too (URL-encoded, base64, and in the page HTML), the Security page
-      can show those forms again.
+Done by Neil: mail arrives (support@, hello@; no-reply@ passes DKIM and DMARC), Support › Reply, the live site end to
+end on his own account. After launch: `AFTER-LAUNCH.md`.
 
 ## After the sole proprietorship is registered
 

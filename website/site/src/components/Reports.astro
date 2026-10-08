@@ -41,6 +41,21 @@ const runOf = new Map(rows.filter(r => r.run && r.kind !== 'problem' && r.kind !
 .sw-same > div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .sw-same .btn{margin-left:auto}
 .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:12px 0}
+/* the View box: text on the left, the pictures on the right, each scrolling by itself */
+.dlg.wide.run{width:min(96vw,1800px);height:calc(100vh - 32px)}
+.dlg.run .dlg-b.run-b{flex:1;min-height:0;overflow:hidden;padding:0;gap:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.dlg.run .dlg-b.run-b.solo{grid-template-columns:minmax(0,1fr)}
+.run-l,.run-r{min-height:0;overflow:auto;padding:18px 20px 20px}
+.run-l{display:flex;flex-direction:column;gap:10px}
+.run-r{border-left:1px solid var(--line-2);background:var(--subtle)}
+.run-l .why{max-height:none;flex:none}
+.run-r .shots{grid-template-columns:repeat(2,minmax(0,1fr));margin:0}
+.run-l .applog{max-height:50vh;flex:none;margin-top:0}
+@media (max-width:1000px){
+  .dlg.run .dlg-b.run-b{grid-template-columns:minmax(0,1fr);grid-template-rows:none;overflow:auto;display:block}
+  .run-l,.run-r{overflow:visible}
+  .run-r{border-left:0;border-top:1px solid var(--line-2)}
+}
 .shots img{width:100%;border:1px solid var(--line);border-radius:8px;display:block}
 .applog{max-height:360px;overflow:auto;margin-top:12px;padding:12px;background:var(--sunken);border-radius:8px;font:11.5px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word}
 </style>

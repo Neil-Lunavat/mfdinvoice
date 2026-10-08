@@ -34,6 +34,7 @@
   // behind Cloudflare Access.
   "routes": [
     { "pattern": "mfdinvoice.co.in", "custom_domain": true },
+    { "pattern": "www.mfdinvoice.co.in", "custom_domain": true },
     { "pattern": "control.mfdinvoice.co.in", "custom_domain": true },
     { "pattern": "write.mfdinvoice.co.in", "custom_domain": true }
   ],

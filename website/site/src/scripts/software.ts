@@ -18,18 +18,20 @@ async function view(id: string, b?: HTMLButtonElement) {
   const same: any[] = r.same || [];
   const ended = x.ended && x.kind !== 'problem' ? ` <span class="note mono">${esc(x.ended)}</span>` : '';
   dialog(`<div class="dlg-h"><h2 id="dlgT">#${esc(id)} ${tag(RESULT(x))}${ended}</h2><button type="button" id="dlgX" aria-label="Close">×</button></div>
-    <div class="dlg-b">
+    <div class="dlg-b run-b${pictures.length ? '' : ' solo'}">
+      <div class="run-l">
       <p>${esc(x.email || 'No email')} <span class="note">· ${esc(x.arn || 'no ARN')} · ${esc(when(x.created_at))}${x.seconds != null ? ' · took ' + esc(took(x.seconds)) : ''}</span></p>
       <p class="note">${esc(x.place || '')}${x.place ? ' · ' : ''}software ${esc(x.version || '?')} · steps ${esc(x.steps || '?')}</p>
       <p class="note">${esc(x.pc || '')}</p>
       <div class="why">${x.message ? esc(x.message) : '<span class="muted">It said nothing.</span>'}</div>
       <div class="sw-state" id="swState">${['seen', 'fixed', ''].map(s => `<button type="button" class="btn sm ${x.state === s ? 'primary' : 'secondary'}" data-state="${s}">${s ? STATE[s][0] : 'Neither'}</button>`).join('')}<span class="err" id="swE" hidden></span></div>
       ${same.length ? `<div class="sw-same"><b>The same run</b>${same.map(o => `<div>${tag(RESULT(o))} <span class="note">#${o.id} · ${esc(when(o.created_at))}</span> ${esc(o.message || '')} <button type="button" class="btn secondary sm" data-view="${o.id}">View</button></div>`).join('')}</div>` : ''}
-      ${pictures.length ? `<div class="shots">${pictures.map(f => `<a href="${file(f.name)}" target="_blank" title="${esc(f.name)}"><img src="${file(f.name)}" alt="${esc(f.name)}" loading="lazy"></a>`).join('')}</div>` : ''}
       ${rest.length ? `<p class="note">${rest.map(f => `<a class="blue" href="${file(f.name)}" target="_blank">${esc(f.name)}</a>`).join(' · ')}${x.record ? ` · <a class="blue" href="/api/admin/software?id=${id}&zip=1">all of it (zip)</a>` : ''}</p>` : ''}
       ${x.log ? `<pre class="applog">${esc(x.log)}</pre>` : '<p class="note">No log lines came with it.</p>'}
+      </div>
+      ${pictures.length ? `<div class="run-r"><div class="shots">${pictures.map(f => `<a href="${file(f.name)}" target="_blank" title="${esc(f.name)}"><img src="${file(f.name)}" alt="${esc(f.name)}" loading="lazy"></a>`).join('')}</div></div>` : ''}
     </div>`);
-  $('dlg').classList.add('wide');
+  $('dlg').classList.add('wide', 'run');
   $('swState').querySelectorAll('[data-state]').forEach((s: HTMLButtonElement) => s.onclick = async () => {
     s.disabled = true;
     const res = await post('/api/admin/software', { id: +id, state: s.dataset.state });

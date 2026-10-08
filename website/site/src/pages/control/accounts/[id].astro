@@ -40,7 +40,7 @@ const GIFT_TEXT = { waiting: ['Waiting', 'amber'], used: ['Used', 'green'], revo
 
   {a.delete_after && <section class="pc"><div class="pc-b" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
     <span class="tag red">Deletion pending</span><span>Deletes after {istWhen(a.delete_after)}, at the 2:00 am job after that.</span>
-    <div class="row-b" style="margin-left:auto"><button class="btn secondary sm" type="button" id="keep">Cancel the deletion</button></div>
+    <div class="row-b" style="margin-left:auto"><button class="btn secondary sm" type="button" id="keep">Cancel the deletion</button><button class="btn ghost-red sm" type="button" id="now">Delete now</button></div>
   </div></section>}
 
   <section class="pc">
@@ -136,6 +136,11 @@ $('gift').onclick = () => ask({
 if ($('keep')) $('keep').onclick = () => ask({
   title: 'Cancel the deletion?', text: 'The account stays as it is.', action: 'Cancel the deletion',
   run: () => act({ action: 'cancel_deletion' }),
+});
+if ($('now')) $('now').onclick = () => ask({
+  title: 'Delete this account now?', text: 'Its account, plans and ARNs go now instead of after the wait. Orders and receipts stay.', action: 'Delete now', danger: true,
+  run: () => post('/api/admin/accounts', { action: 'delete', accounts: [id] }),
+  done: () => { location.href = '/accounts'; },
 });
 document.querySelectorAll<HTMLButtonElement>('[data-free]').forEach(b => b.onclick = () => ask({
   title: `Free ARN-${b.dataset.free}`,

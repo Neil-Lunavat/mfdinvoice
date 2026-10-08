@@ -13,7 +13,7 @@ export const SITE_URL = 'https://mfdinvoice.co.in';
 
 /* false until launch: every page carries <meta name="robots" content="noindex">
    and robots.txt disallows everything. true: both go, and robots.txt points at the sitemap. */
-export const INDEXING = false;
+export const INDEXING = true;
 
 /* One yearly plan: ₹4,000 a year for the first ARN, ₹2,000 a year for each extra ARN, up to 6 ARNs on one account.
    Prices are before GST: 18% goes on top once SALES.gst is on. */

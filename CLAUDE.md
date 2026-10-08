@@ -68,6 +68,8 @@ edits this; where it and he disagree, he wins.
   setup = the ARN CAMS shows = the ARN KFintech shows, at setup and on every run; a mismatch (two logins of two
   different ARNs) stops, and nothing is suggested. An ARN belongs to one account while that account's plan runs; once it has ended, another account that
   binds it takes it.
+- **One PC per account** (Neil, 8 Oct; not built yet): signing in on a second PC asks there, as CAMS does, whether to
+  sign the other PC out and sign in here, or keep the other PC and not sign in here.
 
 ## Where the code is
 
@@ -82,7 +84,7 @@ edits this; where it and he disagree, he wins.
 | `server/` | the software's server: `bun run deploy` |
 | `ops/automation.py`, `ops/reports.py`, `ops/release.py` | sign and publish the steps; pull what was sent to support; release the software |
 | `website/site/` | the website: `bun run check` runs its own checks on a fresh local database (nothing live); `-- --keep` leaves the panel up on :8800 with sample data |
-| `TODO.md`, `website/todo/WEBSITE-TODO.md`, `IDEAS.md` | what is left for the software and servers, for the website, and ideas parked for later |
+| `TODO.md`, `website/todo/WEBSITE-TODO.md`, `AFTER-LAUNCH.md`, `IDEAS.md` | what is left before launch for the software and servers, and for the website; what is decided for after launch; ideas parked |
 | `labs/` (not in git) | what the portals, Tally and Zoho really do: `*-results.md` and `portals-report.md`, with the scripts that found it |
 
 Each ARN's data: `%LOCALAPPDATA%\MFDInvoice\workspace\arns\<ARN>\<OCT-2026>\` (`month.json`, `invoices.json`,

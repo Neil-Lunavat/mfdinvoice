@@ -35,12 +35,12 @@ export async function overview() {
     one<{ paid: number; gift: number; trial: number }>(`SELECT COALESCE(SUM(source = 'paid'), 0) AS paid, COALESCE(SUM(source = 'grant'), 0) AS gift,
       COALESCE(SUM(source = 'trial'), 0) AS trial FROM plans WHERE ends_on >= ?`, today),
     one<{ n: number }>('SELECT COUNT(*) AS n FROM gifts WHERE used_at IS NULL AND revoked_at IS NULL'),
-    one<{ n: number }>('SELECT COUNT(*) AS n FROM accounts WHERE delete_after IS NOT NULL'),
+    one<{ n: number; next: string | null }>('SELECT COUNT(*) AS n, MIN(delete_after) AS next FROM accounts WHERE delete_after IS NOT NULL'),
     one<{ n: number }>(`SELECT COUNT(*) AS n FROM accounts WHERE date(created_at, ${IST}) >= ?`, plus(-6)),
     one<{ n: number }>(`SELECT COUNT(*) AS n FROM plans WHERE source = 'trial' AND ends_on BETWEEN ? AND ?`, today, plus(7)),
     one<{ n: number }>(`SELECT COUNT(*) AS n FROM plans WHERE source != 'trial' AND ends_on BETWEEN ? AND ?`, today, plus(30)),
   ]);
-  return { payments: pay!.n, requests: open!.n, month: m!, year: y!, accounts: accounts!.n, plans: plans!, gifts: gifts!.n, deletions: del!.n,
+  return { payments: pay!.n, requests: open!.n, month: m!, year: y!, accounts: accounts!.n, plans: plans!, gifts: gifts!.n, deletions: del!.n, nextDeletion: del!.next,
     signups: signups!.n, trialsEnding: trialsEnding!.n, plansEnding: plansEnding!.n };
 }
 
