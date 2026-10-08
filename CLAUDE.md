@@ -172,6 +172,9 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   listed before, or with invoices to send, gets another month and back after 2, 5, 10 s; then "KFintech's website is
   having trouble. Run again in a few minutes." A month never listed before keeps "not listed yet".
 - Both registrars stopped: the end screen says "CAMS and KFintech both stopped" and gives each its own block.
+- A Submit nobody confirmed (no answer, or not listed after): the next run sends it again; sending twice is fine
+  (Neil, 8 Oct). The portal's own "already have it" answer is read as submitted once its words are known (never
+  seen yet); until then it stops with the portal's words, and the words go into the steps.
 - A problem at one registrar does not stop the other. Nothing is retried by itself. Stop is at once, except while a
   Submit's answer is being read. A stop is how a run ended (`run_ended.stop`), never a question.
 - Every run, check and download is sent to the software's server when it ends (kind `run`), with its own log and the
