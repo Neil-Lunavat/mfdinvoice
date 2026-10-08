@@ -76,6 +76,7 @@ p{margin:0}
 /* ---------- sign in ---------- */
 .signin{display:grid;place-items:center}
 .signin .col{width:380px;display:flex;flex-direction:column;gap:20px}
+.signin .name{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600;letter-spacing:-.01em}
 .signin .mark{width:40px;height:40px;border-radius:10px}
 .signin h1{font-size:24px;letter-spacing:-.025em}
 .signin .sub{color:var(--muted);margin-top:4px}

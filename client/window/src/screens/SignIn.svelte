@@ -134,7 +134,7 @@
 
 <div class="view signin" data-layer="page">
   <div class="col enter">
-    <span class="mark">{@html icons.mark(22)}</span>
+    <div class="name"><span class="mark">{@html icons.mark(22)}</span>{NAME}</div>
     <div><h1>Sign in</h1><p class="sub">New here? <a href="#signup" class="ul" onclick={e => { e.preventDefault(); app.open('signup'); }}>Sign up</a></p></div>
     {#if deleting}
       <div class="banner bad" role="alert"><div><b>Your account is set to be deleted on {dayMonYear(deleting)}</b> (at {hhmm(deleting)}).
