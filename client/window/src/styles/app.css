@@ -386,6 +386,10 @@ p{margin:0}
 .stop-hd{display:flex;gap:12px;align-items:flex-start}
 .stop-hd h3{font-size:20px;letter-spacing:-.02em}
 .stop-hd .q{color:var(--muted);margin-top:2px}
+/* both registrars stopped: one block each */
+.stop-one{border:1px solid var(--line-2);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.stop-one h4{font-size:15px;font-weight:600}
+.stop-one .q{color:var(--muted)}
 .tick.no{background:var(--red-wash);color:var(--red)}
 .tick.big{width:28px;height:28px}
 .mm{display:grid;grid-template-columns:1fr 1fr;gap:10px}

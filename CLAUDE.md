@@ -153,6 +153,10 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   SGST (Duties & Taxes), and "Commission Received" (Sales Accounts) when the company has no sales ledger. Where one
   already exists and the choice is not obvious, the person picks, as before.
 - CAMS's upload holds only the ticked rows.
+- KFintech's server fails its table now and then (an error, a cut connection) and the page then shows an empty table
+  for good. No waiting on a timer: when KFintech's answer failed, or the page has stopped asking and the table is empty,
+  another month and back asks again, up to 3 times; then "KFintech's site didn't load its invoices".
+- Both registrars stopped: the end screen says "CAMS and KFintech both stopped" and gives each its own block.
 - A problem at one registrar does not stop the other. Nothing is retried by itself. Stop is at once, except while a
   Submit's answer is being read. A stop is how a run ended (`run_ended.stop`), never a question.
 - Every run, check and download is sent to the software's server when it ends (kind `run`), with its own log and the

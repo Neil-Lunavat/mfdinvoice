@@ -1260,7 +1260,10 @@ async def _guarded(job: Job, steps, keeps_last_run: bool = False) -> dict:
         if not keeps_last_run:
             job.month.ended(how, stop.title, stop.said, stop.kind)
         out = {"kind": stop.kind, "title": stop.title, "lines": stop.lines, "said": stop.said,
-               "registrar": stop.registrar, "so_far": job.so_far()}
+               "registrar": stop.registrar, "so_far": job.so_far(),
+               # the other registrar's stop too: each gets its own block at the end (Neil, 8 Oct)
+               "others": [{"kind": p.kind, "title": p.title, "lines": p.lines, "said": p.said, "registrar": reg}
+                          for reg, p in job.problems.items() if reg != stop.registrar]}
         return {"how": how, "stop": out, "used": job.used_line(), "counts": job.sent, "enter": job.entered,
                 "left": job.left}
 

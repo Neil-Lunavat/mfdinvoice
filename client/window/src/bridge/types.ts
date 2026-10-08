@@ -323,6 +323,7 @@ export interface Stop {
   lines: string[];                 // one or two plain sentences
   so_far: string;                  // what each registrar got to
   registrar: Registrar | null;
+  others?: Omit<Stop, 'so_far' | 'others'>[];   // the other registrar's stop, when both stopped: each has its own block
 }
 
 /** A question the app puts to the person. Each carries an id; the window answers with `App.answer(id, …)`. */

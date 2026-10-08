@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import calendar
 import contextlib
+import logging
 import re
 from collections.abc import Awaitable, Callable
 from datetime import date
@@ -31,14 +32,17 @@ from playwright.async_api import Error as PWError, Page, expect
 
 from client.automation import files, signature, widgets as w, words
 from client.automation.invoices import parties
-from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, seen, texts
+from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, quiet, seen, texts
 from client.automation.widgets import KFIN as K, missing
 from client.automation.words import KFIN as REG, MONTHS
+
+log = logging.getLogger(__name__)
 
 C, L, D, U, PR = K["common"], K["login"], K["download"], K["upload"], K["profile"]
 
 DATA = "/dssapi/GetGeneric"   # the call that fills the upload page's table: as the page opens, and per month chosen
 LOGIN_API = "/dssapilogin/login/loginAPI"   # the sign-in's call: statusCode 10000 signed in, 10001 "Invalid Password"
+ASKS = 3                  # the table asked for this many times (another month and back) before KFintech is down
 TAB_CLICKS = 10            # a tab clicked too soon after the page loads is dropped; ~2 s between clicks
 CAPTCHA_TRIES = 3          # each wrong captcha is another image for the person to read; keep it small
 
@@ -281,14 +285,50 @@ async def inside(page: Page) -> None:
 
 # --- what KFintech already has ----------------------------------------------------------------------------------------
 
+class _Unanswered(Exception):
+    """KFintech's server failed the table's request (an error, or the connection cut, seen 8 Oct): the page then shows
+    an empty table and never asks again by itself."""
+
+
+def _down() -> Stop:
+    return Stop("kfin_down", "KFintech's site didn't load its invoices",
+                "Its server answered with errors. Nothing was sent to KFintech. Run again in a few minutes.",
+                registrar=REG)
+
+
 @contextlib.asynccontextmanager
 async def _answered(page: Page, wait: bool):
-    """Around a step that makes the upload page ask KFintech for its table: left once KFintech has answered."""
+    """Around a step that makes the upload page ask KFintech for its table: left once KFintech has answered, and
+    `_Unanswered` when its server failed the request."""
     if not wait:
         yield
         return
-    async with page.expect_response(lambda r: DATA in r.url, timeout=SLOW_MS):
+    async with page.expect_request(lambda r: DATA in r.url, timeout=SLOW_MS) as asked:
         yield
+    got = await (await asked.value).response()                  # None: the connection was cut
+    if got is None or not got.ok:
+        raise _Unanswered(f"KFintech answered {got.status}" if got else "KFintech's connection was cut")
+
+
+async def _choose(page: Page, value: str, wait: bool) -> None:
+    """Select the month. With `wait`, until KFintech has answered for it; when its server fails, another month and
+    back makes the page ask again, as a person would (Neil, 8 Oct). `ASKS` failures and KFintech is down."""
+    select = page.locator(U["month"]).filter(visible=True).first
+    for attempt in range(ASKS):
+        try:
+            if attempt:
+                values = await select.locator("option").evaluate_all("os => os.map(o => o.value)")
+                other = next((v for v in values if v and v != value), "")
+                if other:
+                    with contextlib.suppress(_Unanswered):
+                        async with _answered(page, wait):
+                            await select.select_option(other)
+            async with _answered(page, wait):
+                await select.select_option(value)
+            return
+        except _Unanswered as e:
+            log.info("KFintech's table for %s didn't load (%s): asking again", value, e)
+    raise _down()
 
 
 async def _select_tab(page: Page, tab: str) -> None:
@@ -310,10 +350,11 @@ async def open_upload_tab(page: Page, period: str, tab: str, table: bool = False
     """Open the upload page on one tab with this run's month selected. False when the month is not offered at all.
     `table`: the tab's table is about to be read, so KFintech's answer is waited for, first for the month the page
     opens on and then for this one. That takes over six seconds, and until then the table shows the other month."""
-    async with _answered(page, table):
-        await go(page, "upload")
-        await inside(page)
-        await _select_tab(page, tab)
+    with contextlib.suppress(_Unanswered):            # the month the page opens on: only that it has answered matters
+        async with _answered(page, table):
+            await go(page, "upload")
+            await inside(page)
+            await _select_tab(page, tab)
     select = page.locator(U["month"]).filter(visible=True).first
     value = upload_value(period)
     listed = [v for v in await select.locator("option").evaluate_all("os => os.map(o => o.value)") if v]
@@ -328,8 +369,7 @@ async def open_upload_tab(page: Page, period: str, tab: str, table: bool = False
         await select.evaluate(
             "(s, v) => { const o = document.createElement('option'); o.value = v; o.text = v;"
             " s.insertBefore(o, s.options[1] || null) }", value)
-    async with _answered(page, table):
-        await select.select_option(value)
+    await _choose(page, value, table)
     return True
 
 
@@ -566,18 +606,39 @@ async def fill_grid(page: Page, period: str, invoices: list[dict], signed: dict[
         raise Stop("not_listed", f"KFintech doesn't list {words.labels(period)[1]} yet",
                    "Nothing was sent to KFintech.", registrar=REG)
     own_path = numbers is not None
-    await page.locator(U["source_mfd"] if own_path else U["source_kfin"]).check()
+    source = page.locator(U["source_mfd"] if own_path else U["source_kfin"])
     heading = download_label(period).replace("-", " ")
-    await seen(page.locator(U["details_heading"]).filter(has_text=heading))
-
-    # The rows lag the heading, like the status table. Wait until every taxable amount about to be matched is in the
-    # grid, or the matching below would read last month's numbers.
-    await page.wait_for_function(
-        """want => { const got = [...document.querySelectorAll('main table tbody tr')]
-               .filter(r => r.offsetParent)
-               .flatMap(r => [...r.cells].map(c => parseFloat(c.innerText.replace(/,/g, ''))));
-             return want.every(v => got.some(g => Math.abs(g - v) < 0.005)) }""",
-        arg=[i["taxable"] for i in invoices], timeout=SLOW_MS)
+    # The grid either fills or it doesn't: KFintech's server fails now and then (8 Oct), and the page then shows "No
+    # invoice details" and never asks again. Once the page has stopped asking, every taxable amount about to be matched
+    # is in the grid, or another month and back makes it ask again, as a person would (Neil, 8 Oct).
+    for attempt in range(ASKS):
+        if attempt:
+            log.info("KFintech's grid for %s didn't load: another month and back", period)
+            select = page.locator(U["month"]).filter(visible=True).first
+            values = await select.locator("option").evaluate_all("os => os.map(o => o.value)")
+            other = next((v for v in values if v and v != upload_value(period)), "")
+            if other:
+                await select.select_option(other)
+                await quiet(page)
+            await select.select_option(upload_value(period))
+        await source.check()
+        await seen(page.locator(U["details_heading"]).filter(has_text=heading))
+        await quiet(page)
+        try:
+            # every amount in: go on. Rows of figures without all of them: go on too, and the matching below says
+            # which invoice differs. An empty grid ("No invoice details"): ask again.
+            await page.wait_for_function(
+                """want => { const got = [...document.querySelectorAll('main table tbody tr')]
+                       .filter(r => r.offsetParent)
+                       .flatMap(r => [...r.cells].map(c => parseFloat(c.innerText.replace(/,/g, ''))));
+                     return want.every(v => got.some(g => Math.abs(g - v) < 0.005)) }""",
+                arg=[i["taxable"] for i in invoices], timeout=3_000)
+            break
+        except PWError:
+            if await page.locator("main table tbody tr td:nth-child(2)").filter(visible=True).count():
+                break
+    else:
+        raise _down()
 
     table = page.locator("main table").filter(visible=True).first
     columns = {h.strip(): i for i, h in enumerate(await table.locator("thead th").all_inner_texts())}

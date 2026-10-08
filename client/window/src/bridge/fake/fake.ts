@@ -470,6 +470,7 @@ export class FakeApp implements App {
     not_submitting: { title: 'Stopped just before Submit', lines: ['Everything up to here was real, and the registrars have checked the uploads. Submit is switched off on this PC.'] },
     ours: { title: `Something on CAMS's side isn't what ${NAME} expects`, lines: ['This one is ours to fix, and it has been sent to us. Nothing is sent twice: run again once the software says it is fixed.'], reg: 'CAMS' },
     arn_unbound: { title: "This ARN couldn't be added to your account", lines: ["Nothing was submitted. CAMS's files for this month are on this PC, so the next run starts from them."], said: "Another account has this ARN. Send it to support and we'll sort it out.", reg: 'CAMS' },
+    both: { title: "These files aren't October 2026's", lines: ["The Excel report is for September 2026. Choose the zip and the Excel from CAMS's email for October 2026."], reg: 'CAMS' },
     unreachable: { title: `${NAME} can't reach its server`, lines: [`${NAME} can't reach its server right now, so it can't be sure it is up to date with the portals.`, 'Nothing was done. Try again in a few minutes.'] }
   };
 
@@ -481,7 +482,9 @@ export class FakeApp implements App {
     const s = this.STOPS[kind];
     r.views = r.views.map(v => v.name === name ? { ...v, state: 'bad' as const } : v);
     this.push({ type: 'steps', run: r.id, steps: r.views });
-    this.end(kind === 'nothing_to_do' ? 'nothing' : 'stopped', { stop: { kind, title: s.title, said: s.said ?? '', lines: s.lines, so_far: soFar, registrar: s.reg ?? null } });
+    // 'both': CAMS's stop with KFintech's beside it, as when both registrars stopped
+    const others = kind === 'both' ? [{ kind: 'kfin_down', title: "KFintech's site didn't load its invoices", said: '', lines: ['Its server answered with errors. Nothing was sent to KFintech. Run again in a few minutes.'], registrar: 'KFINTECH' as const }] : undefined;
+    this.end(kind === 'nothing_to_do' ? 'nothing' : 'stopped', { stop: { kind: kind === 'both' ? 'wrong_files' : kind, title: s.title, said: s.said ?? '', lines: s.lines, so_far: soFar, registrar: s.reg ?? null, others } });
     return true;
   }
 
@@ -520,7 +523,7 @@ export class FakeApp implements App {
       }
       guard();
     }
-    if (this.scenario.stop === 'wrong_files' && await this.stopNow('Get')) return;
+    if (['wrong_files', 'both'].includes(this.scenario.stop) && await this.stopNow('Get')) return;
     this.say('Get', 'done', [cams.length && `CAMS ${cams.length}`, kf.length && `KFintech ${kf.length}`].filter(Boolean).join(' · '));
 
     this.say('Read', 'running', "Reading the invoices");

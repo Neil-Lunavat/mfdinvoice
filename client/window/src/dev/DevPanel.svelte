@@ -65,7 +65,7 @@
       {#each MONTHS as m (m)}<option value={m}>Month: {m.replace('_', ' ')}</option>{/each}</select>
     <select value={sc.stop} onchange={e => set('stop', e.currentTarget.value)} title="The next run">
       <option value="">Next run: goes through</option>
-      {#each ['arn_mismatch', 'account_locked', 'refused', 'not_listed', 'nothing_to_do', 'mailbox', 'mailback_late', 'wrong_files', 'mismatch', 'portal_validation', 'unknown_submit', 'not_submitting', 'ours', 'arn_unbound', 'unreachable'] as k (k)}<option value={k}>Stops: {k}</option>{/each}</select>
+      {#each ['arn_mismatch', 'account_locked', 'refused', 'not_listed', 'nothing_to_do', 'mailbox', 'mailback_late', 'wrong_files', 'mismatch', 'portal_validation', 'unknown_submit', 'not_submitting', 'ours', 'arn_unbound', 'unreachable', 'both'] as k (k)}<option value={k}>Stops: {k}</option>{/each}</select>
     <label>No books <input type="checkbox" checked={sc.booksOff} onchange={e => set('booksOff', e.currentTarget.checked)} /></label>
     <label>Tally shut <input type="checkbox" checked={sc.tallyDown} onchange={e => set('tallyDown', e.currentTarget.checked)} /></label>
     <label>Renumber <input type="checkbox" checked={sc.renumber} onchange={e => set('renumber', e.currentTarget.checked)} /></label>
