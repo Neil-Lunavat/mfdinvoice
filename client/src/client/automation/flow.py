@@ -52,8 +52,7 @@ from client.automation.words import CAMS, KFIN, NAMES, inr, plural
 log = logging.getLogger(__name__)
 
 MAIL_EVERY_S = 15                # CAMS's email takes from a minute to several (asked 17:07, sent 17:09 on 6 Oct)
-MAIL_GIVE_UP_S = 10 * 60
-ASKED_KEPT_S = 2 * 24 * 60 * 60  # an email asked for longer ago than this is not waited for; CAMS is asked again
+MAIL_GIVE_UP_S = 10 * 60   # CAMS's email waited for; a request older than this, its email not come, is asked again
 # An own invoice dated before the newest invoice in an Auto Renumber type would make Tally renumber the ones after it.
 # The person may date it the day it is sent instead: in Tally, on the drawn PDF and in KFintech's date box (`dated` on
 # the item; CAMS's upload carries no date). Switch this off and the invoice can only be put aside.
@@ -316,7 +315,7 @@ class Job:
                 by_hand = True
         asked = m.facts.get("asked") or {}
         waiting = (asked.get("listed") == self.listed[CAMS]
-                   and time.time() - datetime.fromisoformat(asked["at"]).timestamp() < ASKED_KEPT_S)
+                   and time.time() - datetime.fromisoformat(asked["at"]).timestamp() < MAIL_GIVE_UP_S)
         # an email of CAMS's for this month already on this PC (from the mailbox, or added by hand on Downloads) does,
         # whichever request it answered: CAMS isn't asked again. The mailbox is looked in first when it is read by itself
         found = await self._month_mail(fetch=not (by_hand or waiting))
