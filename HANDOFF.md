@@ -1,84 +1,74 @@
-# Handoff: Neil's full pass (from the 8 Oct session)
+# Handoff: after Neil's pass of 8 Oct
 
-This chat helps Neil do one full pass of the software by hand and fixes what he reports. Nothing else: no new
-features, no redesigns, unless he asks.
+The pass is done: setup, runs up to just before Submit, Tally numbering into MFD Real, downloads of every month. This
+chat picks up what is left. Nothing new unless Neil asks.
 
 ## Read first, in this order
 
-1. `CLAUDE.md`: how we work, and every rule Neil has decided (setup, the run, invoice numbers, the ARN law). It is the
-   single source of decisions. If code and `CLAUDE.md` disagree, `CLAUDE.md` wins, unless Neil says otherwise; then
-   change `CLAUDE.md` first.
-2. `TODO.md`: section 3 is the pass checklist; "In Neil's hands" and "Launch" come after.
-3. Only when a report touches them: `labs/portals-report.md` (what CAMS and KFintech really do), `labs/tally-results.md`
-   (the e40/e41 numbering lab at the end), `labs/zoho-results.md`. Facts about the portals come from these or from
-   Neil, never from guesses.
+1. `CLAUDE.md`: how we work, and every rule Neil has decided. Many were added on 8 Oct (setup's two-try portal message,
+   the network toast, Add CAMS's files, Check mail, the run's file box, Your check, several-month downloads, KFintech's
+   flaky table, the last invoice number, Tally's missing ledgers). If code and `CLAUDE.md` disagree, `CLAUDE.md` wins
+   unless Neil says otherwise; then change `CLAUDE.md` first.
+2. `TODO.md`: section 3 ends with **"Pass of 8 Oct: done"** and the list of what Neil has still never run. "In Neil's
+   hands" has the two questions for a CA.
+3. Only when a report touches them: `labs/portals-report.md`, `labs/portals-results.md`, `labs/tally-results.md`,
+   `labs/zoho-results.md`. Facts about the portals come from these, from Neil, or from the live page; never guesses.
 
 Do not read old chat transcripts.
 
 ## Where things stand
 
-- Commits on `main` from 8 Oct, newest first: `c5b0e93` audit gaps, `b5f8fa5` setup reads the ARN, `7373649` the
-  review's fixes, `92fa18d` Zoho + Books tab, `5f10103` Name and GSTIN step, `0cc3006` invoice numbers (books first),
-  `ab0d664` portal lab in the software, `8a9bdd9` the 7 Oct work. The tree was clean at handoff.
-- Live: the website (mfdinvoice.co.in) and the software's server (software.mfdinvoice.co.in), workers.dev off. The
-  website's newest `/setup` page may still need Neil's deploy. The steps (`client/src/client/automation/`) are not
-  published: `uv run app` runs them from the folder.
-- Neil's app data was wiped on 8 Oct: the pass starts at sign-in, then setup.
-- Checked by the workers and me: compile, the window's type-check, Tally on MFD Test (LAB40 voucher types), Zoho on
-  the MFD Test organisation, setup screens on the made-up backend. **Never run in the real software:** every new
-  screen, everything after Read in a run, and both portals' new code (sign-in, Submit's answer, sessions).
+- `main` is clean at `c1d631a`. The 8 Oct commits, oldest first: 77d62ff … 80f077f (setup fixes, network toast,
+  KFintech's firewall, CAMS's swallowed clicks, the preview race), 387f3a1 (Tally makes missing ledgers), 6c83e13
+  (layouts), 865e3e1 (Add CAMS's files), 26b82d9 (the run's file box, Your check), 99b97fa (CAMS signs in again on a
+  kept tab), 0cab72f + 1c5f43b (a KFintech retry that hung live, taken back out), 5f76f19 (several-month email wait,
+  `pickup` exposed, KFintech's two invoices under one reference), e668d09 (last invoice number, 3-character rule, Check
+  mail), 66413b7 (KFintech's retry, page-based), c1d631a (KFintech's own figure for the two-invoice case, CA note).
+- Nothing is published. The steps (`client/src/client/automation/`) run from the folder under `uv run app`; users get
+  them only after `ops/automation.py publish` + `cd server && bun run deploy`. Window and `hands/` changes need a
+  software release (`CLAUDE.md`, "Where each change ships from").
+- Neil's PC: `client/config.toml` has no `[dev] submit = true`, so runs stop just before Submit. Mailbox is by hand
+  ("folder"), so Check mail and the several-month email wait are not visible to him. Tally company "MFD Real" holds
+  test vouchers 1–9 from the pass (Sales type, Automatic, bare from 1); Neil cancels them and sets the numbering.
+- Neil runs it as `cd client && uv run app --show-browser` (a bare `uv run app` from the repo root fails: no `app`).
+  Never leave the shell's cwd changed.
 
-## What was built on 8 Oct (all unseen by Neil)
+## Learnt on 8 Oct (keep these)
 
-- **Setup**, 8 steps: CAMS → KFintech → Your ARN, name and GSTIN → Signature → Books → Your invoices → Mailbox →
-  Check everything. ARN read from the logins, never typed; a consent tick on each registrar's step.
-- **Invoice numbers, books first** (Tally and Zoho): the books give the number before the PDF is drawn; the red line
-  and Refresh while Tally is shut; Tally's questions inside the run; "Date it today" / "Put it aside" for Tally set to
-  renumber; without books, the last number can't go below the highest used.
-- **Zoho Books**: connect through the browser's Accept page (India only), keys in `~/.mfdinvoice/zoho.json`; the
-  Books tab serves Tally and Zoho.
-- **Portal lab in the software**: status words (exact, unknown stops, most final row wins, both show "Approved");
-  CAMS one browser with sign-in again on expiry, only ticked rows, validation, Submit's Success table, the survey;
-  KFintech sign-in by the server's reply, greyed rows, tab clicks, missing files fetched next run.
-- **Each registrar stops on its own**: one's stop sets it aside, the other carries on.
+- **KFintech is flaky.** Its table can come up "No invoice details" for a month it lists, and stay so; its API
+  (`dssapi/GetGeneric`) is used for many things on a page and some calls fail while others succeed, so **never wait on
+  its network answers**: read what the page shows. Bad site data in the browser profile once got "Request Rejected"
+  from its F5 firewall; a fresh sign-in now clears KFintech's site data (`kfin._forget`).
+- **KFintech refuses invoice numbers under 3 characters** (its page script). Now part of `numbering.rule_46`.
+- **KFintech can raise two invoices for one payment** under one reference (Bank of India, June 2026). Read as one, with
+  KFintech's own figures; the second kept in `parts`. CA question in TODO.
+- **CAMS** allows one session: Neil signing in by hand ends ours; the run signs in again once (`cams._signed`). Its
+  Angular pages swallow clicks made while data loads: `page.quiet` before acting, then check what was clicked held.
+- **CAMS's mailback Excel** gives the month (PAYMENT MONTH YEAR) and ARN (BROKER CODE); zip and Excel pair by the
+  request number in their names (`hands/inbox.py`, `cams.added`).
+- Tally's voucher type numbering tags as TallyPrime 7.1 sends them: PREFIXLIST.LIST, SUFFIXLIST.LIST, BEGINNINGNUMBER,
+  PREFILLZERO, WIDTHOFNUMBER, PERIODBEGINNIGNUM (`tally._bare_start`).
+- Anything a window method returns must be async (shell.py's bridge runs every method as a coroutine).
 
-Watch in the pass (most likely to need fixes): the end screen when one registrar stopped and the other finished; a
-second KFintech captcha just before its Submit after 20 idle minutes; CAMS's Success table matching invoices; Zoho's
-real browser connect; the setup screens' words (Neil rewrites copy).
+## Open, ask Neil before doing
+
+- A real Submit on each portal (needs `[dev] submit = true`; real, his partner's ARN): reading the answers after
+  Submit has never run live. The biggest gap.
+- Everything else on TODO's "still never run" list; each needs Neil in the real software.
+- The CA's two answers (registrar invoice voucher numbers in Tally; KFintech's two-invoice payments).
+- Then: publish the steps, version bump, build, release 1.0.0 (TODO "Launch").
 
 ## How to work in this chat
 
-- Neil reports with a screenshot and what he pressed. Read `workspace\logs\app.log` and the run's
-  `workspace\runs\<id>\log.txt` under `%LOCALAPPDATA%\MFDInvoice\` (reading is allowed; never write there).
-- Small, obvious fixes: do them, check them, say what was checked. Anything that changes behaviour: one numbered item
-  with a lean, he answers. **Write each decision into `CLAUDE.md` the moment he makes it.**
-- Master and workers (`CLAUDE.md`): brief Sonnet workers for multi-file fixes, review their diffs, commit finished
-  pieces (he wants each one committed; stage by name). Before briefing, check the brief against `CLAUDE.md`; a worker
-  told to "keep" a rule keeps it even when it's wrong.
-- Workers that change a screen screenshot it on the made-up backend (`bun run dev` in `client/window`) and describe
-  it. Say plainly what was and wasn't seen.
-- Don't treat code as a fact about the outside world (a function returning a set is not proof a portal shows
-  several ARNs). Unsure what a portal, Tally or Zoho shows: say so, ask Neil, or check the lab files.
-- Deletions outside the code, deploys, live database writes, and the app's data: hand Neil one `!` command.
-
-## Main files for the pass
-
-| Area | Files |
-|---|---|
-| The run | `client/src/client/automation/flow.py` (top to bottom), `month.py`, `words.py` |
-| Portals | `automation/cams.py`, `kfin.py`, `cams_selectors.toml`, `kfin_selectors.toml` |
-| Books and numbers | `automation/books.py` (the seam), `tally.py`, `zoho.py`, `numbering.py`, `own.py`; app side `hands/zoho.py` |
-| Window's Python side | `client/src/client/hands/window.py`, `host.py`, `shell.py` (`uv run app`, `--show-browser`) |
-| Window | `client/window/src/`: `bridge/types.ts` (the boundary), `screens/setup/`, `screens/run/`, `screens/Books.svelte`, `screens/Settings.svelte`, `logic/details.ts` (setup steps) |
-| Website | `website/site/src/pages/setup.astro`, `privacy.astro`, `security.astro` |
-
-Checks before handing anything back: `cd client && uv run python -m compileall -q src`, import the touched modules,
-`cd client/window && bunx svelte-check --threshold warning`; website: `cd website/site && bun run check`.
-
-## Open, not for this pass unless Neil raises it
-
-- The CA question (TODO "In Neil's hands"): a registrar invoice's voucher number in Tally (today Tally's own; Zoho
-  stores the registrar's).
-- Cloudflare Email Routing for CAMS forwarding; a Zoho login for MFDInvoice to own the API client.
-- Before March: a run whose invoices span two financial years.
-- After the pass: publish the steps, version bump, build, release 1.0.0 (TODO "Launch").
+- Neil reports with a screenshot and what he pressed. Read `%LOCALAPPDATA%\MFDInvoice\workspace\logs\app.log` and the
+  run's `workspace\runs\<id>\log.txt` (+ `what-happened.txt`, saved pages `*.html`); reading is allowed, writing never.
+  The app can stay open while you read.
+- Small, obvious fixes: do them, check them, say what was checked. Behaviour changes: numbered items with "Lean:" and
+  one reason; he answers by number. **Write each decision into `CLAUDE.md` the moment he makes it.** Take his wording.
+- Multi-file pieces go to Sonnet workers with exact briefs; review their diffs and screenshots before committing. He
+  wants each finished piece committed, staged by name.
+- Before trusting a new wait or retry on a portal, say it is untested live; he tests it. When something new hangs on
+  the live page, go back to the code that worked first (he asked for that), then design the fix.
+- Checks before handing back: `cd client && uv run python -m compileall -q src`, import the touched modules,
+  `cd client/window && bunx svelte-check --threshold warning`, `bun run build`; screens on the made-up backend
+  (`bun run dev`, dev panel at the bottom) with a screenshot looked at.
