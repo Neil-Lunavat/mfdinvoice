@@ -108,8 +108,10 @@ async def _signed(page: Page, name: str, do, redo=None):
     fails = (Stop, Refused, Changed, PWError, AssertionError)
     try:
         return await do()
-    except fails:
-        why, email = await _ended(page), _email_of.get(page)
+    except fails as e:
+        # CAMS's end is read from the page, or from a refusal carrying its words (the status query's toast, 8 Oct)
+        why = await _ended(page) or (str(e) if isinstance(e, Refused) and EXPIRED.search(str(e)) else "")
+        email = _email_of.get(page)
         if not why or not email:
             raise
     log.info("CAMS ended the session (%s): signing in again, then redoing: %s", why, name)
@@ -131,6 +133,7 @@ async def enter(page: Page, email: str, want: str) -> set[str]:
     The tab a run before this one left signed in is used as it is, when it is this ARN's: that costs no sign-in. One
     signed in as another ARN (another of the person's ARNs was run before) is signed out first.
     """
+    _email_of[page] = email              # a tab kept from the run before is this run's Page: CAMS's end signs in again
     await w.dismiss_cookie_banner_when_seen(page)
     if "camsonline.com" in page.url and not await dropped(page):
         with contextlib.suppress(PWError, Changed):
