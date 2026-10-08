@@ -103,9 +103,7 @@
       {:else}<b>{rej.length} invoices were rejected.</b> {x.amc}: “{x.rejection}”{/if}</div>
       <button class="btn secondary sm" onclick={openRejected}>{rej.length === 1 ? 'Open invoice' : 'See invoices'}</button></div>
   {/if}
-  {#if banner === 'offline'}
-    <div class="banner bad" role="alert"><div><b>No internet.</b> {NAME} needs it to run. Everything here still opens.</div></div>
-  {:else if banner === 'down'}
+  {#if banner === 'down'}
     <div class="banner bad" role="alert"><div><b>{NAME} is having trouble.</b> Your data is safe here. Runs are paused until it's fixed.</div>
       <button class="btn secondary sm" onclick={() => app.open('status')}>Status</button></div>
   {/if}

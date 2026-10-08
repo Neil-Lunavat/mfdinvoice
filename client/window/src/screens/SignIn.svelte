@@ -136,9 +136,6 @@
   <div class="col enter">
     <span class="mark">{@html icons.mark(22)}</span>
     <div><h1>Sign in</h1><p class="sub">New here? <a href="#signup" class="ul" onclick={e => { e.preventDefault(); app.open('signup'); }}>Sign up</a></p></div>
-    {#if banner === 'offline'}
-      <div class="banner bad"><div><b>No internet.</b> Signing in needs it.</div></div>
-    {/if}
     {#if deleting}
       <div class="banner bad" role="alert"><div><b>Your account is set to be deleted on {dayMonYear(deleting)}</b> (at {hhmm(deleting)}).
         Sign in on the website before then to keep it.</div>

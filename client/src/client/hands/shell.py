@@ -53,7 +53,7 @@ METHODS = {
     "prepareSignature": ("prepare_signature", "kw"), "rotateSignature": ("rotate_signature", "pos"),
     "dropSignatureDraft": ("drop_signature_draft", "pos"),
     "findCertificates": ("find_certificates", "pos"), "testCertificate": ("test_certificate", "kw"),
-    "tokenHere": ("token_here", "pos"),
+    "tokenHere": ("token_here", "pos"), "reconnect": ("reconnect", "pos"),
     "finishSetup": ("finish_setup", "pos"), "saveDetails": ("save_details", "pos"), "switchArn": ("switch_arn", "pos"),
     "month": ("month", "pos"), "preview": ("preview", "pos"),
     "exportMonth": ("export_month", "pos"), "openPdf": ("open_pdf", "pos"), "showInFolder": ("show_in_folder", "pos"),

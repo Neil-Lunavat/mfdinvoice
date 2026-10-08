@@ -22,6 +22,7 @@ export type Condition = 'normal' | 'offline' | 'down';
 export interface Snapshot {
   version: string;                 // the app's own version, e.g. "0.9.2"
   condition: Condition;
+  network: { online: boolean; retryAt: number };   // retryAt: epoch ms of the next automatic try while offline
   update: UpdateInfo | null;       // this app must update, and no run is going here: nothing else is usable
   account: Account | null;         // null: signed out on this PC
   arns: ArnSummary[];              // every ARN on the account, in the switcher's order
@@ -458,6 +459,8 @@ export interface App {
   testCertificate(c: { thumbprint: string; route: Cert['route'] }): Promise<{ ok: true } | { ok: false; said: string; other: boolean }>;
   /** Is the token this ARN signs with plugged in? true for the image. */
   tokenHere(): Promise<boolean>;
+  /** Check the network at once; answers when that check is done. */
+  reconnect(): Promise<{ online: boolean }>;
   finishSetup(p: ProfileDraft, adding: boolean): Promise<Result>;
   saveDetails(p: DetailsPatch): Promise<Result>;
   switchArn(arn: string): Promise<void>;

@@ -192,6 +192,10 @@ async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCapt
             await page.wait_for_timeout(800)              # a reply's snackbar trails it
             said = said or await _snack(page)
             reply = replies[-1] if replies else None
+            if reply and "Request Rejected" in str(reply.get("message") or ""):
+                # KFintech's firewall answered instead of KFintech, with an HTML page: never shown as their words.
+                raise Stop("refused", "KFintech's site turned the sign-in away. Wait a few minutes, then try again.",
+                           "Nothing was submitted.", registrar=REG)
             if page.url.rstrip("/").endswith("/Dashboard") or (reply and str(reply.get("statusCode")) == "10000"):
                 await page.wait_for_url("**/Dashboard", timeout=SLOW_MS)
                 shown = await arns_shown(page, "KFintech")
@@ -217,8 +221,11 @@ async def sign_in(page: Page, username: str, password: str, ask_captcha: AskCapt
 
 
 async def arn_of(page: Page, username: str, password: str, ask_captcha: AskCaptcha) -> set[str]:
-    """Setup's Verify login: sign in and return every ARN the dashboard shows."""
+    """Setup's Verify login: sign in afresh and return every ARN the dashboard shows. KFintech's cookies from before
+    are dropped first, as `enter` does: a sign-in left half-done (the network dropped) left cookies that KFintech's
+    firewall then turned away, while another browser got in (8 Oct)."""
     await page.add_locator_handler(page.locator(C["promo_close"]).first, lambda b: b.click())
+    await page.context.clear_cookies(domain=re.compile(r"kfintech\.com$"))
     return await sign_in(page, username, password, ask_captcha)
 
 

@@ -116,6 +116,8 @@ CAMS → KFintech → Your ARN, name and GSTIN → Signature → Books → Your 
   twice in a row "Something on the CAMS portal seems to have changed. You can skip CAMS for now and continue with
   KFintech, or you can send to support and we'll fix it as soon as possible." (both links). No internet says so
   instead, and doesn't count. Same for KFintech.
+- No network: a toast at the top right of every screen, "Network not connected. Retrying in 7s · reconnect", until it
+  is back. Retries after 1, 5, 10, 30 s, then every 2 min; reconnect checks at once.
 - The consent tick sits just above Verify, under the fields, on both portals' steps.
 
 ## The run, as Neil decided it

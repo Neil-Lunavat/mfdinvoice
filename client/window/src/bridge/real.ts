@@ -66,6 +66,7 @@ export class RealApp implements App {
   testCertificate(c: { thumbprint: string; route: Cert['route'] }) {
     return this.call<{ ok: true } | { ok: false; said: string; other: boolean }>('testCertificate', c);
   }
+  reconnect() { return this.call<{ online: boolean }>('reconnect'); }
   tokenHere() { return this.call<boolean>('tokenHere'); }
   finishSetup(p: ProfileDraft, adding: boolean) { return this.call<Result>('finishSetup', p, adding); }
   saveDetails(p: DetailsPatch) { return this.call<Result>('saveDetails', p); }

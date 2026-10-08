@@ -21,6 +21,7 @@
   import SignIn from './screens/SignIn.svelte';
   import Splash from './screens/Splash.svelte';
   import UpdateRequired from './screens/UpdateRequired.svelte';
+  import NetworkToast from './ui/NetworkToast.svelte';
   import Toasts from './ui/Toasts.svelte';
 
   let opened = $state(false);
@@ -118,6 +119,7 @@
   {/if}
   <Popups />
   <Toasts />
+  <NetworkToast />
 </div>
 
 {#if import.meta.env.DEV}

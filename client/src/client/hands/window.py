@@ -108,6 +108,10 @@ class Window:
         self.update_failed_to = ""                           # ... or an update to that version that did not start
         self._updating = False
         self._books_busy = False
+        self.online = True                                   # the network watcher's last answer
+        self.retry_at = 0                                    # epoch ms of its next try while offline, else 0
+        self._net_wake = asyncio.Event()                     # reconnect pressed: check now
+        self._net_done: list[asyncio.Future] = []            # reconnect calls waiting for that check
         self._books_wake = asyncio.Event()                   # Refresh pressed while a run waits for the books
         hands.arn = lambda: self.selected()
         hands.signature_path = lambda: self.signature_file(self.selected())
@@ -120,6 +124,7 @@ class Window:
         """Background upkeep: what the plan says, read when the app opens and again every few minutes."""
         local.put(self.store, "run_in_progress", None)       # closing the app ends a run: none carries over
         self._ticks = asyncio.create_task(self._tick())
+        self._net = asyncio.create_task(self._watch_network())
         self._pickups = asyncio.create_task(self._pickup_loop())
         asyncio.get_running_loop().run_in_executor(None, self._tidy_runs)
 
@@ -172,6 +177,53 @@ class Window:
             except Exception:
                 log.exception("window upkeep")
             await asyncio.sleep(PLAN_EVERY_S if self.condition == "normal" else RETRY_EVERY_S)
+
+    async def _watch_network(self) -> None:
+        """The network toast's source: checked every 10 s while online; while offline retried after 1, 5, 10, 30 s, then
+        every 2 min. Reconnect cuts the wait short."""
+        waits = [1, 5, 10, 30, 120]
+        failed = 0
+        while True:
+            try:
+                wait = 10 if self.online else waits[min(failed, len(waits) - 1)]
+                self.retry_at = 0 if self.online else int((time.time() + wait) * 1000)
+                if not self.online:
+                    await self.changed()
+                try:
+                    await asyncio.wait_for(self._net_wake.wait(), wait)
+                except asyncio.TimeoutError:
+                    pass
+                self._net_wake.clear()
+                now = await asyncio.to_thread(_internet)
+                was = self.online
+                self.online = now
+                if now:
+                    failed = 0
+                    self.retry_at = 0
+                    if not was:
+                        await self.read_plan()
+                else:
+                    failed = failed + 1 if not was else 0
+                    if was:
+                        self.condition = "offline"
+                if now != was or not now:
+                    await self.changed()
+            except Exception:
+                log.exception("watching the network")
+                await asyncio.sleep(5)
+            finally:
+                done, self._net_done = self._net_done, []
+                for f in done:
+                    if not f.done():
+                        f.set_result(None)
+
+    async def reconnect(self) -> dict:
+        """Check the network now; answers once that check is done."""
+        f = asyncio.get_running_loop().create_future()
+        self._net_done.append(f)
+        self._net_wake.set()
+        await f
+        return {"online": self.online}
 
     async def read_plan(self) -> None:
         """Ask the website what the account's plan says and which version of the app is current. No answer is its own
@@ -330,6 +382,7 @@ class Window:
         return {
             "version": APP_VERSION,
             "condition": self.condition,
+            "network": {"online": self.online, "retryAt": self.retry_at},
             "update": self._update_view(),
             "account": {"email": acct["email"], "maxArns": 6} if acct else None,
             "plan": self._plan_view() if acct else None,
@@ -634,8 +687,8 @@ class Window:
             except auto.page.Refused as e:
                 log.info("the KFintech test: KFintech said %r", e.said)
                 return {"ok": False, "said": e.said}
-            except auto.page.Stop as e:
-                return {"ok": False, "said": e.said or e.title}
+            except auto.page.Stop as e:                  # no words of KFintech's: the title is ours
+                return {"ok": False, "said": e.said or e.title, **({"ours": True} if not e.said else {})}
             except (auto.page.Changed, PWError, errors.Failure) as e:
                 return await self._ours("KFintech", e)
             finally:
@@ -1662,12 +1715,14 @@ def _older(version: str, current: str) -> bool:
 
 
 def _internet() -> bool:
-    """Is there an internet at all, or just no us? One name lookup, nothing sent."""
-    try:
-        socket.getaddrinfo("www.camsonline.com", 443)
-        return True
-    except OSError:
-        return False
+    """Is there an internet at all, or just no us? A plain connection to a portal's door, nothing sent."""
+    for host in ("www.camsonline.com", "dss.kfintech.com"):
+        try:
+            socket.create_connection((host, 443), timeout=3).close()
+            return True
+        except OSError:
+            continue
+    return False
 
 
 def _count_gmail(user: str, password: str) -> int:

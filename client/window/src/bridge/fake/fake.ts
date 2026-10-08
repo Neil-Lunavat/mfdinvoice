@@ -81,8 +81,11 @@ export class FakeApp implements App {
     const s = this.scenario;
     this.arns = !s.hasArn ? [] : [this.data(s.month, false), ...(s.secondArn ? [this.data('to_do', true)] : [])];
     this.sel = Math.min(this.sel, Math.max(0, this.arns.length - 1));
+    if (s.condition === 'offline' && this.retryAt < Date.now()) this.retryAt = Date.now() + 8000;
     this.publish();
   }
+
+  private retryAt = 0;
 
   protected get cur(): ArnData | null { return this.arns[this.sel] ?? null; }
 
@@ -104,6 +107,7 @@ export class FakeApp implements App {
     return {
       version: this.version,
       condition: s.condition,
+      network: { online: s.condition !== 'offline', retryAt: s.condition === 'offline' ? this.retryAt : 0 },
       update: s.update ? { version: '0.9.3', why: 'CAMS changed its upload page. This version handles it.', failed: false } : null,
       account: s.signedIn ? { email: this.email, maxArns: 6 } : null,
       plan: s.signedIn ? this.plan() : null,
@@ -231,6 +235,12 @@ export class FakeApp implements App {
   }
 
   async tokenHere() { return true; }
+
+  async reconnect() {
+    await sleep(700);
+    if (this.scenario.condition === 'offline') { this.retryAt = Date.now() + 5000; this.publish(); }
+    return { online: this.scenario.condition !== 'offline' };
+  }
 
   async finishSetup(p: ProfileDraft, adding: boolean) {
     await sleep(400);
