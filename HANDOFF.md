@@ -11,8 +11,8 @@ chat picks up what is left. Nothing new unless Neil asks.
    unless Neil says otherwise; then change `CLAUDE.md` first.
 2. `TODO.md`: section 3 ends with **"Pass of 8 Oct: done"** and the list of what Neil has still never run. "In Neil's
    hands" has the two questions for a CA.
-3. Only when a report touches them: `labs/portals-report.md`, `labs/portals-results.md`, `labs/tally-results.md`,
-   `labs/zoho-results.md`. Facts about the portals come from these, from Neil, or from the live page; never guesses.
+3. Only when a report touches them: `portals-report.md`, `portals-results.md`, `tally-results.md`,
+   `zoho-results.md`, in `Desktop\Automation-old-data\labs\`. Facts about the portals come from these, from Neil, or from the live page; never guesses.
 
 Do not read old chat transcripts.
 

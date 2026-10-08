@@ -37,7 +37,7 @@ edits this; where it and he disagree, he wins.
 
 - `%LOCALAPPDATA%\MFDInvoice\` is the software's data, in development as in production. It stays through every change,
   as it would through an update. Only Neil wipes it.
-- `labs/`, `.env`, `client/config.toml`, `website/site/.dev.vars`.
+- `Desktop\Automation-old-data\labs\` (moved out of the repo 8 Oct), `.env`, `client/config.toml`, `website/site/.dev.vars`.
 - Real data never goes in the repo: real invoices, CAMS's reports, and his partner's name, GSTIN, PAN and ARN. It
   lives in `Desktop\Automation-old-data\`.
 - The signing key `~/.mfdinvoice/automation.key`: whoever holds it can put code on every user's PC. Never commit it,
@@ -85,7 +85,7 @@ edits this; where it and he disagree, he wins.
 | `ops/automation.py`, `ops/reports.py`, `ops/release.py` | sign and publish the steps; pull what was sent to support; release the software |
 | `website/site/` | the website: `bun run check` runs its own checks on a fresh local database (nothing live); `-- --keep` leaves the panel up on :8800 with sample data |
 | `TODO.md`, `website/todo/WEBSITE-TODO.md`, `AFTER-LAUNCH.md`, `IDEAS.md` | what is left before launch for the software and servers, and for the website; what is decided for after launch; ideas parked |
-| `labs/` (not in git) | what the portals, Tally and Zoho really do: `*-results.md` and `portals-report.md`, with the scripts that found it |
+| `Desktop\Automation-old-data\labs\` (outside the repo) | what the portals, Tally and Zoho really do: `*-results.md` and `portals-report.md`, with the scripts that found it |
 
 Each ARN's data: `%LOCALAPPDATA%\MFDInvoice\workspace\arns\<ARN>\<OCT-2026>\` (`month.json`, `invoices.json`,
 `cams/`, `kfintech/`), `books.json` (own invoice numbers given for good). A run's record: `workspace\runs\<id>\`.

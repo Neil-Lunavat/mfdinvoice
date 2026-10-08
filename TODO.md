@@ -6,9 +6,8 @@ are in `IDEAS.md`. Delete a line when it is done, a section when it is empty.
 
 ## Now (8 Oct)
 
-- [ ] Clean the software's server: every report and its record (R2 `records/`), the forwarding boxes and mails. The
-      website's database: what is left once Neil's account goes at 2:00 am (orders, receipts, events, answers,
-      survey replies, deletions, trials). Neil runs the commands.
+- [x] Both live databases and the file store emptied (8 Oct): 30 reports and records; the website's one account,
+      order, receipt, events, answers, trial, deletion. Receipt numbers start again at 1.
 - [x] The keys backed up: `Desktop\MFDInvoice-keys\` (automation.key, server-admin.key, zoho.json, a README). Neil
       moves it somewhere safe.
 - [ ] One PC per account (`CLAUDE.md`, Accounts): design with Neil, then build. Website and software.

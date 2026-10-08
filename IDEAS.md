@@ -19,7 +19,7 @@ more rather than less, so Neil develops a taste for what matters.
 
 ## Zoho Books, past the import
 
-Waits for launch: the import comes first. Each was proven in the Zoho lab (`labs/zoho-results.md`, 7 Oct).
+Waits for launch: the import comes first. Each was proven in the Zoho lab (`Automation-old-data\labs\zoho-results.md`, 7 Oct).
 
 - Commission received: a payment against the invoice with the TDS withheld (194H) on the invoice's line, so the
   invoice reads paid (and the "overdue" that a past-dated sent invoice shows goes).

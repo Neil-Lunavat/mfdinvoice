@@ -18,7 +18,7 @@ software's own server (the current portal steps, signed, and what the app sends 
 | `website/` | the website: pages, payments, accounts, the admin panel, and the app's API (`website/site/API.md`) |
 | `server/` | the software's own server (a Cloudflare Worker): the signed steps, and what is sent to support |
 | `ops/` | signing and publishing the steps (`automation.py`), reading what was sent to support (`reports.py`), switching the old cloud server off and on (`stop-cloud.sh`) |
-| `labs/` | experiments. **Not in git** |
+| `Desktop\Automation-old-data\labs\` | experiments, outside the repo |
 
 ## Running things
 
