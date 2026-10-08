@@ -142,8 +142,7 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   means they are fetched again on the next run.
 - CAMS's email, three ways, in this order: forwarded to us, Gmail with an app password, by hand. Any mailback for this
   ARN and month will do (checked by the Excel's month, BROKER CODE and listing). 10 minutes without it falls back to
-  by hand; a late one is read in by itself while the software is open. Skip CAMS lets KFintech carry on. A run or
-  download whose last request is over 10 minutes old, its email not come, asks CAMS again (Neil, 8 Oct).
+  by hand; a late one is read in by itself while the software is open. Skip CAMS lets KFintech carry on.
 - "Add CAMS's files" (Downloads beside Download, and each month's page): a modal where any number of CAMS's zips and
   Excels, of any months, are dropped or picked at once. They are paired by the request number in their names; each
   Excel gives the month and the ARN (BROKER CODE). Per month it says "October 2026: 5 invoices added"; another ARN's
