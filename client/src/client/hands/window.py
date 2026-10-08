@@ -83,6 +83,7 @@ class Window:
         self.store = store
         self.send = send
         self._portal = asyncio.Lock()                        # one piece of portal work at a time
+        self._odd: dict[str, int] = {}                       # a portal's sign-in test that misbehaved, times in a row
         self.workspace = hands.cfg.paths.workspace
         self.started = time.monotonic()
         self.condition = "normal"
@@ -576,14 +577,30 @@ class Window:
             except auto.page.Stop as e:
                 return {"ok": False, "said": e.said or e.title, **({"ours": True} if e.kind == "ours" else {})}
             except (auto.page.Changed, PWError, errors.Failure) as e:
-                return _ours("CAMS", e)
+                return await self._ours("CAMS", e)
             finally:
                 with contextlib.suppress(Exception):
                     if page is not None:
                         await page.close()
                 await host.close()
+        self._odd.pop("CAMS", None)
         self._log("Verified the CAMS email", registrar="CAMS")
         return {"ok": True, "arn": cams_arn, "name": name}
+
+    async def _ours(self, portal: str, e: Exception) -> dict:
+        """A portal test that failed for a reason of ours, or of this PC's: said in our own sentence, never as the
+        portal's words. The detail goes in the log, which Send to support carries. No internet says so. A page that
+        misbehaves once is a try-again; twice in a row, the portal has likely changed (`changed`: the window offers
+        skipping this portal for now, or Send to support)."""
+        log.warning("the %s test: %s: %s", portal, type(e).__name__, e)
+        if isinstance(e, errors.Failure):
+            return {"ok": False, "said": e.message, "ours": True}
+        if not await asyncio.to_thread(_internet):
+            return {"ok": False, "ours": True, "said": "No internet connection. Check it, then verify again."}
+        self._odd[portal] = self._odd.get(portal, 0) + 1
+        if self._odd[portal] >= 2:
+            return {"ok": False, "ours": True, "changed": True, "said": f"Something on the {portal} portal seems to have changed."}
+        return {"ok": False, "ours": True, "said": f"{portal} portal behaved unexpectedly, try again."}
 
     async def test_kfintech(self, username: str, password: str, expect: str = "") -> dict:
         """A test login, with the captcha asked in the window; `arn` in the answer is the ARN KFintech's dashboard
@@ -620,12 +637,13 @@ class Window:
             except auto.page.Stop as e:
                 return {"ok": False, "said": e.said or e.title}
             except (auto.page.Changed, PWError, errors.Failure) as e:
-                return _ours("KFintech", e)
+                return await self._ours("KFintech", e)
             finally:
                 with contextlib.suppress(Exception):
                     if page is not None:
                         await page.close()
                 await host.close()
+        self._odd.pop("KFintech", None)
         self.store.put_secret("kfintech_password", password)
         self.store.put_secret("kfintech_username", username)
         self._log("Verified the KFintech login", registrar="KFINTECH")
@@ -1631,16 +1649,6 @@ def invoices_of(p: dict) -> dict:
     return {"source": "own" if got.get("source") == "own" else "registrar", "last": str(got.get("last") or ""),
             "at": int(got.get("at") if got.get("at") is not None else -1),
             "settings": {**BLANK_SETTINGS, **(got.get("settings") or {})}}
-
-
-def _ours(portal: str, e: Exception) -> dict:
-    """A portal test that failed for a reason of ours, or of this PC's: said in our own sentence, never as the
-    portal's words. The detail goes in the log, which Send to support carries."""
-    log.warning("the %s test: %s: %s", portal, type(e).__name__, e)
-    if isinstance(e, errors.Failure):
-        return {"ok": False, "said": e.message, "ours": True}
-    return {"ok": False, "ours": True,
-            "said": f"{portal}'s sign-in page didn't behave the way {NAME} expects. Send this to support."}
 
 
 def _older(version: str, current: str) -> bool:

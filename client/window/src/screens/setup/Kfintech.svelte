@@ -17,13 +17,14 @@
   let said = $state('');
   let failed = $state(false);
   let ours = $state(false);
+  let changed = $state(false);              // KFintech's page misbehaved twice in a row
 
   const filled = $derived(d.kfintech.username.trim().length > 2 && pw.length > 2);
   const inSetup = $derived(ui.page === 'setup');
   const other = $derived(!!d.kfintech.loggedInAs && !sameArn(d.kfintech.arn, d.arn));   // it logged in, as another ARN
   const ticked = $derived(!inSetup || !!d.ticks?.kfintech);
   const dup = $derived(inSetup && sameArn(d.kfintech.arn, d.arn) && !!store.snap?.arns.some(a => sameArn(a.arn, d.arn)));
-  const edited = () => { d.kfintech.loggedInAs = ''; d.kfintech.arn = ''; said = ''; failed = false; if (inSetup) { reread(d, 'KFintech'); ui.read.kf = ''; ui.read.gstin = ''; } };
+  const edited = () => { d.kfintech.loggedInAs = ''; d.kfintech.arn = ''; said = ''; failed = false; changed = false; if (inSetup) { reread(d, 'KFintech'); ui.read.kf = ''; ui.read.gstin = ''; } };
 
   async function test() {
     busy = true; edited();
@@ -37,8 +38,9 @@
         if (sameArn(r.arn, d.arn)) { ui.read.kf = r.name; ui.read.gstin = r.gstin; ui.read.version++; }   // another ARN's name is never taken
       }
     }
-    else { said = r.said; ours = !!r.ours; failed = !!r.said || !r.ours; }
+    else { said = r.said; ours = !!r.ours; changed = !!r.changed; failed = !!r.said || !r.ours; }
   }
+  function skip() { d.kfintech.used = false; edited(); if (d.ticks) d.ticks.kfintech = null; }
   function answer(text: string, refresh: boolean) {
     const q = store.setupCaptcha;
     if (!q) return;
@@ -54,24 +56,26 @@
     <p class="line">Without KFintech, CAMS confirms your ARN: verify your CAMS email before you finish.</p>
   {/if}
 {:else}
-  {#if inSetup}
-    <label class="check consent"><input type="checkbox" checked={!!d.ticks?.kfintech}
-      onchange={e => { d.ticks = { cams: d.ticks?.cams ?? null, kfintech: e.currentTarget.checked ? consentNow(['KFintech']) : null }; }} /> {consentText(['KFintech'])}</label>
-  {/if}
   <div class="field"><label for="ku">Username <Help text="The username you use on the KFintech distributor site" /></label>
     <input id="ku" class="input mono" style="max-width:300px" bind:value={d.kfintech.username} oninput={edited} /><span class="hint">{saved ? `Saved on this PC: ${saved}. Type it to verify a new login.` : 'Your KFintech distributor login'}</span></div>
   <div class="field"><label for="kp">Password</label>
     <div class="secret"><input id="kp" type="password" class="input" style="max-width:300px" bind:value={pw} oninput={edited} />
       <span class="lock">{@html icons.lock}This PC only</span></div></div>
+  {#if inSetup}
+    <label class="check consent"><input type="checkbox" checked={!!d.ticks?.kfintech}
+      onchange={e => { d.ticks = { cams: d.ticks?.cams ?? null, kfintech: e.currentTarget.checked ? consentNow(['KFintech']) : null }; }} /> {consentText(['KFintech'])}</label>
+  {/if}
   <div class="testrow"><button class="btn secondary" disabled={!filled || !ticked || busy} onclick={test}>Verify login</button>
     {#if busy && !store.setupCaptcha}<span class="spin"></span>
     {:else if other}<span class="err">{mismatchLine(d, 'KFintech', inSetup)}</span>
     {:else if d.kfintech.loggedInAs}<span class="okl">{@html icons.tickSm}Logged in as {d.kfintech.loggedInAs} · {d.kfintech.arn}</span>
       {#if dup}<span class="err">{d.arn} is already set up in this software.</span>{/if}
+    {:else if changed}<span class="err">{said} {#if d.camsUsed}You can <a href="#skip" onclick={e => { e.preventDefault(); skip(); }}>skip KFintech for now</a> and continue with CAMS, or you can{:else}You can{/if}
+      <a href="#support" onclick={e => { e.preventDefault(); ui.open({ type: 'support', where: 'Setup, KFintech: its sign-in page misbehaved twice' }); }}>send to support</a> and we'll fix it as soon as possible.</span>
     {:else if said}<span class="err">{ours ? said : `KFintech says: “${said}”`}</span>
     {:else if failed}<span class="err">KFintech couldn't be reached just now.</span>{/if}</div>
   {#if store.setupCaptcha}
     <Captcha image={store.setupCaptcha.image} message={store.setupCaptcha.message} onanswer={answer} />
   {/if}
-  {#if d.camsUsed}<a href="#nokf" class="small-link" onclick={e => { e.preventDefault(); d.kfintech.used = false; edited(); if (d.ticks) d.ticks.kfintech = null; }}>I don't use KFintech</a>{/if}
+  {#if d.camsUsed}<a href="#nokf" class="small-link" onclick={e => { e.preventDefault(); skip(); }}>I don't use KFintech</a>{/if}
 {/if}

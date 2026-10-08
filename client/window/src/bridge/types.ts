@@ -382,7 +382,7 @@ export type Push =
 // --- what the window asks the app -------------------------------------------------------------------------------
 
 /** `said`: why not. The portal's own words, quoted as such, unless `ours`: then it is our own sentence. */
-export type Result<T = object> = ({ ok: true } & T) | { ok: false; said: string; ours?: boolean };
+export type Result<T = object> = ({ ok: true } & T) | { ok: false; said: string; ours?: boolean; changed?: boolean };   // changed: a portal's page misbehaved twice in a row
 
 export interface ProfileDraft {
   arn: string;

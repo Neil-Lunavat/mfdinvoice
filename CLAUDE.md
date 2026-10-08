@@ -112,6 +112,11 @@ CAMS → KFintech → Your ARN, name and GSTIN → Signature → Books → Your 
 - Books: Tally, Zoho Books, or neither; one per ARN, whichever they pick. Before Your invoices, so the last invoice
   number is read from the books.
 - "I don't use CAMS" exists like "I don't use KFintech"; one of the two must be used.
+- A portal's sign-in page that misbehaves at Verify: the first time "CAMS portal behaved unexpectedly, try again";
+  twice in a row "Something on the CAMS portal seems to have changed. You can skip CAMS for now and continue with
+  KFintech, or you can send to support and we'll fix it as soon as possible." (both links). No internet says so
+  instead, and doesn't count. Same for KFintech.
+- The consent tick sits just above Verify, under the fields, on both portals' steps.
 
 ## The run, as Neil decided it
 
