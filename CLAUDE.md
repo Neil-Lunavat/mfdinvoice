@@ -73,7 +73,7 @@ edits this; where it and he disagree, he wins.
 
 | | |
 |---|---|
-| `client/src/client/hands/shell.py` | `uv run app`: the launcher. In a checkout a run stops just before Submit unless `client/config.toml` has `[dev]` `submit = true`. `--show-browser` shows the browser a run drives. The log is always full (every action on a page, every portal answer, every stop with its traceback) in `workspace\logs\app.log` (I may read it; typed text is logged by length only), and each run's own part in `workspace\runs\<id>\log.txt` |
+| `client/src/client/hands/shell.py` | `uv run app`: the launcher. In a checkout it builds the window again first when `client/window` changed since the last build. In a checkout a run stops just before Submit unless `client/config.toml` has `[dev]` `submit = true`. `--show-browser` shows the browser a run drives. The log is always full (every action on a page, every portal answer, every stop with its traceback) in `workspace\logs\app.log` (I may read it; typed text is logged by length only), and each run's own part in `workspace\runs\<id>\log.txt` |
 | `client/src/client/hands/window.py` | the window's Python side: every method the window calls; `_drive` runs a run, a check or a download |
 | `client/src/client/hands/host.py` | what the steps are given: tabs, the person, files, signature, mailbox, the run's record |
 | `client/src/client/hands/loader.py`, `server.py`, `site.py`, `forward.py`, `zoho.py` | getting the steps; the software's server; the website's API; CAMS's forwarded mailbacks; Zoho's sign-in and tokens (keys in `~/.mfdinvoice/zoho.json`, bundled by `packaging/build.py`, never in git) |

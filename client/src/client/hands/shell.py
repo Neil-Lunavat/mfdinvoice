@@ -141,6 +141,24 @@ def _submits() -> bool:
         return False
 
 
+def _build_window(dist: Path) -> None:
+    """In a checkout, build the window again when its source is newer than the build: a change to the window went
+    unseen by `uv run app` until someone remembered `bun run build` (8 Oct)."""
+    src = dist.parent
+    newest = max((p.stat().st_mtime for p in [*(src / "src").rglob("*"), *src.glob("*.*")]
+                  if p.is_file() and p.name != "bun.lock"), default=0)
+    index = dist / "index.html"
+    if index.exists() and index.stat().st_mtime >= newest:
+        return
+    import subprocess
+    bun = shutil.which("bun")
+    if not bun:
+        sys.exit("The window needs building and bun is not on PATH: run `bun run build` in client/window.")
+    print("Building the window (its source changed)...", flush=True)
+    if subprocess.run([bun, "run", "build"], cwd=src).returncode != 0:
+        sys.exit("Building the window failed: see above.")
+
+
 def _check_steps(out: Path) -> int:
     """The build's own check (`packaging/build.py`): can this app get the steps the way an installed one does,
     check our signature on them and import every module in them, and is the standard library here for steps that
@@ -189,6 +207,8 @@ def main() -> None:
     if a.check_steps:
         sys.exit(_check_steps(a.check_steps))
 
+    if not getattr(sys, "frozen", False) and a.window == DIST:
+        _build_window(DIST)
     index = a.window / "index.html"
     if not index.exists():
         sys.exit(f"The window is not built: {index} is missing. Run `bun run build` in client/window.")
