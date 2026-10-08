@@ -47,6 +47,10 @@ GSTIN = re.compile(r"\b\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z]\b")
 # Tally's own spelling, where it differs from the one printed on an invoice
 TALLY_STATE = {"01": "Jammu & Kashmir", "26": "Dadra & Nagar Haveli and Daman & Diu", "35": "Andaman & Nicobar Islands"}
 D = Decimal
+# Tally's duty head and rate for each tax ledger the software makes
+TAX_HEADS = {"cgst": ("CGST", "9"), "sgst": ("SGST/UTGST", "9"), "igst": ("IGST", "18")}
+# the sales ledger made when a company has none; the second only if a ledger elsewhere already took the first name
+SALES_NAMES = ("Commission Received", "Commission Received (MFD)")
 
 
 class Off(Exception):
@@ -540,16 +544,19 @@ class Session:
                 elif options:
                     self._ask(f"sales:{gstin}", f"Which sales ledger does {p['amc']}'s commission go under?", options)
                     p.update(action="ask", note="Which sales ledger?")
-                else:
-                    return {**p, "action": "stop",
-                            "note": "This company has no sales ledger. Make one in Tally, under Sales Accounts."}
+                else:                                # no sales ledger at all: made, not asked (Neil, 8 Oct)
+                    name = next((n for n in SALES_NAMES if n not in ledgers), SALES_NAMES[-1])
+                    p["sales"] = next((c["name"] for c in self.creates if c["kind"] == "sales"), name)
+                    if not any(c["kind"] == "sales" for c in self.creates):
+                        self.creates.append({"kind": "sales", "name": name, "gstin": ""})
         if p["action"] == "ask":
             return p
 
-        if igst and self.tax["igst"][1] and not any(c["kind"] == "tax" for c in self.creates):
-            self.creates.append({"kind": "tax", "name": self.tax["igst"][0], "gstin": ""})
-        if (cgst or sgst) and (self.tax["cgst"][1] or self.tax["sgst"][1]):
-            return {**p, "action": "stop", "note": "No CGST and SGST ledgers were found in this company."}
+        for k, amount in (("igst", igst), ("cgst", cgst), ("sgst", sgst)):    # a missing tax ledger: made, not asked
+            name, new = self.tax[k]
+            if amount and new and not any(c["name"] == name for c in self.creates):
+                self.creates.append({"kind": "tax", "name": name, "gstin": "", "head": TAX_HEADS[k][0],
+                                     "rate": TAX_HEADS[k][1]})
 
         # typed by hand already? the same fund house, the same month (the registrar's, whatever date we write), within a rupee
         hand = next((v for v in vouchers if v["party"] == p["party"] and v["date"][:6] == str(r.get("date") or p["date"]).replace("-", "")[:6]
@@ -871,23 +878,39 @@ class Session:
                         alter={"mid": hand["mid"], "date": hand["date"]} if hand else None)
 
     def _create(self, c: dict) -> tuple[bool, str]:
+        """Make a ledger the run needs: a fund house's, a tax ledger, or the sales ledger. The XML is the one
+        `labs/15_tally/e03_masters.py` had TallyPrime 7.1 take."""
         name = c["name"]
+        from_ = next((x["booksFrom"] for x in companies() if x["name"] == self.company), "") or "20170701"
         if c["kind"] == "party":
-            from_ = next((x["booksFrom"] for x in companies() if x["name"] == self.company), "") or "20170701"
             xml = (f'<LEDGER NAME="{e(name)}" ACTION="Create"><NAME>{e(name)}</NAME><PARENT>Sundry Debtors</PARENT>'
                    f"<ISBILLWISEON>Yes</ISBILLWISEON><LEDGSTREGDETAILS.LIST><APPLICABLEFROM>{from_}</APPLICABLEFROM>"
                    "<GSTREGISTRATIONTYPE>Regular</GSTREGISTRATIONTYPE>"
                    f"<PLACEOFSUPPLY>{e(_state(c['gstin']))}</PLACEOFSUPPLY><GSTIN>{c['gstin']}</GSTIN>"
                    "</LEDGSTREGDETAILS.LIST></LEDGER>")
+            made = {"parent": "Sundry Debtors", "gstin": c["gstin"], "duty": "", "rate": "", "billwise": True}
+        elif c["kind"] == "sales":                 # services, taxable at 18%, SAC 997159 (a mutual fund distributor's)
+            rates = "".join(f"<RATEDETAILS.LIST><GSTRATEDUTYHEAD>{h}</GSTRATEDUTYHEAD><GSTRATEVALUATIONTYPE>Based on "
+                            f"Value</GSTRATEVALUATIONTYPE><GSTRATE>{r}</GSTRATE></RATEDETAILS.LIST>"
+                            for h, r in TAX_HEADS.values())
+            xml = (f'<LEDGER NAME="{e(name)}" ACTION="Create"><NAME>{e(name)}</NAME><PARENT>Sales Accounts</PARENT>'
+                   "<GSTAPPLICABLE>&#4; Applicable</GSTAPPLICABLE><GSTTYPEOFSUPPLY>Services</GSTTYPEOFSUPPLY>"
+                   f"<AFFECTSSTOCK>No</AFFECTSSTOCK><GSTDETAILS.LIST><APPLICABLEFROM>{from_}</APPLICABLEFROM>"
+                   "<TAXABILITY>Taxable</TAXABILITY><SRCOFGSTDETAILS>Specify Details Here</SRCOFGSTDETAILS>"
+                   f"<STATEWISEDETAILS.LIST><STATENAME>&#4; Any</STATENAME>{rates}</STATEWISEDETAILS.LIST>"
+                   f"</GSTDETAILS.LIST><HSNDETAILS.LIST><APPLICABLEFROM>{from_}</APPLICABLEFROM>"
+                   "<HSNCODE>997159</HSNCODE><HSN>Commission</HSN><SRCOFHSNDETAILS>Specify Details Here"
+                   "</SRCOFHSNDETAILS></HSNDETAILS.LIST></LEDGER>")
+            made = {"parent": "Sales Accounts", "gstin": "", "duty": "", "rate": "", "billwise": False}
         else:
             xml = (f'<LEDGER NAME="{e(name)}" ACTION="Create"><NAME>{e(name)}</NAME><PARENT>Duties &amp; Taxes</PARENT>'
-                   "<TAXTYPE>GST</TAXTYPE><GSTDUTYHEAD>IGST</GSTDUTYHEAD><RATEOFTAXCALCULATION>18"
-                   "</RATEOFTAXCALCULATION></LEDGER>")
+                   f"<TAXTYPE>GST</TAXTYPE><GSTDUTYHEAD>{e(c['head'])}</GSTDUTYHEAD><RATEOFTAXCALCULATION>{c['rate']}"
+                   "</RATEOFTAXCALCULATION><ROUNDINGMETHOD>&#4; Not Applicable</ROUNDINGMETHOD></LEDGER>")
+            made = {"parent": "Duties & Taxes", "gstin": "", "duty": c["head"], "rate": c["rate"], "billwise": False}
         ok, said = _said(_post(f"ledger {name}", _import(xml, "All Masters", self.company)))
         log.info("tally: the ledger %r: %s", name, "made" if ok else said)
-        if ok and c["kind"] == "party":
-            self.books["ledgers"][name] = {"parent": "Sundry Debtors", "gstin": c["gstin"], "duty": "", "rate": "",
-                                           "billwise": True}
+        if ok:
+            self.books["ledgers"][name] = made
         return ok, said
 
     def _read_back(self) -> dict[str, str]:
@@ -904,7 +927,7 @@ class Session:
         sure = self.answers.get("gstin") == "yes" or self.remember.get("gstin_ok") == self.books.get("gstin")
         keep = {"company": self.company, "guid": self.guid, "vtype": self.vtype, "gstin": self.books.get("gstin", ""),
                 **({"gstin_ok": self.books.get("gstin", "")} if sure else {}),
-                "tax": {k: v[0] for k, v in self.tax.items() if not v[1] or k == "igst"},
+                "tax": {k: v[0] for k, v in self.tax.items() if v[0] in self.books["ledgers"]},
                 "party": dict(self.remember.get("party") or {}), "sales": dict(self.remember.get("sales") or {})}
         for p in sent:
             if p["key"] in went:

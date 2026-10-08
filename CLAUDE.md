@@ -141,6 +141,13 @@ own check, Submit, status again. Your check comes before anything is prepared, s
 - CAMS's email, three ways, in this order: forwarded to us, Gmail with an app password, by hand. Any mailback for this
   ARN and month will do (checked by the Excel's month, BROKER CODE and listing). 10 minutes without it falls back to
   by hand; a late one is read in by itself while the software is open. Skip CAMS lets KFintech carry on.
+- "Add CAMS's files" (Downloads, beside Download): a modal where any number of CAMS's zips and Excels, of any months,
+  are dropped or picked at once. They are paired by the request number in their names; each Excel gives the month and
+  the ARN (BROKER CODE). Per month it says "October 2026: 5 invoices added"; another ARN's pair or a file without its
+  partner is refused with the reason. A run uses them under the rule above (CAMS still lists exactly those invoices).
+- Tally: a missing ledger is made by the software, never a stop: the fund house's (Sundry Debtors), IGST, CGST and
+  SGST (Duties & Taxes), and "Commission Received" (Sales Accounts) when the company has no sales ledger. Where one
+  already exists and the choice is not obvious, the person picks, as before.
 - CAMS's upload holds only the ticked rows.
 - A problem at one registrar does not stop the other. Nothing is retried by itself. Stop is at once, except while a
   Submit's answer is being read. A stop is how a run ended (`run_ended.stop`), never a question.

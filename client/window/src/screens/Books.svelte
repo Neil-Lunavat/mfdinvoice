@@ -47,7 +47,8 @@
   const salesOptions = $derived([...new Set(salesAsks.flatMap(a => a.options))]);
   const amcOf = (q: string) => q.match(/does (.+?)'s commission/)?.[1] ?? q;
   const parties = $derived((look?.creates ?? []).filter(c => c.kind === 'party').map(c => c.name));
-  const taxes = $derived((look?.creates ?? []).filter(c => c.kind !== 'party').map(c => c.name));
+  const taxes = $derived((look?.creates ?? []).filter(c => c.kind === 'tax').map(c => c.name));
+  const sales = $derived((look?.creates ?? []).find(c => c.kind === 'sales')?.name ?? '');
 
   async function read(keep = false) {
     if (busy || !period) return;
@@ -217,11 +218,12 @@
       {#if look.own}
         <div class="banner info sm"><div>Your own invoices go into {name} when you run them, and are numbered then. This page shows what is there.</div></div>
       {/if}
-      {#if parties.length || taxes.length}
+      {#if parties.length || taxes.length || sales}
         <div class="banner info sm"><div>
           {#if parties.length && isZoho}<b>{parties.length} new {parties.length === 1 ? 'customer' : 'customers'} will be made in Zoho Books</b>, with {parties.length === 1 ? 'its' : 'their'} GSTIN: {parties.join(', ')}.
           {:else if parties.length}<b>{parties.length} new {parties.length === 1 ? 'ledger' : 'ledgers'} will be made in Tally</b>, under Sundry Debtors with {parties.length === 1 ? 'its' : 'their'} GSTIN: {parties.join(', ')}.{/if}
           {#if taxes.length}<p>{taxes.length === 1 ? 'A tax ledger' : 'Tax ledgers'} will be made too: {taxes.join(', ')}.</p>{/if}
+          {#if sales}<p>This company has no sales ledger, so <b>{sales}</b> will be made under Sales Accounts.</p>{/if}
         </div></div>
       {/if}
       {#if salesAsks.length}

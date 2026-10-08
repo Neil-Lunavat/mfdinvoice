@@ -203,7 +203,7 @@ export interface BooksLook {
   said: string; companies: string[]; orgs?: { id: string; name: string }[]; orgId?: string; company: string; period: string; label: string; own: boolean;
   which: 'submitted' | 'all'; vtype: string; method: string; tallyNumbers: boolean; last: string; askLast: boolean;
   rows: BooksRow[];
-  creates: { kind: 'party' | 'tax'; name: string; gstin: string }[];
+  creates: { kind: 'party' | 'tax' | 'sales'; name: string; gstin: string }[];
   asks: { id: string; question: string; options: string[] }[];
   warn: string[];
   counts: { submitted: number; all: number; going: number; byHand: number; inBooks: number };
