@@ -8,7 +8,7 @@
    The app holds its pushes until `listen` is called, so nothing it says before the page has loaded is lost. */
 
 import type {
-  Answer, App, Cert, CodeRefusal, Consent, DetailsPatch, InvoiceSettings, Link, MailProvider, NextNumber, Month, Place, ProfileDraft, Push,
+  Answer, App, CamsFiles, Cert, CodeRefusal, Consent, DetailsPatch, InvoiceSettings, Link, MailProvider, NextNumber, Month, Place, ProfileDraft, Push,
   Registrar, Result, RunKind, Snapshot, SurveyAnswers, VerifyRefusal, BooksLookQuery, BooksLook, BooksSetup, ZohoConnect, TallyPick, ZohoPick
 } from './types';
 
@@ -97,6 +97,9 @@ export class RealApp implements App {
   zohoConnect(arn = '') { return this.call<ZohoConnect>('zohoConnect', arn); }
   zohoCancel() { return this.call<void>('zohoCancel'); }
   zohoDisconnect(arn = '') { return this.call<{ ok: boolean }>('zohoDisconnect', arn); }
+  camsFilesStart() { return this.call<CamsFiles>('camsFilesStart'); }
+  chooseCamsFiles() { return this.call<CamsFiles>('chooseCamsFiles'); }
+  dropCamsFiles(files: { name: string; bytes: string }[]) { return this.call<CamsFiles>('dropCamsFiles', files); }
   pickFile(kind: 'zip' | 'xls') { return this.call<{ kind: string; name: string }>('pickFile', kind); }
   dropFile(f: { name: string; bytes: string }) { return this.call<{ kind: string; name: string }>('dropFile', f); }
 

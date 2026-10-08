@@ -30,6 +30,13 @@
 
   function toggle(of: string) { picked = picked.includes(of) ? picked.filter(x => x !== of) : [...picked, of]; }
   function toggleReg(r: Registrar) { regs = regs.includes(r) ? regs.filter(x => x !== r) : [...regs, r]; }
+  function camsFiles() {
+    ui.open({ type: 'cams_files', done: added => {
+      const here = added.filter(a => months.includes(a));
+      if (here.length) picked = [...picked, ...here.filter(a => !picked.includes(a))];
+      if (added.length && !regs.includes('CAMS')) regs = [...regs, 'CAMS'];
+    } });
+  }
   function go() {
     if (!picked.length || !regs.length) return;
     const periods = [...picked].sort((a, b) => index(a) - index(b));          // the oldest first
@@ -66,6 +73,7 @@
       {/each}
     {/if}
     <span class="line">{regs.includes('CAMS') && p.mailbox.provider !== 'folder' ? 'You can Skip CAMS and continue without waiting; the email is automatically read whenever it arrives.' : ''}</span>
+    {#if registrarsOf(p).includes('CAMS')}<button class="btn camsbtn" onclick={camsFiles}>Add CAMS's files</button>{/if}
     <button class="btn primary" data-primary disabled={!picked.length || !regs.length} onclick={go}>{@html icons.dl}
       {picked.length ? `Download ${picked.length} ${picked.length === 1 ? 'month' : 'months'}` : 'Pick months'}</button>
   </div>
@@ -76,6 +84,6 @@
   tr.pick { cursor: pointer; }
   tr.pick.on td { background: var(--blue-wash); }
   .dl-foot { display: flex; align-items: center; gap: 16px; padding: 14px 0; position: sticky; bottom: 0; background: var(--canvas); }
-  .dl-foot .btn { margin-left: auto; display: inline-flex; gap: 8px; align-items: center; }
-  .dl-foot .line { font-size: 12.5px; color: var(--muted); }
+  .dl-foot .btn.primary { display: inline-flex; gap: 8px; align-items: center; }
+  .dl-foot .line { flex: 1; font-size: 12.5px; color: var(--muted); }
 </style>

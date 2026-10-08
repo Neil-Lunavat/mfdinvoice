@@ -85,6 +85,7 @@ class Window:
         self.send = send
         self._portal = asyncio.Lock()                        # one piece of portal work at a time
         self._odd: dict[str, int] = {}                       # a portal's sign-in test that misbehaved, times in a row
+        self._cams_files: dict = {"added": [], "refused": [], "loose": {}}   # the Add CAMS's files box, while open
         self.workspace = hands.cfg.paths.workspace
         self.started = time.monotonic()
         self.condition = "normal"
@@ -104,6 +105,7 @@ class Window:
         self.place: dict = {}                                # where the window is, so an update comes back there
         self.exit = None                                     # the shell's way to close the app, for an update
         self.choose_file = None                              # the shell's Open box: (title, types) -> a path or ""
+        self.choose_files = None                             # the same, picking many: (title, types) -> paths
         self._picked: dict[str, str] = {}                    # CAMS's two files, chosen by hand: zip, xls -> a path
         self.updated_from = ""                               # this start follows an update from that version
         self.update_failed_to = ""                           # ... or an update to that version that did not start
@@ -1617,6 +1619,90 @@ class Window:
         out.write_bytes(data)
         self._picked[kind] = str(out)
         return {"kind": kind, "name": Path(name).name}
+
+    # --- Add CAMS's files (Downloads): any months' zips and Excels at once, into the inbox folder ---------------------
+
+    async def cams_files_start(self) -> dict:
+        """The Add CAMS's files box opened: it starts empty."""
+        self._cams_files = {"added": [], "refused": [], "loose": {}}
+        shutil.rmtree(self.workspace / "dropped" / "cams-files", ignore_errors=True)
+        return self._cams_files_now()
+
+    async def choose_cams_files(self) -> dict:
+        """CAMS's files from the person's own Open box, as many as they pick."""
+        paths = await asyncio.to_thread(self.choose_files, "CAMS's zips and Excels",
+                                        ("CAMS's files (*.zip;*.xls;*.xlsx)",))
+        return await self._add_cams_files([Path(p) for p in paths])
+
+    async def drop_cams_files(self, files: list[dict]) -> dict:
+        """CAMS's files dropped on the box: kept in this PC's own folder while the box is open."""
+        folder = self.workspace / "dropped" / "cams-files"
+        folder.mkdir(parents=True, exist_ok=True)
+        paths = []
+        for f in files:
+            name = Path(str(f.get("name") or "")).name
+            try:
+                data = base64.b64decode(f.get("bytes") or "")
+            except ValueError:
+                self._cams_files["refused"].append({"name": name, "why": "It couldn't be read."})
+                continue
+            out = folder / re.sub(r"[^A-Za-z0-9._ -]", "_", name)
+            out.write_bytes(data)
+            paths.append(out)
+        return await self._add_cams_files(paths)
+
+    async def _add_cams_files(self, paths: list[Path]) -> dict:
+        """Each zip paired with its Excel by the request number in CAMS's names; each pair checked by the steps (its
+        month and ARN from the Excel, a PDF in the zip for every row) and copied into the inbox folder, where a run or a
+        download finds it instead of asking CAMS to email the month (`flow._month_mail`). A file waits in the box for
+        its partner until the box closes."""
+        from client.hands import inbox
+        s = self._cams_files
+        for p in paths:
+            m = inbox.NAME.match(p.name)
+            if m:
+                s["loose"].setdefault(m.group(1), {})[m.group(2).lower()] = p
+            else:
+                s["refused"].append({"name": p.name, "why": "Not one of CAMS's files: theirs are named GST_REPORT_…"})
+        if not any(len(f) == 2 for f in s["loose"].values()):
+            return self._cams_files_now()
+        try:
+            auto = await loader.current()
+            if not hasattr(auto.cams, "added"):
+                auto = await loader.latest()
+        except (loader.Unreachable, loader.NotOurs):
+            return {**self._cams_files_now(), "said": NO_STEPS}
+        arn = re.sub(r"\D", "", (self.profile() or {}).get("arn", ""))
+        folder = self.hands.cfg.paths.inbox
+        for ref, got in list(s["loose"].items()):
+            if len(got) < 2:
+                continue
+            del s["loose"][ref]
+            names = f"{got['zip'].name} and {got['xls'].name}"
+            try:
+                facts = await asyncio.to_thread(auto.cams.added, got["zip"], got["xls"])
+            except auto.page.Stop as e:
+                s["refused"].append({"name": names, "why": f"{e.title}."})
+                continue
+            except Exception:
+                log.exception("CAMS's files %s couldn't be read", names)
+                s["refused"].append({"name": names, "why": "They couldn't be read."})
+                continue
+            if facts["arn"] != arn:
+                s["refused"].append({"name": names, "why": f"They're for ARN-{facts['arn']}, not this ARN."})
+                continue
+            folder.mkdir(parents=True, exist_ok=True)
+            for src in (got["zip"], got["xls"]):
+                shutil.copyfile(src, folder / src.name)
+            s["added"].append({"period": facts["period"], "count": len(facts["invoices"]), "name": names})
+            log.info("CAMS's files added by hand: %s, %s, %d invoices", names, facts["period"], len(facts["invoices"]))
+        return self._cams_files_now()
+
+    def _cams_files_now(self) -> dict:
+        s = self._cams_files
+        waiting = [{"name": p.name, "why": f"Its {'Excel' if kind == 'zip' else 'zip'} isn't here yet."}
+                   for got in s["loose"].values() if len(got) < 2 for kind, p in got.items()]
+        return {"added": list(s["added"]), "refused": list(s["refused"]), "waiting": waiting}
 
     async def your_check(self, run: str, rows: list[dict], notes: list[str], books: dict | None = None) -> dict:
         a = await self._ask(run, {"type": "your_check", "rows": rows, "notes": notes, "books": books})

@@ -13,6 +13,7 @@ export type Popup =
   | { type: 'support'; where: string }
   | { type: 'edit'; which: Detail }
   | { type: 'invoice'; invoice: Invoice; period: string }
+  | { type: 'cams_files'; done: (periods: string[]) => void }
   | { type: 'close_ask' }
   | { type: 'leave_settings'; go: () => void }
   | { type: 'sign_out' }

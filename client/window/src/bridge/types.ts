@@ -7,6 +7,13 @@
    Everything the window draws comes from the app's local store (`Snapshot`), so the window renders straight away and
    never waits on the network. */
 
+export type CamsFiles = {
+  added: { period: string; count: number; name: string }[];
+  refused: { name: string; why: string }[];
+  waiting: { name: string; why: string }[];
+  said?: string;
+};
+
 export type Registrar = 'CAMS' | 'KFINTECH';
 
 /** The one status vocabulary. Both registrars are mapped onto these words. */
@@ -505,6 +512,10 @@ export interface App {
   zohoCancel(): Promise<void>;
   /** Let go of Zoho Books for this ARN; its access is revoked at Zoho. */
   zohoDisconnect(arn?: string): Promise<{ ok: boolean }>;
+  /** CAMS's files for any months, at once. Opening the box clears it; each call returns the box's whole state so far. */
+  camsFilesStart(): Promise<CamsFiles>;
+  chooseCamsFiles(): Promise<CamsFiles>;
+  dropCamsFiles(files: { name: string; bytes: string }[]): Promise<CamsFiles>;
   /** One of CAMS's two files, from Windows' own Open box. Only the file's name comes back ('' if cancelled). */
   pickFile(kind: 'zip' | 'xls'): Promise<{ kind: string; name: string }>;
   /** A file dropped on the window, as base64: a zip is CAMS's invoices, an Excel its report. `kind` '' if neither. */

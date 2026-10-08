@@ -359,15 +359,17 @@ async def _request_mailback(page: Page) -> str:
 # the files CAMS emails: an Excel report (its upload template) and a zip of one PDF per invoice
 # ---------------------------------------------------------------------------------------------------------------
 
-def read_report(xls: Path, period: str) -> list[dict]:
+def read_report(xls: Path, period: str | None) -> list[dict]:
     """The report as rows keyed by CAMS's own column headings: every invoice of the month, in CAMS's order. Its
-    columns must be exactly the twelve known, and every row must be for this payment month."""
+    columns must be exactly the twelve known, and every row must be for this payment month (any, with no `period`)."""
     cells = files.sheet_read(xls)
     headers = [h.strip() for h in (cells[0] if cells else [])]
     if headers != REPORT_COLUMNS:
         raise Changed(f"the CAMS report's columns are not the ones expected: {headers}")
     # each row keeps its place in CAMS's own sheet (`_row`, 0 the first under the headings): the upload writes into it
     rows = [{**dict(zip(headers, r)), "_row": i} for i, r in enumerate(cells[1:]) if any(c.strip() for c in r)]
+    if period is None:
+        return rows
     want = mmyyyy(period)
     months = {str(r["PAYMENT MONTH YEAR"]).strip() for r in rows}
     if months != {want}:
@@ -376,6 +378,40 @@ def read_report(xls: Path, period: str) -> list[dict]:
                    f"The Excel report is for {', '.join(_month_of(m) for m in sorted(months)) or 'no month'}. "
                    f"Choose the zip and the Excel from CAMS's email for {label}.", registrar=REG)
     return rows
+
+
+def added(zip_file: Path, xls: Path) -> dict:
+    """A zip and Excel of CAMS's added by hand (Downloads, Add CAMS's files): their month ('OCT-2026'), ARN (BROKER
+    CODE's digits) and invoices. Stop, with the reason in the person's words, when they can't be used."""
+    import zipfile
+    try:
+        rows = read_report(xls, None)
+    except Changed:
+        raise Stop("wrong_files", "This Excel isn't CAMS's GST report", registrar=REG) from None
+    months = {str(r["PAYMENT MONTH YEAR"]).strip() for r in rows}
+    arns = {re.sub(r"\D", "", str(r.get("BROKER CODE") or "")) for r in rows}
+    if not rows:
+        raise Stop("wrong_files", "The Excel holds no invoices", registrar=REG)
+    if len(months) > 1:
+        raise Stop("wrong_files", f"The Excel holds {', '.join(_month_of(m) for m in sorted(months))} together, "
+                   "where CAMS sends one month", registrar=REG)
+    if len(arns) > 1:
+        raise Stop("wrong_files", "The Excel holds more than one ARN", registrar=REG)
+    try:
+        with zipfile.ZipFile(zip_file) as z:
+            in_zip = {Path(n).name for n in z.namelist()}
+    except (zipfile.BadZipFile, OSError):
+        raise Stop("wrong_files", "The zip couldn't be opened", registrar=REG) from None
+    absent = [r for r in rows if (str(r.get(FILE_NAME) or "").strip() or file_name(r)) not in in_zip]
+    if absent:
+        raise Stop("wrong_files", f"The zip has no PDF for {words.plural(len(absent), 'invoice')} in its Excel",
+                   registrar=REG)
+    mm = months.pop()
+    try:
+        period = f"{MONTHS[int(mm[:2]) - 1]}-{int(mm[2:])}"
+    except (ValueError, IndexError):
+        raise Stop("wrong_files", "The Excel's month couldn't be read", registrar=REG) from None
+    return {"period": period, "arn": arns.pop(), "invoices": [str(r[CAMS_INVOICE]) for r in rows]}
 
 
 def _month_of(mmyyyy_: str) -> str:

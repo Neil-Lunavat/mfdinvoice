@@ -4,7 +4,7 @@
    contains. Nothing here is the product. */
 
 import type {
-  Answer, App, Ask, Cert, Condition, Consent, DetailsPatch, Link, Month, NextNumber, Plan, Profile, ProfileDraft,
+  Answer, App, Ask, CamsFiles, Cert, Condition, Consent, DetailsPatch, Link, Month, NextNumber, Plan, Profile, ProfileDraft,
   Push, Registrar, RunKind, Snapshot, StepView, Stop, BooksLookQuery, BooksLook, Invoice, Entered, Left
 } from '../types';
 import { NAME } from '../../brand';
@@ -349,6 +349,38 @@ export class FakeApp implements App {
   async forwardStart() { await sleep(700); return { ok: true }; }
   async forwardVerify(_: string, code: string) { await sleep(700); return code === '123456' ? { ok: true } : { ok: false, said: "That code isn't right." }; }
   async forwardGmailCode() { await sleep(400); return '815504211'; }
+  private box: CamsFiles = { added: [], refused: [], waiting: [] };
+  private snapBox(): CamsFiles { return { added: [...this.box.added], refused: [...this.box.refused], waiting: [...this.box.waiting], said: this.box.said }; }
+  private addPeriod(period: string, count: number, name: string) {
+    this.box.added = [...this.box.added.filter(a => a.period !== period), { period, count, name }];
+  }
+  async camsFilesStart() { this.box = { added: [], refused: [], waiting: [] }; return this.snapBox(); }
+  async chooseCamsFiles() {
+    await sleep(500);
+    this.addPeriod('OCT-2026', 5, 'GST_REPORT_224793670R106_1.zip and .xls');
+    this.addPeriod('SEP-2026', 10, 'GST_REPORT_224793670R105_1.zip and .xls');
+    this.box.waiting = [...this.box.waiting, { name: 'GST_REPORT_224793670R104_1.zip', why: "Waiting for its Excel report." }];
+    return this.snapBox();
+  }
+  async dropCamsFiles(files: { name: string }[]) {
+    await sleep(500);
+    const groups = new Map<string, string[]>();
+    for (const f of files) {
+      const m = /^GST_REPORT_(\d+)R\d+_\d+\.(zip|xls)$/i.exec(f.name);
+      if (!m) { this.box.refused = [...this.box.refused, { name: f.name, why: "Not one of CAMS's files: theirs are named GST_REPORT_…" }]; continue; }
+      groups.set(m[1], [...(groups.get(m[1]) ?? []), f.name]);
+    }
+    const months = ['AUG-2026', 'SEP-2026', 'OCT-2026'];
+    let i = this.box.added.length;
+    for (const names of groups.values()) {
+      const exts = names.map(n => n.slice(-3).toLowerCase());
+      if (exts.includes('zip') && exts.includes('xls')) {
+        this.addPeriod(months[i++ % months.length], 4 + i, names.join(' and '));
+        this.box.waiting = this.box.waiting.filter(w => !names.some(n => n.replace(/\.\w+$/, '') === w.name.replace(/\.\w+$/, '')));
+      } else this.box.waiting = [...this.box.waiting, { name: names[0], why: exts[0] === 'zip' ? 'Waiting for its Excel report.' : 'Waiting for its zip of invoices.' }];
+    }
+    return this.snapBox();
+  }
   async pickFile(kind: 'zip' | 'xls') { return { kind, name: kind === 'zip' ? 'GST_REPORT_224793670R106_1.zip' : 'GST_REPORT_224793670R106_1.xls' }; }
   async dropFile(f: { name: string }) { const kind = /\.zip$/i.test(f.name) ? 'zip' : /\.xlsx?$/i.test(f.name) ? 'xls' : ''; return { kind, name: kind ? f.name : '' }; }
 

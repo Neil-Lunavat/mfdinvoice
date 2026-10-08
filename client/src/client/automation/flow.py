@@ -312,9 +312,9 @@ class Job:
         asked = m.facts.get("asked") or {}
         waiting = (asked.get("listed") == self.listed[CAMS]
                    and time.time() - datetime.fromisoformat(asked["at"]).timestamp() < ASKED_KEPT_S)
-        # an email of CAMS's for this month already in the mailbox does, whichever request it answered: CAMS isn't
-        # asked again
-        found = None if by_hand or waiting else await self._month_mail(fetch=True)
+        # an email of CAMS's for this month already on this PC (from the mailbox, or added by hand on Downloads) does,
+        # whichever request it answered: CAMS isn't asked again. The mailbox is looked in first when it is read by itself
+        found = await self._month_mail(fetch=not (by_hand or waiting))
         if found:
             return self._take_cams(found, "Found CAMS's email for {} in your mailbox")
         if not waiting:
@@ -399,8 +399,9 @@ class Job:
         return pair if self._arn_rows(rows) else None
 
     async def _month_mail(self, fetch: bool) -> list[Path] | None:
-        """The newest of CAMS's emails in the mailbox that is this ARN's month and holds every invoice CAMS lists now,
-        whichever request it answered (Neil, 7 Oct). None when there is none, or the software is too old to say."""
+        """The newest of CAMS's emails on this PC (the mailbox's, or added on Downloads) that is this ARN's month and
+        holds every invoice CAMS lists now, whichever request it answered (Neil, 7 Oct). None when there is none, or the
+        software is too old to say."""
         look = getattr(self.host, "mail_pairs", None)
         if look is None:
             return None

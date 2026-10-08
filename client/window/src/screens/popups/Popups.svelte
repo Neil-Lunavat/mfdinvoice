@@ -9,6 +9,7 @@
   import { icons } from '../../ui/icons';
   import Modal from '../../ui/Modal.svelte';
   import Editor from '../setup/Editor.svelte';
+  import CamsFilesPopup from './CamsFilesPopup.svelte';
   import InvoicePopup from './InvoicePopup.svelte';
 
   let text = $state('');
@@ -75,6 +76,8 @@
     </Modal>
   {:else if p.type === 'invoice'}
     <InvoicePopup invoice={p.invoice} period={p.period} />
+  {:else if p.type === 'cams_files'}
+    <CamsFilesPopup done={p.done} />
   {:else if p.type === 'close_ask'}
     <Modal label="Close {NAME}?" onclose={() => ui.close()}>
       <div class="m-bd ask-close">

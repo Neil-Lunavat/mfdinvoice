@@ -66,6 +66,8 @@ METHODS = {
     "signOut": ("sign_out", "pos"),
     "activateTrial": ("activate_trial", "pos"), "checkPlan": ("check_plan", "pos"), "agree": ("agree", "pos"),
     "here": ("here", "pos"), "pickFile": ("pick_file", "pos"), "dropFile": ("drop_file", "kw"),
+    "camsFilesStart": ("cams_files_start", "pos"), "chooseCamsFiles": ("choose_cams_files", "pos"),
+    "dropCamsFiles": ("drop_cams_files", "pos"),
     "booksLook": ("books_look", "kw"), "booksImport": ("books_import", "kw"), "booksNext": ("books_next", "kw"), "refreshBooks": ("refresh_books", "pos"),
     "booksSetup": ("books_setup", "kw"), "booksUse": ("books_use", "kw"), "booksForget": ("books_forget", "pos"),
     "zohoConnect": ("zoho_connect", "pos"), "zohoCancel": ("zoho_cancel", "pos"), "zohoDisconnect": ("zoho_disconnect", "pos"),
@@ -266,6 +268,12 @@ def main() -> None:
         return str(got[0]) if got else ""
 
     win.choose_file = choose_file
+
+    def choose_files(title: str, types: tuple[str, ...]) -> list[str]:
+        got = window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=True, file_types=types)
+        return [str(p) for p in got or ()]
+
+    win.choose_files = choose_files
     hands.hwnd = lambda: ops_picture.handle_of(window, NAME)     # a token's PIN box opens over the window
     window.expose(Api(loop, win, pushes, close).call)
     pushes.window = window
