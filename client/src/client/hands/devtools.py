@@ -1,7 +1,7 @@
 """DEV ONLY, a checkout (`uv run app`): what the dev panel in the window calls. Never shipped: `packaging/app.spec`
 leaves this module out and `packaging/build.py` fails the build if it is in.
 
-`shell.install_dev` registers these into the window's METHODS and puts them on the `Window`; each answers a plain dict.
+`devstart.Bench.install` registers these into the window's METHODS and puts them on the `Window`; each answers a plain dict.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ CONSENT_TS = Path(__file__).resolve().parents[3] / "window" / "src" / "logic" / 
 
 
 def _dev_config() -> dict:
-    """`[dev]` of config.toml in the folder `uv run app` was started from (the same file `shell._submits` reads)."""
+    """`[dev]` of config.toml in the folder `uv run app` was started from (the same file `devstart._submits` reads)."""
     try:
         return tomllib.loads(Path("config.toml").read_text(encoding="utf-8-sig")).get("dev", {})
     except (OSError, ValueError):

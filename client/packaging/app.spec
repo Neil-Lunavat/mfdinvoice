@@ -31,7 +31,7 @@ META = Path(copy_metadata("client")[0][1]).name          # client-<version>.dist
 
 STEPS = "client.automation"
 # The checkout's test bench (`uv run app`: no website, the dev panel's calls) is never in the exe; build.py checks.
-DEV_ONLY = ["client.hands.devsite", "client.hands.devtools"]
+DEV_ONLY = ["client.hands.devstart", "client.hands.devsite", "client.hands.devtools"]
 OURS = [m for m in collect_submodules("client")
         if m != STEPS and not m.startswith(STEPS + ".") and m not in DEV_ONLY]
 STEP_LIBRARIES = ["openpyxl", "pdfplumber", "pdfminer", "xlrd", "pypdf", "reportlab", "PIL", "playwright"]

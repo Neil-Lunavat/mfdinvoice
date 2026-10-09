@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.scripts]
-app = "client.hands.shell:main"
+app = "client.hands.devstart:main"          # a checkout: the test bench; the exe starts at shell.main (packaging/app.py)
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]

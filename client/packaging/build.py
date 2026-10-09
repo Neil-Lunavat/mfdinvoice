@@ -82,7 +82,7 @@ def version_file(path: Path, name: str, version: str) -> None:
 
 
 DEV_PANEL = (b"MFDINVOICE-DEV-PANEL", b"devBackToSetup", b"devFill", b"devSaveState")
-DEV_MODULES = (b"client.hands.devsite", b"client.hands.devtools", b"hands.devsite", b"hands.devtools")
+DEV_MODULES = (b"client.hands.devstart", b"client.hands.devsite", b"client.hands.devtools")
 
 
 def no_dev_window(dist: Path) -> None:
@@ -96,14 +96,21 @@ def no_dev_window(dist: Path) -> None:
 
 
 def no_dev_modules(exe_dir: Path, work: Path) -> None:
-    """The exe holds neither dev module: not in PyInstaller's tables of what it packed, nor in the exe or its archive."""
-    files = [*work.rglob("*.toc"), *exe_dir.rglob("*.pyz"), *exe_dir.glob("*.exe"), *exe_dir.rglob("*.pkg")]
-    for f in files:
+    """The exe holds neither dev module: no entry for one in PyInstaller's tables of what it packed (PYZ, PKG, EXE,
+    COLLECT: an entry is a tuple starting with the module's name; Analysis's table also lists what was excluded, so it
+    is not read), and no file of one in the built folder."""
+    tables = [f for f in work.rglob("*.toc") if f.name.split("-")[0] in ("PYZ", "PKG", "EXE", "COLLECT")]
+    if not tables:
+        sys.exit("PyInstaller's tables of what it packed weren't found, so the dev check can't be made. Not packed.")
+    for f in tables:
         data = f.read_bytes()
         for mark in DEV_MODULES:
-            if mark in data:
-                sys.exit(f"The dev test bench is in the exe ({f.name} names {mark.decode()}). Not packed.")
-    print(f"\nNo dev panel in the window, no dev module in the exe ({len(files)} files looked at).", flush=True)
+            if b"('" + mark + b"'" in data:
+                sys.exit(f"The dev test bench is in the exe ({f.name} packs {mark.decode()}). Not packed.")
+    for f in exe_dir.rglob("*"):
+        if f.stem in ("devstart", "devsite", "devtools"):
+            sys.exit(f"The dev test bench is in the exe ({f.relative_to(exe_dir)}). Not packed.")
+    print(f"\nNo dev panel in the window, no dev module in the exe ({len(tables)} tables looked at).", flush=True)
 
 
 def check_steps(exe: Path) -> None:
