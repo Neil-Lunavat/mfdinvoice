@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import logging
 import math
 import re
@@ -158,6 +159,58 @@ class DevTools:
         await win.read_plan()
         return {"ok": True, "said": said}
 
+    async def dev_draft(self) -> dict:
+        """Setup's draft as if every step had been done and verified, from [dev]; nothing is finished here. The
+        verify steps' Python side is done too (the vault, the cleaned signature), so Finish setup works as it is."""
+        cfg = _dev_config()
+        missing = [k for k in NEEDED if not str(cfg.get(k) or "").strip()]
+        if str(cfg.get("invoices") or "") not in ("", "own", "registrar"):
+            missing.append('invoices ("own" or "registrar")')
+        if str(cfg.get("invoices")) == "own" and not str(cfg.get("last_number") or "").strip():
+            missing.append("last_number")
+        if missing:
+            return {"ok": False, "said": "client/config.toml [dev] lacks: " + ", ".join(missing)}
+        if self.win._task is not None:
+            return {"ok": False, "said": "A run is going."}
+        arn = str(cfg["arn"]).strip().upper()
+        if not arn.startswith("ARN-"):
+            arn = "ARN-" + arn
+        email, user, password = (str(cfg[k]).strip() for k in ("cams_email", "kfintech_username", "kfintech_password"))
+
+        win = self.win
+        im, cx, cy = await asyncio.to_thread(ops_sig.prepare, _scribble(), 0)
+        png = ops_sig.png(im)
+        win._photo = None
+        win._cleaned = (png, cx, cy)
+        try:                                            # beside setup's draft, as `_clean` does, so a restart keeps it
+            png_file, meta_file, _photo = win._setup_files()
+            png_file.parent.mkdir(parents=True, exist_ok=True)
+            png_file.write_bytes(png)
+            meta_file.write_text(json.dumps({"cx": cx, "cy": cy}), encoding="utf-8")
+        except OSError:
+            pass
+        self.store.put_secret("cams_email", email)
+        self.store.put_secret("kfintech_username", user)
+        self.store.put_secret("kfintech_password", password)
+
+        if forward.configured(self.store):
+            mailbox = {"provider": "forward", "address": self.store.get(forward.EMAIL) or "", "connected": True}
+        else:
+            mailbox = {"provider": "folder", "address": "", "connected": True}
+        own = str(cfg["invoices"]) == "own"
+        tick = {"version": _consent_version(), "at": local.note_now(),
+                "text": f"I authorise {NAME} to sign in and act for me on CAMS and KFintech."}
+        return {"ok": True, "draft": {
+            "arn": arn, "name": str(cfg["name"]).strip(), "gstin": str(cfg["gstin"]).strip().upper(),
+            "camsUsed": True, "camsEmail": email, "camsArn": arn, "mailbox": mailbox,
+            "kfintech": {"used": True, "username": shown(user), "loggedInAs": shown(user), "arn": arn},
+            "invoices": {"source": "own" if own else "registrar", "last": str(cfg.get("last_number") or "") if own else "",
+                         "at": -1,
+                         "settings": {"address": ["Dev address, line 1", "Dev city 400001"], "phone": "9000000000"}
+                         if own else {}},
+            "consent": None, "ticks": {"cams": tick, "kfintech": tick},
+            "signatureImage": ops_sig.data_url(png)}}
+
     async def _tally(self, arn: str, gstin: str, company: str) -> str:
         """Pick the Tally company by name; '' when done, else why not (the rest of the fill stands)."""
         got = await self.win.books_setup("tally", gstin, arn)
@@ -233,7 +286,7 @@ class DevTools:
 
 # the window's method name -> (the Window attribute it is put on, how its arguments arrive)
 METHODS = {"devState": ("dev_state", "pos"), "devSet": ("dev_set", "kw"), "devBackToSetup": ("dev_back_to_setup", "pos"),
-           "devFill": ("dev_fill", "pos"), "devSaveState": ("dev_save_state", "pos"),
+           "devFill": ("dev_fill", "pos"), "devDraft": ("dev_draft", "pos"), "devSaveState": ("dev_save_state", "pos"),
            "devLoadState": ("dev_load_state", "pos"), "devDeleteState": ("dev_delete_state", "pos")}
 
 

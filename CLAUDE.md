@@ -167,6 +167,10 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   (KFintech's "Payment processed" and "Accepted & Payment pending", whose remark is "Approved"). A rejection's reason
   is the registrar's Remarks for it. CAMS's own guide names its words: PENDING FOR BO REVIEW (with it), APPROVED,
   REJECTED.
+- A rejected invoice: the popup shows the registrar's words, Send again (to Overview's Run for that month: it goes
+  with the next run) and Send to support. A reason gets a fix of its own only when the registrar's words alone say
+  deterministically what to change: we never see what it received (Neil, 9 Oct). Fixes are learnt one reason at a
+  time, through support, and ship as steps.
 - Overview's Run is always "Run <Month>" with its menu (both, CAMS only, KFintech only), whatever the month's state;
   never replaced, never hidden (Neil, 9 Oct). No "See invoices" on Overview.
 - CAMS and KFintech approve on their own; neither reads the PDF. The person's tick at Your check is the real check.

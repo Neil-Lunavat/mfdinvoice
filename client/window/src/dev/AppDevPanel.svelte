@@ -5,6 +5,8 @@
      it (packaging/build.py fails if that marker is in dist/). The fake backend's panel is DevPanel.svelte. */
   import { onMount } from 'svelte';
   import { dev, type DevState } from './appDevTypes';
+  import { STEP_TITLES } from '../logic/details';
+  import { blankSettings, ui } from '../state/ui.svelte';
 
   let open = $state(false);
   let st = $state<DevState>({ submit: false, showBrowser: false, states: [], configured: [] });
@@ -29,6 +31,22 @@
   async function toggle(k: 'submit' | 'showBrowser') {
     try { st = await dev.set({ [k]: !st[k] }); } catch (e) { said = String(e); }
   }
+  /* On setup, fill every step's draft as if each were verified and stay on Check everything: Finish setup is Neil's. */
+  async function fill(): Promise<{ ok: boolean; said?: string }> {
+    if (ui.page !== 'setup') return dev.fill();
+    const r = await dev.draft();
+    if (!r.ok) return r;
+    const { signatureImage, invoices, ...rest } = r.draft;
+    const last = STEP_TITLES.length - 1;
+    ui.draft = {
+      ...ui.draft, ...rest,
+      signature: { way: 'image', present: true, image: signatureImage, size: 100, cert: null },
+      invoices: { ...invoices, settings: { ...blankSettings(), ...invoices.settings } },
+      tally: undefined, zoho: undefined
+    };
+    ui.step = last; ui.reached = last; ui.returnTo = null;
+    return { ok: true, said: 'Filled. Books stay unchosen: pick Tally on its step if you want it.' };
+  }
   const save = () => { const n = name.trim(); if (n) void act(() => dev.save(n)); };
 </script>
 
@@ -41,7 +59,7 @@
     <label><input type="checkbox" checked={st.showBrowser} onchange={() => toggle('showBrowser')} /> Show browser</label>
     <div class="row">
       <button disabled={busy} onclick={() => act(dev.backToSetup, true)}>Back to setup</button>
-      <button disabled={busy} onclick={() => act(dev.fill, true)}>Fill everything</button>
+      <button disabled={busy} onclick={() => act(fill, ui.page !== 'setup')}>Fill everything</button>
     </div>
     <div class="row">
       <input placeholder="state name" bind:value={name} onkeydown={e => { if (e.key === 'Enter') save(); }} />

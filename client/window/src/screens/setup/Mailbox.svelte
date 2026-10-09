@@ -39,12 +39,12 @@
   // confirms, sets the filter, and ticks that it is there. Done = claimed + ticked: a Gmail that had our address
   // before sends no new confirmation, so the proof (Gmail's confirmation or the first CAMS mail) is only shown.
   const FILTER = 'from:donotreply@camsonline.com has:attachment';
-  const LAST = 12;
+  const LAST = 11;  // the last slide's picture is 12.png (there is no 11.png)
   const WORDS = [
     '', 'In that Gmail, click the gear at the top right.', 'Click See all settings.', 'Open the Forwarding and POP/IMAP tab.',
-    'Click Add a forwarding address.', 'Paste our address and click Next.', 'Gmail may ask you to sign in again. Then click Proceed.',
+    'Click Add a forwarding address.', 'Paste our address and click Next.', 'Click Proceed. Gmail may ask you to verify again.',
     'Click OK.', 'Back here: confirm it.', "In Gmail's search box, type this and click the filter icon at the right of the box.",
-    'Tick Forward it to, pick our address, then click Create filter.', 'Gmail says Your filter was created.',
+    'Tick Forward it to, pick our address, then click Create filter.',
     'Check: Settings › Filters and Blocked Addresses shows it, like this.'];
   let claimed = $state(had.provider === 'forward' && had.connected), proved = $state(had.provider === 'forward' && had.connected);
   let filterOk = $state(had.provider === 'forward' && had.connected);
@@ -89,7 +89,28 @@
   <div class="sub-part enter">
     <p class="line">Your Gmail sends only CAMS's invoice mails on to {NAME}. Each one is locked so only this PC can open it, and deleted from our side once it's here.</p>
     <div class="car">
+      <div class="words">
       <p class="cw">{slide === 0 ? 'Which Gmail do you want to use to forward CAMS mailbacks to us?' : WORDS[slide]}</p>
+      {#if slide === 5}
+        <div class="testrow"><span class="mono">{FORWARD}</span><button class="btn ghost sm" onclick={() => copy(FORWARD)}>{@html icons.copy}Copy</button></div>
+      {:else if slide === 8}
+        {#if confirm.startsWith('https://')}
+          <div class="testrow"><span class="hint">Gmail asks you to confirm</span><button class="btn secondary sm" onclick={() => app.forwardConfirm()}>Confirm</button></div>
+        {:else if confirm}
+          <span class="hint">Gmail asks you to confirm. Type this code in Gmail's Forwarding settings › Verify.</span>
+          <div class="testrow"><b class="mono">{confirm}</b><button class="btn ghost sm" onclick={() => copy(confirm)}>{@html icons.copy}Copy</button></div>
+        {:else}
+          <span class="hint"><span class="spin"></span> Waiting for Gmail's confirmation… (Not here after a minute? In Gmail's Forwarding tab, click Re-send email.)</span>
+        {/if}
+        <span class="hint">Already added our address in this Gmail before? Go on.</span>
+      {:else if slide === 9}
+        <div class="testrow"><span class="mono">{FILTER}</span><button class="btn ghost sm" onclick={() => copy(FILTER)}>{@html icons.copy}Copy</button></div>
+      {:else if slide === LAST}
+        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" bind:checked={filterOk} onchange={sync} />It's there</label>
+        <span class="hint">{proved ? "Gmail confirmed: CAMS's mailbacks will reach " + NAME + '.' : NAME + " takes it as yours when Gmail's confirmation or the first CAMS mail arrives."}</span>
+      {/if}
+      </div>
+      <div class="frame">
       {#if slide === 0}
         <div class="field">
           <input id="fa" class="input" aria-label="Gmail" bind:value={d.mailbox.address} disabled={claimed} />
@@ -106,26 +127,9 @@
           {#if said}<span class="err">{said}</span>{/if}
         </div>
       {:else}
-        {#if slide === 5}
-          <div class="testrow"><span class="mono">{FORWARD}</span><button class="btn ghost sm" onclick={() => copy(FORWARD)}>{@html icons.copy}Copy</button></div>
-        {:else if slide === 8}
-          {#if confirm.startsWith('https://')}
-            <div class="testrow"><span class="hint">Gmail asks you to confirm</span><button class="btn secondary sm" onclick={() => app.forwardConfirm()}>Confirm</button></div>
-          {:else if confirm}
-            <span class="hint">Gmail asks you to confirm. Type this code in Gmail's Forwarding settings › Verify.</span>
-            <div class="testrow"><b class="mono">{confirm}</b><button class="btn ghost sm" onclick={() => copy(confirm)}>{@html icons.copy}Copy</button></div>
-          {:else}
-            <span class="hint"><span class="spin"></span> Waiting for Gmail's confirmation… (Not here after a minute? In Gmail's Forwarding tab, click Re-send email.)</span>
-          {/if}
-          <span class="hint">Already added our address in this Gmail before? Go on.</span>
-        {:else if slide === 9}
-          <div class="testrow"><span class="mono">{FILTER}</span><button class="btn ghost sm" onclick={() => copy(FILTER)}>{@html icons.copy}Copy</button></div>
-        {:else if slide === LAST}
-          <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" bind:checked={filterOk} onchange={sync} />It's there</label>
-          <span class="hint">{proved ? "Gmail confirmed: CAMS's mailbacks will reach " + NAME + '.' : NAME + " takes it as yours when Gmail's confirmation or the first CAMS mail arrives."}</span>
-        {/if}
-        <div class="pic"><img src="forward/{String(slide).padStart(2, '0')}.png" alt="" /></div>
+        <img src="forward/{String(slide === LAST ? 12 : slide).padStart(2, '0')}.png" alt="" />
       {/if}
+      </div>
       <div class="nav">
         <button class="btn secondary sm" disabled={slide === 0} onclick={() => (slide -= 1)}>Back</button>
         <span class="dots">{#each WORDS as _, i}<span class="dot" class:on={i === slide}></span>{/each}</span>
@@ -157,8 +161,15 @@
   .tile :global(svg) { flex-shrink: 0; }
   .car { display: flex; flex-direction: column; gap: 10px; }
   .cw { margin: 0; font-size: 15px; font-weight: 500; color: var(--ink); }
-  .pic { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
-  .pic img { display: block; width: 100%; height: auto; }
+  /* every slide has the same height: words area and picture frame are fixed, so Back/Next never move.
+     The frame is as tall as the window allows (the step above it is about 560px) */
+  .words { height: 96px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .frame { height: clamp(180px, calc(100vh - 560px), 340px); box-sizing: border-box; border: 1px solid var(--line); border-radius: 10px; background: #fff; overflow: hidden; padding: 10px; }
+  .frame img { display: block; width: 100%; height: 100%; object-fit: contain; }
+  .words > :global(*), .nav { max-width: none; }
+  :global(#parts:has(.car)) { max-width: none; }
+  :global(#parts:has(.car) .part-hd), :global(#parts:has(.car) .part > :not(.sub-part)), .sub-part > :not(.car) { max-width: 560px; }
+  .cw { max-width: 760px; }
   .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .dots { display: flex; gap: 6px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }

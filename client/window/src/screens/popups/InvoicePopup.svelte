@@ -1,8 +1,9 @@
 <script lang="ts">
   /* One invoice, as a popup (#18): the invoice itself on the left; details, timeline and actions on the right.
      A rejection shows the registrar's words and "Send to support"; we never guess why.
-     There is no per-invoice fix and no single-invoice upload: rejections are sent again together, by Overview's Run,
-     in one run and one sign-in. */
+     Send again takes the person to Overview's Run for the month: a rejected invoice goes again with the next run.
+     A reason gets a fix of its own only when the registrar's words alone say what to change (we never see what it
+     received). */
   import { app, type Invoice } from '../../bridge';
   import { dayMon, dayMonYear, inr, n2, regName } from '../../logic/format';
   import { gst, total } from '../../logic/month';
@@ -35,7 +36,9 @@
       {#if x.status === 'Rejected'}
         <div class="banner bad sm" role="alert"><div>{reg} says: “{x.rejection}”
           <div style="margin-top:4px"><a href="#support" style="color:inherit;text-decoration:underline"
-            onclick={e => { e.preventDefault(); ui.open({ type: 'support', where: `Invoice ${x.number}, rejected by ${reg}` }); }}>Not sure what to do? Send to support</a></div></div></div>
+            onclick={e => { e.preventDefault(); ui.open({ type: 'support', where: `Invoice ${x.number}, rejected by ${reg}` }); }}>Not sure what to do? Send to support</a></div></div>
+          <!-- a rejected invoice goes again with the month's next run: this only takes the person to its Run -->
+          <button class="btn secondary sm" onclick={() => { ui.popups = []; ui.month = period === store.snap?.month?.period ? null : period; ui.go('overview'); }}>Send again</button></div>
       {/if}
       <div class="kv">
         <span>Taxable</span><b>{n2(x.taxable)}</b>

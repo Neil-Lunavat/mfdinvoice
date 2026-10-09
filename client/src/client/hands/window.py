@@ -812,17 +812,19 @@ class Window:
         png = ops_sig.png(im)
         self._cleaned = (png, cx, cy)
         with contextlib.suppress(OSError):               # kept beside setup's draft, so a restart keeps the photo
-            png_file, meta_file = self._setup_files()
+            png_file, meta_file, photo_file = self._setup_files()
             png_file.parent.mkdir(parents=True, exist_ok=True)
             png_file.write_bytes(png)
-            meta_file.write_text(json.dumps({"cx": cx, "cy": cy}), encoding="utf-8")
+            photo_file.write_bytes(self._photo or b"")          # the photo as given, so Rotate works after a restart
+            meta_file.write_text(json.dumps({"cx": cx, "cy": cy, "turns": self._turns}), encoding="utf-8")
         return {"ok": True, "image": ops_sig.data_url(png)}
 
     # --- setup, kept as it goes ----------------------------------------------------------------
 
-    def _setup_files(self) -> tuple[Path, Path]:
+    def _setup_files(self) -> tuple[Path, Path, Path]:
+        """The cleaned signature, its two numbers and turns, and the photo as given."""
         folder = self.workspace / "signatures"
-        return folder / "_setup.png", folder / "_setup.json"
+        return folder / "_setup.png", folder / "_setup.json", folder / "_setup-photo.bin"
 
     async def save_setup(self, state: dict) -> None:
         """The window's setup state (step, draft, what the portals showed), as one JSON in the vault: it holds the
@@ -842,10 +844,11 @@ class Window:
         self._cleaned = None
         sig = (state.get("draft") or {}).get("signature") or {}
         if sig.get("way") == "image" and sig.get("image"):
-            png_file, meta_file = self._setup_files()
+            png_file, meta_file, photo_file = self._setup_files()
             try:
                 meta = json.loads(meta_file.read_text(encoding="utf-8"))
                 self._cleaned = (png_file.read_bytes(), float(meta["cx"]), float(meta["cy"]))
+                self._photo, self._turns = photo_file.read_bytes() or None, int(meta.get("turns", 0))
             except (OSError, ValueError, KeyError, TypeError):
                 self._cleaned = None
         return state
