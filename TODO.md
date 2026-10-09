@@ -4,34 +4,16 @@ The software and its server. `CLAUDE.md` says how we work, the rules Neil has de
 website's list is `website/todo/WEBSITE-TODO.md`; what is decided for after launch is `AFTER-LAUNCH.md`; ideas parked
 are in `IDEAS.md`. Delete a line when it is done, a section when it is empty.
 
-## Now (8 Oct)
+## Now (9 Oct)
 
-- [x] Both live databases and the file store emptied (8 Oct): 30 reports and records; the website's one account,
-      order, receipt, events, answers, trial, deletion. Receipt numbers start again at 1.
-- [x] The keys backed up: `Desktop\MFDInvoice-keys\` (automation.key, server-admin.key, zoho.json, a README). Neil
-      moves it somewhere safe.
-- [x] One PC per account (`CLAUDE.md`, Accounts): built 8 Oct, website and software; live with the next deploy.
-- [x] Forwarding, proven live 8 Oct: Email Routing on `mailback.` (the apex's MX at Hostinger untouched); Gmail's
-      confirmation (a link now, opened by Confirm in Gmail); CAMS → pritamutha@ → neillunavat3192@ → us → September's
-      10 invoices read in by themselves; the filter forwards nothing else.
-- [x] The first release notes, Neil's (`ops/release-1.0.0.sh`).
-- [x] Steps 2026.10.08.1056 published and live.
-- [x] 1.0.0 released 8 Oct (installer up, the website deployed with one PC per account and the emails' logo).
-
-## The partner's PC, a fresh slate
-
-Neil signs up on the website, activates the free trial, downloads and installs on the partner's PC, and screenshots
-every screen (Windows' "protected your PC", antivirus, the installer). Then:
-- The installed build fetches the signed steps from the server, checks them and runs them.
-- Setup from zero, with his DSC token at the signature step.
-- **A real Submit on CAMS and on KFintech**, own invoices (Neil, 8 Oct): one invoice per portal first (ticked alone at
-  Your check); before Submit, the signed PDF opened in Acrobat (DSC valid; number, date, GSTIN, SAC, amounts as on an
-  invoice he once sent by hand and was accepted); CAMS first, then KFintech; after each, the portal's answer and
-  Check now; both matching what the portal shows by hand, the rest of that portal the same day. Anything unexpected
-  stops it. No browser to watch: the run's record reaches the panel, and that is how support is tested.
-- Sign out.
-- What it turns up: the steps (publish, no update) or 1.0.1, which is also the first real test of Update now.
-- After it: `/setup`'s pictures from his screenshots.
+- [x] 1.0.1 released 9 Oct (cac0c38), steps 2026.10.09.1400, server and website deployed: the "reach the destination"
+      changes, forwarding without a code, the carousel, dev mode, the second addresses (`HANDOFF.md`).
+- [ ] Neil tests 9 Oct's work in dev mode: setup resuming after a restart; the forwarding carousel end to end (name
+      the Gmail, Confirm, filter, the first CAMS mail); "Along the way" at a run's end; a mailback asked for on
+      CAMS's own site read in. Portal retries and the DSC preview wait for a flaky portal and a token.
+- [ ] Update now, first live test: an installed 1.0.0 updating to 1.0.1.
+- [ ] Fix & Send again, one rejection reason at a time: each new reason that comes through support gets a fix only
+      when the registrar's words alone say what to change (`CLAUDE.md`).
 
 ## Never run live, verified after release
 
@@ -59,5 +41,10 @@ Seen working by Neil: Add CAMS's files (the old Download CAMS files, renamed), S
       when updates ship. `uv run --project client python ops/reports.py pull` puts every open report, with its log and
       record, into `~/.mfdinvoice/reports/pull-<when>/` with an INDEX.md. It holds real invoices: never in the repo.
 - [ ] The how-to videos. Setup's "How to · 1 min" buttons open `/setup` today.
-- [ ] A code-signing certificate, after the proprietorship is registered (`WEBSITE-TODO.md`).
+- [ ] A code-signing certificate, after the proprietorship is registered (`WEBSITE-TODO.md`): an unsigned .exe from a
+      young domain is a likely reason Jio's MySafeNet and Airtel block us.
+- [ ] Getting unblocked on Jio and Airtel, and the sign-in codes out of Spam (Google Postmaster Tools, warm-up
+      mails): `Desktop\Automation-notes\isp-unblock.md`, `domain-warmup.md`.
+- [ ] Brave on Neil's PC: clear "Cached images and files" for all time (a redirect cached from before Cloudflare loops
+      mfdinvoice.co.in).
 - Kept for now: `Desktop\Automation-old-data\appdata-backup-2026-10-04\`; `LAB-PORTALS.md`, `LAB-ZOHO.md`.
