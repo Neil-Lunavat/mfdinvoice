@@ -12,6 +12,9 @@ built. Ideas not yet decided stay in `IDEAS.md`; what is left before launch is `
 - IGST on own invoices (set aside at Your check today; keep the door open).
 - Zoho past the import: payments with TDS, credit notes, GSTR-1 (`IDEAS.md`).
 - The month picker gets a year once there is a second financial year.
+- One CAMS invoice raised as several of the person's own invoices: CAMS takes them as several Excel rows with the same
+  CAMS invoice number, each with its own figures and file (CAMS's guide, GST_Invoice_Upload_Process_Flow.pdf). Not
+  done today, like KFintech's two invoices under one reference.
 - Decided against: updates that download only what changed (87 MB each time; the steps update by themselves).
 
 ## Reports to fixes

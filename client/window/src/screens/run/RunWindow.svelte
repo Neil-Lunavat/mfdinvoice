@@ -95,7 +95,7 @@
     {#if !run}
       <BeforeRun {registrars} {period} {what} {periods} onclose={close} />
     {:else if stop}
-      <StopScreen {stop} enter={run?.enter ?? []} left={run?.left ?? []} onclose={close} onagain={again} />
+      <StopScreen {stop} enter={run?.enter ?? []} left={run?.left ?? []} notes={run?.notes ?? []} onclose={close} onagain={again} />
     {:else if run.ended === 'done'}
       <div class="rm-stage">
         {#if run.what === 'run'}
@@ -109,6 +109,10 @@
           <div class="done-hd"><span class="tick big ok">{@html icons.tickSm}</span>
             <div class="big">{run.summary}</div>
             <p class="sub">They are on this PC, with every figure. Nothing was signed or submitted.</p></div>
+        {/if}
+        {#if run.notes.length}
+          <div class="sofar"><div class="label">Along the way</div>
+            <ul>{#each run.notes as n (n)}<li class="line">{n}</li>{/each}</ul></div>
         {/if}
       </div>
       <div class="rm-foot">

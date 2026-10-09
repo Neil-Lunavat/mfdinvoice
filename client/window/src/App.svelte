@@ -21,6 +21,7 @@
   import SignIn from './screens/SignIn.svelte';
   import Splash from './screens/Splash.svelte';
   import UpdateRequired from './screens/UpdateRequired.svelte';
+  import AppDevPanel from './dev/AppDevPanel.svelte';
   import NetworkToast from './ui/NetworkToast.svelte';
   import Toasts from './ui/Toasts.svelte';
 
@@ -30,10 +31,13 @@
   const o = $derived(s ? opening({ updateRequired: !!s.update, condition: s.condition, signedIn: !!s.account, hasArn: s.arns.length > 0 }) : null);
 
   onMount(() => {
-    store.start().then(() => {
-      opened = true;
+    store.start().then(async () => {
       const first = o?.screen ?? 'signin';
-      if (first === 'setup') ui.startSetup(false); else if (first !== 'update') ui.go(first);
+      // setup resumes where it was left: a first setup, or an Add an ARN begun before the software was closed
+      if (first === 'setup') await ui.resumeSetup();
+      else if (first === 'overview' && await ui.resumeSetup(true)) { /* back in setup */ }
+      else if (first !== 'update') ui.go(first);
+      opened = true;
     });
   });
 
@@ -41,7 +45,7 @@
   $effect(() => {
     if (!opened || !o || o.screen === 'update') return;
     if (o.screen === 'signin' && ui.page !== 'signin') ui.go('signin');
-    else if (o.screen === 'setup' && ui.page !== 'setup') ui.startSetup(false);
+    else if (o.screen === 'setup' && ui.page !== 'setup') void ui.resumeSetup();
     else if (o.screen === 'overview' && (ui.page === 'signin' || ui.page === 'splash' || (ui.page === 'setup' && !ui.adding && ui.reached === 0))) ui.go('overview');
   });
 
@@ -124,4 +128,8 @@
 
 {#if import.meta.env.DEV}
   {#await import('./dev/DevPanel.svelte') then m}<m.default />{/await}
+{/if}
+
+{#if import.meta.env.VITE_DEVAPP === '1'}
+  <AppDevPanel />
 {/if}

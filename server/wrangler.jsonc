@@ -18,7 +18,11 @@
   "r2_buckets": [
     { "binding": "FILES", "bucket_name": "software-files" }
   ],
-  "workers_dev": false,
+  // on: the software's second address (<name>.<account>.workers.dev) for a network that blocks our domain by name
+  // (some Indian ISPs do); the software tries it only when the main address cannot be reached (client/src/client/hands/reach.py)
+  "workers_dev": true,
+  // the workers.dev address is for the software only: no per-version preview addresses
+  "preview_urls": false,
   "routes": [{ "pattern": "software.mfdinvoice.co.in", "custom_domain": true }],
   // Daily at 03:00 IST (21:30 UTC): reports older than 90 days are deleted, with their records (src/index.ts forget)
   "triggers": { "crons": ["30 21 * * *"] },

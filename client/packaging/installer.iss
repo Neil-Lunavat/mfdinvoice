@@ -6,8 +6,10 @@
 ; nothing itself, the app's updater starts the new version and watches it (client/src/client/hands/update.py).
 ; Unsigned: no signing step, and nothing here expects a certificate.
 ;
-; Uninstalling removes the program, its updater's folder and a browser we downloaded ourselves. It never removes the
-; person's months, invoices, settings or vault (%LOCALAPPDATA%\MFDInvoice\workspace): nothing is purged on their PC.
+; Uninstalling removes the program, its updater's folder and a browser we downloaded ourselves. An interactive
+; uninstall first asks whether to remove all the person's data on this PC too (months, invoices, vault, signature:
+; all of %LOCALAPPDATA%\MFDInvoice\). Ticked, they must type DELETE ALL before Uninstall is enabled; it cannot be
+; undone. Unticked (the default), and always in a silent uninstall, their data stays.
 
 [Setup]
 AppId={{6C0B6E5B-7D0E-4C63-9E0B-3D1B6B8B4E21}
@@ -105,4 +107,98 @@ begin
   if not HasWebView2 then
     SuppressibleMsgBox('{#AppName} needs Microsoft Edge WebView2, and it could not be installed just now.' + #13#10 +
       'Check your internet connection and run this installer again.', mbError, MB_OK, IDOK);
+end;
+
+{ ---- uninstall ---- }
+var
+  DeleteData: Boolean;
+  UnCheck: TNewCheckBox;
+  UnEdit: TNewEdit;
+  UnOk: TNewButton;
+
+procedure UnRefresh;
+begin
+  UnEdit.Enabled := UnCheck.Checked;
+  UnOk.Enabled := (not UnCheck.Checked) or (UnEdit.Text = 'DELETE ALL');
+end;
+
+procedure UnCheckClick(Sender: TObject);
+begin
+  UnRefresh;
+end;
+
+procedure UnEditChange(Sender: TObject);
+begin
+  UnRefresh;
+end;
+
+function InitializeUninstall: Boolean;
+var
+  F: TSetupForm;
+  Msg, Prompt: TNewStaticText;
+  Cancel: TNewButton;
+begin
+  Result := True;
+  DeleteData := False;
+  if UninstallSilent then
+    Exit;
+  F := CreateCustomForm(ScaleX(420), ScaleY(230), False, True);
+  try
+    F.Caption := 'Uninstall {#AppName}';
+    Msg := TNewStaticText.Create(F);
+    Msg.Parent := F;
+    Msg.Left := ScaleX(16);
+    Msg.Top := ScaleY(16);
+    Msg.Caption := 'Remove {#AppName} from this PC.';
+    UnCheck := TNewCheckBox.Create(F);
+    UnCheck.Parent := F;
+    UnCheck.Left := ScaleX(16);
+    UnCheck.Top := ScaleY(48);
+    UnCheck.Width := F.ClientWidth - ScaleX(32);
+    UnCheck.Height := ScaleY(36);
+    UnCheck.Caption := 'Also delete all my data on this PC: invoices, months, saved logins and signature. This can''t be undone.';
+    UnCheck.OnClick := @UnCheckClick;
+    Prompt := TNewStaticText.Create(F);
+    Prompt.Parent := F;
+    Prompt.Left := ScaleX(32);
+    Prompt.Top := ScaleY(104);
+    Prompt.Caption := 'Type DELETE ALL to confirm';
+    UnEdit := TNewEdit.Create(F);
+    UnEdit.Parent := F;
+    UnEdit.Left := ScaleX(32);
+    UnEdit.Top := ScaleY(124);
+    UnEdit.Width := ScaleX(200);
+    UnEdit.OnChange := @UnEditChange;
+    UnOk := TNewButton.Create(F);
+    UnOk.Parent := F;
+    UnOk.Caption := 'Uninstall';
+    UnOk.ModalResult := mrOk;
+    UnOk.Default := True;
+    UnOk.Width := ScaleX(90);
+    UnOk.Height := ScaleY(26);
+    UnOk.Left := F.ClientWidth - ScaleX(200);
+    UnOk.Top := F.ClientHeight - ScaleY(42);
+    Cancel := TNewButton.Create(F);
+    Cancel.Parent := F;
+    Cancel.Caption := 'Cancel';
+    Cancel.ModalResult := mrCancel;
+    Cancel.Cancel := True;
+    Cancel.Width := ScaleX(90);
+    Cancel.Height := ScaleY(26);
+    Cancel.Left := F.ClientWidth - ScaleX(100);
+    Cancel.Top := UnOk.Top;
+    UnRefresh;
+    if F.ShowModal = mrOk then
+      DeleteData := UnCheck.Checked and (UnEdit.Text = 'DELETE ALL')
+    else
+      Result := False;
+  finally
+    F.Free;
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if (CurUninstallStep = usPostUninstall) and DeleteData then
+    DelTree(ExpandConstant('{localappdata}\{#AppName}'), True, True, True);
 end;

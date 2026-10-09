@@ -6,7 +6,7 @@
   import { untrack } from 'svelte';
   import { app, type Signature } from '../bridge';
 
-  let { kind, name, gstin, arn, signature }: { kind: 'cams' | 'kfintech'; name: string; gstin: string; arn: string; signature: Signature } = $props();
+  let { kind, name, gstin, arn, signature, way = '', certName = '' }: { kind: 'cams' | 'kfintech'; name: string; gstin: string; arn: string; signature: Signature; way?: string; certName?: string } = $props();
 
   let big = $state(false);
   let image = $state('');
@@ -15,7 +15,8 @@
 
   $effect(() => {
     void signature.image;                                  // a new photo, or a turned one, is drawn afresh
-    const ask = { kind, name, gstin, arn, signatureSize: signature.size }, mine = ++seq;
+    // the way on screen: a USB token's mark is drawn where a run stamps it, never signed
+    const ask = { kind, name, gstin, arn, signatureSize: signature.size, way: way || signature.way, certName: certName || signature.cert?.name || '' }, mine = ++seq;
     phase = untrack(() => image) ? 'shown' : 'loading';
     const t = setTimeout(async () => {
       const got = await app.previewRegistrar(ask);

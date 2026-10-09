@@ -30,7 +30,10 @@ NAME = json.loads((CLIENT / "src" / "client" / "brand.json").read_text(encoding=
 META = Path(copy_metadata("client")[0][1]).name          # client-<version>.dist-info, as it is named inside the exe
 
 STEPS = "client.automation"
-OURS = [m for m in collect_submodules("client") if m != STEPS and not m.startswith(STEPS + ".")]
+# The checkout's test bench (`uv run app`: no website, the dev panel's calls) is never in the exe; build.py checks.
+DEV_ONLY = ["client.hands.devsite", "client.hands.devtools"]
+OURS = [m for m in collect_submodules("client")
+        if m != STEPS and not m.startswith(STEPS + ".") and m not in DEV_ONLY]
 STEP_LIBRARIES = ["openpyxl", "pdfplumber", "pdfminer", "xlrd", "pypdf", "reportlab", "PIL", "playwright"]
 
 # The standard library, whole, but for what no step has a use for on a person's PC.
@@ -65,7 +68,7 @@ a = Analysis(
            *collect_data_files("playwright", includes=["driver/**"]),
            *collect_data_files("pdfminer"), *collect_data_files("reportlab"), *collect_data_files("openpyxl")],
     hiddenimports=[*collect_submodules("pkcs11"), *OURS, *LIBRARIES, *STANDARD],
-    excludes=[STEPS, "pytest", "tkinter"],
+    excludes=[STEPS, *DEV_ONLY, "pytest", "tkinter"],
 )
 a.datas = [d for d in a.datas if Path(d[0]).parent.name != META or Path(d[0]).name == "METADATA"]
 pyz = PYZ(a.pure)

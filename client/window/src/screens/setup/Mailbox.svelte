@@ -21,7 +21,7 @@
 
   function pick(p: MailProvider) {
     if (p === picked) return;
-    picked = p; result = null; said = ''; sent = false;
+    picked = p; result = null; said = '';
     d.mailbox = { provider: p, address: p === 'folder' ? '' : d.camsEmail, connected: p === 'folder' };
   }
   const edited = () => { d.mailbox.connected = false; result = null; };
@@ -35,28 +35,39 @@
     result = r.ok ? { ok: true, text: `Connected · ${r.found} CAMS invoice mails in the last 30 days` } : { ok: false, text: r.said };
   }
 
-  // forwarding: a code to the CAMS email proves it is theirs; then Gmail's own confirmation code shows here
-  let sent = $state(false), code = $state(''), said = $state(''), gmailCode = $state('');
-  async function sendCode() {
+  // forwarding: a carousel. The person names the Gmail (slide 0, the claim), adds our address in Gmail's settings,
+  // confirms, sets the filter, and ticks that it is there. Done = claimed + ticked: a Gmail that had our address
+  // before sends no new confirmation, so the proof (Gmail's confirmation or the first CAMS mail) is only shown.
+  const FILTER = 'from:donotreply@camsonline.com has:attachment';
+  const LAST = 12;
+  const WORDS = [
+    '', 'In that Gmail, click the gear at the top right.', 'Click See all settings.', 'Open the Forwarding and POP/IMAP tab.',
+    'Click Add a forwarding address.', 'Paste our address and click Next.', 'Gmail may ask you to sign in again. Then click Proceed.',
+    'Click OK.', 'Back here: confirm it.', "In Gmail's search box, type this and click the filter icon at the right of the box.",
+    'Tick Forward it to, pick our address, then click Create filter.', 'Gmail says Your filter was created.',
+    'Check: Settings › Filters and Blocked Addresses shows it, like this.'];
+  let claimed = $state(had.provider === 'forward' && had.connected), proved = $state(had.provider === 'forward' && had.connected);
+  let filterOk = $state(had.provider === 'forward' && had.connected);
+  let said = $state(''), confirm = $state('');
+  let slide = $state(had.provider === 'forward' && had.connected ? LAST : 0);
+  const sync = () => { d.mailbox.connected = claimed && filterOk; };
+  async function next() {
     busy = true; said = '';
-    const r = await app.forwardStart(d.mailbox.address);
+    const r = await app.forwardClaim(d.mailbox.address);
     busy = false;
-    if (r.ok) sent = true; else said = r.said ?? "It didn't send.";
+    if (r.ok) { claimed = true; proved = false; confirm = ''; filterOk = false; sync(); slide = 1; } else said = r.said ?? "It didn't go through.";
   }
-  async function checkCode() {
-    busy = true; said = '';
-    const r = await app.forwardVerify(d.mailbox.address, code.replace(/\D/g, ''));
-    busy = false;
-    if (r.ok) d.mailbox.connected = true; else said = r.said ?? "That code isn't right.";
+  function change() { claimed = false; proved = false; confirm = ''; filterOk = false; said = ''; slide = 0; sync(); }
+  // Gmail's confirmation (and the proof) looked for every 5 s once the Gmail is named, until the proof has come
+  async function look() {
+    const r = await app.forwardState();
+    if (r.confirm) confirm = r.confirm;
+    if (r.proved !== proved) proved = r.proved;
   }
-  // Gmail's confirmation code: looked for every few seconds once the email is proved, until it comes; Check again
-  // looks at once
-  let looking = $state(false);
-  async function lookCode() { looking = true; const c = await app.forwardGmailCode(); looking = false; if (c) gmailCode = c; }
   $effect(() => {
-    if (picked !== 'forward' || !d.mailbox.connected || gmailCode) return;
-    void lookCode();
-    const t = setInterval(lookCode, 5000);
+    if (picked !== 'forward' || !claimed || proved) return;
+    void look();
+    const t = setInterval(look, 5000);
     return () => clearInterval(t);
   });
   // our own forwarding address typed as the CAMS email
@@ -77,41 +88,50 @@
 {#if picked === 'forward'}
   <div class="sub-part enter">
     <p class="line">Your Gmail sends only CAMS's invoice mails on to {NAME}. Each one is locked so only this PC can open it, and deleted from our side once it's here.</p>
-    <div class="field"><label for="fa">1. The Gmail that forwards to {NAME}</label>
-      <input id="fa" class="input" bind:value={d.mailbox.address} disabled={d.mailbox.connected} oninput={() => { sent = false; }} />
-      <span class="hint">Where you set the filter below. A code goes to it, to show it's yours.</span></div>
-    {#if !d.mailbox.connected}
-      {#if !sent}
-        <div class="testrow"><button class="btn secondary" disabled={busy || !emailOk(d.mailbox.address) || ours(d.mailbox.address)} onclick={sendCode}>Send me a code</button>
-          {#if busy}<span class="spin"></span>{/if}</div>
-        {#if ours(d.mailbox.address)}<span class="err">That's {NAME}'s address. Type the Gmail that will forward to it.</span>{/if}
+    <div class="car">
+      <p class="cw">{slide === 0 ? 'Which Gmail do you want to use to forward CAMS mailbacks to us?' : WORDS[slide]}</p>
+      {#if slide === 0}
+        <div class="field">
+          <input id="fa" class="input" aria-label="Gmail" bind:value={d.mailbox.address} disabled={claimed} />
+          <div class="testrow">
+            {#if !claimed}
+              <button class="btn secondary" disabled={busy || !emailOk(d.mailbox.address) || ours(d.mailbox.address)} onclick={next}>Next</button>
+              {#if busy}<span class="spin"></span>{/if}
+            {:else}
+              <button class="btn secondary" onclick={() => (slide = 1)}>Next</button>
+              <button class="btn ghost sm" onclick={change}>Change</button>
+            {/if}
+          </div>
+          {#if ours(d.mailbox.address)}<span class="err">That's {NAME}'s address. Type the Gmail that will forward to it.</span>{/if}
+          {#if said}<span class="err">{said}</span>{/if}
+        </div>
       {:else}
-        <div class="field"><label for="fc">The code from that email</label>
-          <input id="fc" class="input mono" style="max-width:160px" inputmode="numeric" maxlength="6" bind:value={code} /></div>
-        <div class="testrow"><button class="btn secondary" disabled={busy || code.replace(/\D/g, '').length !== 6} onclick={checkCode}>Verify</button>
-          <button class="btn ghost sm" disabled={busy} onclick={sendCode}>Send again</button>{#if busy}<span class="spin"></span>{/if}</div>
+        {#if slide === 5}
+          <div class="testrow"><span class="mono">{FORWARD}</span><button class="btn ghost sm" onclick={() => copy(FORWARD)}>{@html icons.copy}Copy</button></div>
+        {:else if slide === 8}
+          {#if confirm.startsWith('https://')}
+            <div class="testrow"><span class="hint">Gmail asks you to confirm</span><button class="btn secondary sm" onclick={() => app.forwardConfirm()}>Confirm</button></div>
+          {:else if confirm}
+            <span class="hint">Gmail asks you to confirm. Type this code in Gmail's Forwarding settings › Verify.</span>
+            <div class="testrow"><b class="mono">{confirm}</b><button class="btn ghost sm" onclick={() => copy(confirm)}>{@html icons.copy}Copy</button></div>
+          {:else}
+            <span class="hint"><span class="spin"></span> Waiting for Gmail's confirmation… (Not here after a minute? In Gmail's Forwarding tab, click Re-send email.)</span>
+          {/if}
+          <span class="hint">Already added our address in this Gmail before? Go on.</span>
+        {:else if slide === 9}
+          <div class="testrow"><span class="mono">{FILTER}</span><button class="btn ghost sm" onclick={() => copy(FILTER)}>{@html icons.copy}Copy</button></div>
+        {:else if slide === LAST}
+          <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" bind:checked={filterOk} onchange={sync} />It's there</label>
+          <span class="hint">{proved ? "Gmail confirmed: CAMS's mailbacks will reach " + NAME + '.' : NAME + " takes it as yours when Gmail's confirmation or the first CAMS mail arrives."}</span>
+        {/if}
+        <div class="pic"><img src="forward/{String(slide).padStart(2, '0')}.png" alt="" /></div>
       {/if}
-      {#if said}<span class="err">{said}</span>{/if}
-    {:else}
-      <div class="testrow"><span class="okl">{@html icons.tickSm}{d.mailbox.address} is yours</span></div>
-      <div class="field"><span class="flabel">2. In Gmail, the filter for CAMS's mailbacks</span>
-        <span class="hint">In Gmail's search box: <span class="mono">from:donotreply@camsonline.com has:attachment</span> › the filter icon › Create filter › tick "Forward it to" › add forwarding address › paste this › Next › Proceed.</span>
-        <div class="testrow"><span class="mono">{FORWARD}</span><button class="btn ghost sm" onclick={() => copy(FORWARD)}>{@html icons.copy}Copy</button></div></div>
-      <div class="field"><span class="flabel">3. Gmail's confirmation</span>
-        {#if gmailCode.startsWith('https://')}
-          <div class="testrow"><button class="btn secondary" onclick={() => app.forwardConfirm()}>Confirm in Gmail</button>
-            <span class="hint">Opens Gmail's confirmation; press Confirm there.</span></div>
-        {:else if gmailCode}
-          <span class="hint">Type it in Gmail's Forwarding settings › Verify.</span>
-          <div class="testrow"><b class="mono">{gmailCode}</b><button class="btn ghost sm" onclick={() => copy(gmailCode)}>{@html icons.copy}Copy</button></div>
-        {:else}
-          <div class="testrow"><span class="hint"><span class="spin"></span> It shows here once Gmail sends it.</span>
-            <button class="btn ghost sm" disabled={looking} onclick={lookCode}>Check again</button></div>
-          <span class="hint">Not here after a minute? In Gmail's Forwarding settings, press Re-send email.</span>
-        {/if}</div>
-      <div class="field"><span class="flabel">4. Back to the filter</span>
-        <span class="hint">Search <span class="mono">from:donotreply@camsonline.com has:attachment</span> again › Create filter › tick "Forward it to" ({FORWARD}) and "Never send it to Spam" › Create filter. Leave Gmail's Forwarding on "Disable forwarding": the filter alone sends CAMS's mailbacks on.</span></div>
-    {/if}
+      <div class="nav">
+        <button class="btn secondary sm" disabled={slide === 0} onclick={() => (slide -= 1)}>Back</button>
+        <span class="dots">{#each WORDS as _, i}<span class="dot" class:on={i === slide}></span>{/each}</span>
+        <button class="btn secondary sm" style:visibility={slide === 0 ? "hidden" : "visible"} disabled={slide === LAST} onclick={() => (slide += 1)}>Next</button>
+      </div>
+    </div>
   </div>
 {:else if picked === 'gmail'}
   <div class="sub-part enter">
@@ -135,5 +155,12 @@
 <style>
   .tile { flex-direction: row; align-items: center; gap: 10px; }
   .tile :global(svg) { flex-shrink: 0; }
-  .flabel { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  .car { display: flex; flex-direction: column; gap: 10px; }
+  .cw { margin: 0; font-size: 15px; font-weight: 500; color: var(--ink); }
+  .pic { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .pic img { display: block; width: 100%; height: auto; }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+  .dot.on { background: var(--blue); }
 </style>

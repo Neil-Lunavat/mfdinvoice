@@ -27,7 +27,6 @@ import subprocess
 import sys
 import time
 import urllib.error
-import urllib.request
 from pathlib import Path
 
 from client.brand import DATA, NAME
@@ -69,11 +68,10 @@ def download(token: str, dest: Path, sha256: str, progress=lambda pct: None) -> 
         progress(100)
         return ""
     part = dest.with_suffix(".part")
-    req = urllib.request.Request(site.base() + "/api/download", headers={
-        "Authorization": f"Bearer {token}", "User-Agent": site.USER_AGENT})
     h = hashlib.sha256()
     try:
-        with urllib.request.urlopen(req, timeout=60) as r, part.open("wb") as out:   # noqa: S310 - our own site
+        with site.reach.open("/api/download", timeout=60, headers={
+                "Authorization": f"Bearer {token}", "User-Agent": site.USER_AGENT}) as r, part.open("wb") as out:
             size, got, said = int(r.headers.get("content-length") or 0), 0, -1
             while chunk := r.read(CHUNK):
                 out.write(chunk)

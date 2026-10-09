@@ -159,6 +159,28 @@ class Door:
         return self._sign(out, out, boxes)
 
 
+class MarkDoor(Door):
+    """A preview's door for a token: the mark where a run stamps it, and nothing signed. It has no token, no route and
+    no PIN to reach: `unlock`, `sign_file` and every signing path are shut."""
+
+    def __init__(self, name: str):
+        super().__init__(lambda: Path())
+        self.name = name
+
+    def way(self) -> str:
+        return DSC
+
+    def info(self) -> dict:
+        return {**sign_dsc.info({"thumbprint": "preview", "name": self.name}), "way": DSC}
+
+    async def unlock(self) -> dict:
+        raise errors.Failure(errors.INTERNAL.code, "a preview never reaches the token")
+
+    def _sign(self, src: Path, out: Path, places: list[dict]) -> str:
+        sign_dsc.mark_only(src, out, places, self.name)
+        return DSC
+
+
 async def open_token(route: str, driver: str, thumbprint: str, hwnd: int = 0, ask_pin=None):
     """Open the token that holds this certificate and make it sign once, so that it is known to work and its PIN has
     been asked for. Through Windows the token's own software asks, in its own box; on the second route `ask_pin` is

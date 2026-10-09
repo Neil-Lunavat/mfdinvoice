@@ -21,8 +21,9 @@ Rules that hold throughout:
 
 - The ARN each portal shows must be the ARN this run is for, on every run. Anything else ends the run.
 - What a registrar already has is never sent again: its status is read first, by this run.
-- Nothing is retried by itself. A run that stops says why and ends; the next run starts from the top and uses the files
-  already on this PC.
+- A portal that doesn't respond is tried once more, with a countdown on the step (`Job.patient`); never Submit, and
+  KFintech is never signed in to again by itself. Past that the registrar is set aside and the run says why; the next
+  run starts from the top and uses the files already on this PC.
 - Submit is written down before it is pressed. If the registrar never answers, the next run's status reading settles
   it, and nothing is pressed twice.
 - The person's own invoice numbers are given for good when they are in the books (books connected), else when
@@ -43,9 +44,10 @@ from pathlib import Path
 
 from playwright.async_api import Error as PWError
 
-from client.automation import books, cams, files, kfin, numbering, own, signature, words
+from client.automation import books, cams, files, kfin, numbering, own, signature, widgets, words
 from client.brand import NAME
 from client.automation.month import Month, now
+from client.automation import page as portal_page
 from client.automation.page import Changed, Refused, Stop
 from client.automation.words import CAMS, KFIN, NAMES, inr, plural
 
@@ -58,6 +60,7 @@ MAIL_GIVE_UP_S = 10 * 60
 # the item; CAMS's upload carries no date). Switch this off and the invoice can only be put aside.
 DATE_IF_RENUMBERED = True
 MIN_SHOWN_S = 0.5                # "Fetching your last invoice number" stays on screen at least this long
+RETRY_IN_S = 7                   # a portal that didn't respond is tried once more after this many seconds, counted down
 IDLE_S = 20 * 60                 # KFintech left alone longer than this is signed in to afresh (tested safe, 4 Oct 2026)
 
 
@@ -100,6 +103,8 @@ class Job:
         self.sent: dict[str, int] = {}
         self.ready: dict[str, int] = {}          # checked by the registrar and not submitted: Submit is switched off
         self.problems: dict[str, Stop] = {}
+        self.late = ""                           # CAMS's files hold fewer invoices than it lists: said after they are read
+        self.notes: list[str] = []             # what went wrong while the run carried on: shown at the end
         self.used: list[str] = []
         self.steps: list[dict] = []
         self.portals_at = time.monotonic()       # when this run last did anything on a portal's page
@@ -130,6 +135,50 @@ class Job:
             if s["state"] == "running":
                 s["state"] = "bad"
         await self.host.steps(self.steps)
+
+    def note(self, text: str) -> None:
+        """Something went wrong that the run carried on past: said now, and again at the end."""
+        if text not in self.notes:
+            self.notes.append(text)
+            self.host.activity(text, tone="warn")
+
+    async def say(self, line: str) -> None:
+        """What a portal module (`page.tell`) says while it works something out: shown on the step that is running."""
+        name = next((s["name"] for s in self.steps if s["state"] == "running"), "")
+        if name:
+            await self.at(name, line)
+
+    async def patient(self, reg: str, do: Callable[[], Awaitable]):
+        """Run one portal read or prepare step (`do()` makes a fresh coroutine). A portal that doesn't respond (the page
+        isn't what was expected, or a wait ran out) gets a visible countdown, then one more go: CAMS after a reload
+        (signed in again if the reload shows its sign-in form), KFintech as it is (its captcha means it is never
+        signed in again by itself). Still nothing: this registrar is set aside with "didn't respond". The portal's own
+        answers (Stop, Refused) pass untouched. Never used from Submit onwards."""
+        fails = (Changed, PWError, AssertionError)
+        try:
+            return await do()
+        except fails as e:
+            log.info("%s didn't respond (%s): trying once more", reg, type(e).__name__, exc_info=True)
+        name = next((s["name"] for s in self.steps if s["state"] == "running"), "")
+        line = next((s["line"] for s in self.steps if s["name"] == name), "")
+        who = NAMES[reg]
+        for left in range(RETRY_IN_S, 0, -1):
+            if name:
+                await self.at(name, f"{who} didn't respond. Retrying in {left}s")
+            await asyncio.sleep(1)
+        if name:
+            await self.at(name, f"Trying {who} again")
+        try:
+            if reg == CAMS:
+                await cams.recover(self.pages[CAMS])
+            got = await do()
+        except fails as e:
+            log.info("%s still didn't respond (%s)", reg, type(e).__name__, exc_info=True)
+            raise Stop("portal_slow", f"{who} didn't respond", "Run again in a few minutes.",
+                       said=await _portal_words(self.pages[reg], reg), registrar=reg) from e
+        if name:
+            await self.at(name, line)
+        return got
 
     def active(self) -> list[str]:
         return [r for r in self.regs if r not in self.aside]
@@ -210,31 +259,39 @@ class Job:
         only what is listed (CAMS's status is a page of its own, and its slowest)."""
         m = self.month
         for reg in self.active():
-            page = self.pages[reg]
-            await self.at("Check", f"Reading what {NAMES[reg]} {'lists' if listing_only else 'already has'}")
-            if reg == KFIN:
-                # invoices KFintech listed for this month before: an empty table now is its site's trouble
-                known = bool((m.facts.get("status") or {}).get(KFIN)) or bool((m.facts.get("fetched") or {}).get(KFIN))
-                reading = await kfin.read_status(page, self.period, known)
-                self.portals_at = time.monotonic()
-                listed = None if reading is None else sorted(r["key"] for r in reading)
-            else:
-                reading = None
-                if not listing_only:
-                    reading = await cams.read_status(page, self.period)
-                    await self.host.picture(page, "cams-status")
-                listed = await cams.list_month(page, self.period)
-            await self.host.picture(page, f"{reg.lower()}-listed")
-            if reading is not None:
-                m.read_status(reg, [{"key": r["key"], "status": r["status"], "remarks": r["remarks"]}
-                                    for r in reading])
-            m.facts.setdefault("listedNow", {})[reg] = listed is not None
-            if listed is None:
-                self._unlisted(reg)
-            else:
-                self.listed[reg] = listed
+            try:
+                await self._status_one(reg, listing_only)
+            except (Stop, Refused, Changed, PWError, AssertionError) as e:
+                await self.stopped(reg, e)                   # this registrar is left out; the other goes on
         m.save()
         await self.host.changed()
+
+    async def _status_one(self, reg: str, listing_only: bool) -> None:
+        m, page = self.month, self.pages[reg]
+        await self.at("Check", f"Reading what {NAMES[reg]} {'lists' if listing_only else 'already has'}")
+        if reg == KFIN:
+            # invoices KFintech listed for this month before: an empty table now is its site's trouble
+            known = bool((m.facts.get("status") or {}).get(KFIN)) or bool((m.facts.get("fetched") or {}).get(KFIN))
+            reading = await self.patient(reg, lambda: kfin.read_status(page, self.period, known))
+            self.portals_at = time.monotonic()
+            listed = None if reading is None else sorted(r["key"] for r in reading)
+        else:
+            reading = None
+            if not listing_only:
+                reading = await self.patient(reg, lambda: cams.read_status(page, self.period))
+                await self.host.picture(page, "cams-status")
+            listed = await self.patient(reg, lambda: cams.list_month(page, self.period))
+        await self.host.picture(page, f"{reg.lower()}-listed")
+        if reading is not None:
+            strange = m.read_status(reg, [{"key": r["key"], "status": r["status"], "remarks": r["remarks"]}
+                                          for r in reading])
+            if strange:
+                self.note(f"{NAMES[reg]} shows a status we haven't seen: {strange}. Shown as {NAMES[reg]} wrote it.")
+        m.facts.setdefault("listedNow", {})[reg] = listed is not None
+        if listed is None:
+            self._unlisted(reg)
+        else:
+            self.listed[reg] = listed
 
     def _unlisted(self, reg: str) -> None:
         self.unlisted.add(reg)
@@ -281,12 +338,16 @@ class Job:
             if not (_kfin_files_good(have, self.listed[KFIN]) and _newest(folder, ".zip")):
                 await self.at("Get", "Downloading KFintech's invoices")
                 fetched.pop(KFIN, None)
-                got = await kfin.fetch(self.pages[KFIN], self.period, m.folder(KFIN, "fetched", empty=True))
-                if got is None:
-                    self._unlisted(KFIN)
-                else:
-                    fetched[KFIN] = {"at": now(), "listed": self.listed[KFIN]}
-                    self.host.activity(f"Downloaded KFintech's invoices for {self.kf_label}", KFIN)
+                try:
+                    got = await self.patient(KFIN, lambda: kfin.fetch(self.pages[KFIN], self.period,
+                                                                      m.folder(KFIN, "fetched", empty=True)))
+                    if got is None:
+                        self._unlisted(KFIN)
+                    else:
+                        fetched[KFIN] = {"at": now(), "listed": self.listed[KFIN]}
+                        self.host.activity(f"Downloaded KFintech's invoices for {self.kf_label}", KFIN)
+                except (Stop, Refused, Changed, PWError, AssertionError) as e:
+                    await self.stopped(KFIN, e)              # KFintech is left out; CAMS goes on
                 self.portals_at = time.monotonic()
                 m.save()
         if CAMS in self.active():
@@ -319,14 +380,22 @@ class Job:
         waiting = bool(asked) and asked.get("listed") == self.listed[CAMS]
         # an email of CAMS's for this month already on this PC (from the mailbox, or added by hand on Downloads) does,
         # whichever request it answered: CAMS isn't asked again. The mailbox is looked in first when it is read by itself
-        found = await self._month_mail(fetch=not (by_hand or waiting))
+        looking = not (by_hand or waiting)
+        if looking:
+            await self.at("Get", "Looking for CAMS's emails already in your mailbox")
+        shown = time.monotonic()
+        found = await self._month_mail(fetch=looking)
+        if looking:
+            await asyncio.sleep(max(0.0, MIN_SHOWN_S - (time.monotonic() - shown)))
         if found:
             return self._take_cams(found, "Found CAMS's email for {} in your mailbox")
         if not waiting:
             await self.at("Get", f"Asking CAMS to email {self.label}'s invoices")
-            if not await cams.ready_to_ask(page):
-                await cams.list_month(page, self.period)
-            ref = await cams.request_mailback(page)
+            async def ask() -> str:                      # (after a reload the listing is read again first)
+                if not await cams.ready_to_ask(page):
+                    await cams.list_month(page, self.period)
+                return await cams.request_mailback(page)
+            ref = await self.patient(CAMS, ask)
             await host.picture(page, "cams-asked")
             asked = m.facts["asked"] = {"ref": ref or asked.get("ref", ""), "at": now(), "listed": self.listed[CAMS]}
             m.save()
@@ -385,7 +454,7 @@ class Job:
 
     async def _by_hand(self) -> list[Path] | None:
         """CAMS's two files, chosen by the person; None when they skipped CAMS instead. Files that can't be this run's
-        (another month or ARN, a zip not of its Excel, fewer invoices than CAMS lists now) are refused there and then,
+        (another month or ARN, a zip not of its Excel) are refused there and then,
         with the reason, and the person chooses again or skips CAMS (Neil, 8 Oct)."""
         await self.at("Get", "Choose CAMS's invoice files")
         said = self.behind
@@ -419,12 +488,7 @@ class Job:
             return f"These files are for ARN-{got['arn']}, not this ARN."
         if got["period"] != self.period:
             return f"These files are {words.labels(got['period'])[0]}'s, not {self.label}'s."
-        missing = [k for k in self.listed[CAMS] if k not in got["invoices"]]
-        if missing:
-            return (f"CAMS lists {plural(len(self.listed[CAMS]), 'invoice')} for {self.label} now and these files hold "
-                    f"{len(got['invoices'])}: {', '.join(missing)} isn't in them. Use the files from CAMS's newest "
-                    "email.")
-        return ""
+        return ""                    # fewer invoices than CAMS lists is no reason to refuse: the run says what's missing
 
     def _take_cams(self, pair: list[Path], said: str) -> bool:
         dest = self.month.folder(CAMS, "fetched", empty=True)        # the latest pair only, never two
@@ -480,6 +544,8 @@ class Job:
             await self.at("Read", "Reading CAMS's invoices")
             try:
                 await asyncio.to_thread(self._read_cams)
+                if self.late:
+                    self.note(self.late)
                 # the files are this ARN's month, as emailed by CAMS: an ARN set up without KFintech is bound now
                 confirm = getattr(self.host, "confirm_arn", None)
                 if confirm:
@@ -501,9 +567,9 @@ class Job:
             if self.no_file:
                 # the files are not the whole listing: the next run fetches them again, this one goes on without
                 m.facts.setdefault("fetched", {}).setdefault(KFIN, {})["lacks"] = list(self.no_file)
-                self.host.activity(f"KFintech lists {plural(len(self.listed[KFIN]), 'invoice')} for {self.kf_label} "
-                                   f"and its download held {len(self.listed[KFIN]) - len(self.no_file)}. "
-                                   f"No file for {', '.join(self.no_file)}.", tone="warn")
+                self.note(f"KFintech lists {plural(len(self.listed[KFIN]), 'invoice')} for {self.kf_label} "
+                          f"and its download held {len(self.listed[KFIN]) - len(self.no_file)}. "
+                          f"No file for {', '.join(self.no_file)}.")
         self.open = [k for reg in self.regs for k, i in self.items.items()
                      if i["registrar"] == reg and reg in self.active() and k not in m.with_registrar(reg)]
         if self.own:
@@ -523,10 +589,13 @@ class Job:
             self.report = cams.read_report(xls, self.period)
             behind = set(self.listed[CAMS]) - {r[cams.CAMS_INVOICE] for r in self.report}
             if behind:
-                raise Stop("wrong_files", "These files are older than what CAMS lists now",
-                           f"CAMS lists {plural(len(self.listed[CAMS]), 'invoice')} for {self.label} and these files "
-                           f"hold {len(self.report)}. Use the zip and the Excel from CAMS's latest email.",
-                           registrar=CAMS)
+                # the run goes on with what the files hold; the next run fetches them again
+                # (this runs in a thread: the note is said by `read`, once it is back)
+                self.late = (f"CAMS lists {plural(len(self.listed[CAMS]), 'invoice')} for {self.label} and its files "
+                             f"hold {len(self.report)}: {', '.join(sorted(behind))} weren't in them, so they weren't "
+                             "sent. The next run gets them.")
+                m.facts.get("fetched", {}).pop(CAMS, None)
+                m.save()
             pdfs = cams.match_pdfs(self.report, files.zip_extract(zip_file, m.folder(CAMS, "invoices")))
         except Stop:
             m.facts.get("fetched", {}).pop(CAMS, None)           # not the month's files: the next run gets them again
@@ -946,8 +1015,10 @@ class Job:
             out_zip, out_sheet = folder / f"CAMS_{self.period}.zip", folder / f"CAMS_{self.period}.xlsx"
             await asyncio.to_thread(cams.pack, sending, self.report, self.report_file, self.signed, numbers,
                                     out_zip, out_sheet)
-            await cams.open_upload(page, self.period, self.own)
-            review = await cams.attach(page, out_zip, out_sheet)
+            async def open_and_attach() -> list[dict]:
+                await cams.open_upload(page, self.period, self.own)
+                return await cams.attach(page, out_zip, out_sheet)
+            review = await self.patient(CAMS, open_and_attach)
             await host.picture(page, "cams-review")
             await self.at(name, "Checking CAMS read the upload right")
             rows = [r for r in self.report if r[cams.CAMS_INVOICE] in set(sending)]
@@ -975,7 +1046,7 @@ class Job:
             await self.at(name, "Filling in KFintech's page")
             ones = [{**self.items[k]["one"], "date": self.items[k]["dated"]} if self.items[k].get("dated")
                     else self.items[k]["one"] for k in sending]
-            filled = await kfin.fill_grid(page, self.period, ones, self.signed, numbers)
+            filled = await self.patient(KFIN, lambda: kfin.fill_grid(page, self.period, ones, self.signed, numbers))
             await self.at(name, "Checking KFintech's page")
             await kfin.verify_grid(page, filled)
             await host.picture(page, "kfintech-ready")
@@ -1021,11 +1092,14 @@ class Job:
             reading = await cams.read_status(page, self.period)
         else:
             reading = await kfin.read_status(page, self.period) or []
-        strange = m.read_status(reg, [{"key": r["key"], "status": r["status"], "remarks": r["remarks"]}
-                                      for r in reading], after_press=True)
-        # a word never seen on a pressed invoice: the registrar lists it, so it counts as submitted; the word is ours
-        odd = {r["key"] for r in reading if words.meaning(reg, r["status"]) == "unknown"}
-        landed = [k for k in sending if k in m.with_registrar(reg) or k in odd]
+        m.read_status(reg, [{"key": r["key"], "status": r["status"], "remarks": r["remarks"]}
+                            for r in reading])
+        # a word never seen on a pressed invoice: the registrar has it, so it counts as submitted (`is_final`)
+        landed = [k for k in sending if k in m.with_registrar(reg)]
+        for r in reading:
+            if r["key"] in landed and words.meaning(reg, r["status"]) == "unknown":
+                self.note(f"{name} shows '{(r['status'] or '').strip()}' for {self.items[r['key']]['house']}: "
+                          "counted as submitted.")
         for key in landed:
             m.put(reg, key, sentAt=now())
             if self.own and not self.books and numbers:   # no books: for the person to enter in theirs
@@ -1040,11 +1114,6 @@ class Job:
             self.sent[reg] = len(landed)
             await host.submitted(reg, len(landed))
             host.activity(f"Submitted {plural(len(landed), 'invoice')}", reg)
-        if strange:
-            raise Stop("ours", f"{name} showed a status {NAME} doesn't know",
-                       f"The invoices were submitted. Only {name}'s status word for them is new to us, so we can't say "
-                       "whether they are approved yet. This one is ours to fix, and it has been sent to us.",
-                       said=strange, registrar=reg)
         if len(landed) < len(sending):
             raise Stop("unconfirmed", f"{name}'s status shows {len(landed)} of {len(sending)} submitted",
                        f"Nothing is sent twice: the next run reads {name}'s status first and sends only what "
@@ -1192,7 +1261,7 @@ async def _run(job: Job) -> dict:
     host.activity(summary + (f" {job.used_line()}." if job.used else ""))
     total = sum(sum(job.items[k][f] for f in ("taxable", "cgst", "sgst", "igst")) for k in ticked)
     return {"how": "done", "summary": summary, "used": job.used_line(), "counts": job.sent, "total": round(total, 2),
-            "enter": job.entered, "left": job.left}
+            "enter": job.entered, "left": job.left, "notes": job.notes}
 
 
 async def download(host, period: str, registrars: list[str], wait_email: bool = True) -> dict:
@@ -1205,9 +1274,9 @@ async def download(host, period: str, registrars: list[str], wait_email: bool = 
 
     async def steps(job: Job) -> dict:
         await job.enter()
-        job.raise_problems()                             # a download or a check is not a run: a stop ends it
         await job.status(listing_only=True)
         if not job.active():
+            job.raise_problems()                         # every registrar stopped: the first stop ends it
             raise Stop("not_listed", f"{words.month_name(period)}'s invoices aren't listed yet",
                        "Fund houses usually list them in the first days of the month.")
         await job.done("Check", " · ".join(job.aside.get(r) or f"{NAMES[r]} lists {len(job.listed[r])}"
@@ -1220,7 +1289,8 @@ async def download(host, period: str, registrars: list[str], wait_email: bool = 
         await job.done("Read", f"{plural(len(job.items), 'invoice')} on this PC")
         summary = f"{plural(len(job.items), 'invoice')} for {words.month_name(period)} downloaded.{short}"
         job.host.activity(summary)
-        return {"how": "done", "summary": summary, "used": "", "counts": {}, "total": 0, "downloaded": True}
+        return {"how": "done", "summary": summary, "used": "", "counts": {}, "total": 0, "downloaded": True,
+                "notes": job.notes}
 
     return await _guarded(job, steps, keeps_last_run=True)
 
@@ -1245,7 +1315,52 @@ async def pickup(host, period: str) -> dict:
     return {"got": len(job.items)}
 
 
-CHECK_AGAIN_S = 10 * 60          # a status read less than this long ago is shown again, not read again
+async def mailbacks(host) -> dict:
+    """Every CAMS mailback in the mailbox that is this ARN's is read in, whoever asked for it (a run, or the person on
+    CAMS's own site). A month with no CAMS files on this PC takes it; a month that has some takes it only when it holds
+    more invoices than they do; the same or fewer, it is ignored. The mailbox is looked in once.
+    {got: [{period, count}]}."""
+    look = getattr(host, "mail_pairs", None)
+    arn = re.sub(r"\D", "", str(host.profile.get("arn") or ""))
+    out: dict = {"got": []}
+    if look is None:
+        return out
+    for zip_file, xls in await look(True):
+        try:
+            mine = await asyncio.to_thread(cams.added, zip_file, xls)
+        except Stop as e:
+            log.info("mailback %s skipped: %s", Path(xls).name, e.title)
+            continue
+        except (Changed, OSError, ValueError) as e:
+            log.info("mailback %s skipped: %r", Path(xls).name, e)
+            continue
+        if mine["arn"] != arn:
+            continue
+        period, invoices = mine["period"], mine["invoices"]
+        try:
+            job = Job(host, period, [CAMS])
+            m = job.month
+            have = _pair(m.folder(CAMS, "fetched"))
+            if have:
+                try:
+                    held = len((await asyncio.to_thread(cams.added, *have))["invoices"])
+                except (Stop, Changed, OSError, ValueError):
+                    held = 0                                   # what is there can't be read: this one replaces it
+                if len(invoices) <= held:
+                    continue
+            job.listed[CAMS] = sorted(invoices)
+            job._take_cams([zip_file, xls], "CAMS's email for {} came; its invoices are on this PC")
+            m.facts.setdefault("fetched", {})[CAMS] = {"at": now(), "listed": sorted(invoices)}
+            m.facts.pop("asked", None)
+            m.save()
+            await job.read()
+            out["got"].append({"period": period, "count": len(job.items)})
+        except Exception as e:                                 # one month's mailback never stops the others
+            log.info("mailback %s couldn't be read in: %r", Path(xls).name, e)
+    return out
+
+
+CHECK_AGAIN_S = 10 * 60         # a status read less than this long ago is shown again, not read again
 SHOWN_AGAIN_S = 1.2              # ... each line of it staying this long
 
 
@@ -1267,13 +1382,16 @@ async def check(host, period: str, registrars: list[str]) -> dict:
             for line in [f"Signing in to {NAMES[r]}" for r in job.regs] + [f"Reading what {NAMES[r]} has" for r in job.regs]:
                 await job.at("Check", line)
                 await asyncio.sleep(SHOWN_AGAIN_S)
-            return {"how": "done", "news": job.month.facts.get("checkNews") or job.check_line()}
+            return {"how": "done", "news": job.month.facts.get("checkNews") or job.check_line(), "notes": job.notes}
         await job.enter()
-        job.raise_problems()
         await job.status()
+        if not job.active():
+            job.raise_problems()                         # every registrar stopped: the first stop ends it
+        for reg, p in job.problems.items():              # one stopped, the other was read: said, not hidden
+            job.note(f"{NAMES[reg]} stopped: {p.title}")
         job.month.facts["checkNews"] = job.check_line()
         job.month.save()
-        return {"how": "done", "news": job.month.facts["checkNews"]}
+        return {"how": "done", "news": job.month.facts["checkNews"], "notes": job.notes}
 
     got = await _guarded(job, steps, keeps_last_run=True)
     return {"news": got.get("news", ""), "stop": got.get("stop")}
@@ -1282,6 +1400,7 @@ async def check(host, period: str, registrars: list[str]) -> dict:
 async def _guarded(job: Job, steps, keeps_last_run: bool = False) -> dict:
     """Run these steps, and turn however they end into what the app shows. A stop pressed by the person (the task is
     cancelled) passes straight through."""
+    portal_page.tell_hook = job.say                      # the portal modules' words on the running step (`page.tell`)
     try:
         return await steps(job)
     except asyncio.CancelledError:
@@ -1306,7 +1425,9 @@ async def _guarded(job: Job, steps, keeps_last_run: bool = False) -> dict:
                "others": [{"kind": p.kind, "title": p.title, "lines": p.lines, "said": p.said, "registrar": reg}
                           for reg, p in job.problems.items() if reg != stop.registrar]}
         return {"how": how, "stop": out, "used": job.used_line(), "counts": job.sent, "enter": job.entered,
-                "left": job.left}
+                "left": job.left, "notes": job.notes}
+    finally:
+        portal_page.tell_hook = None
 
 
 async def _why(job: Job, e: Exception, reg: str) -> Stop:
@@ -1321,7 +1442,22 @@ async def _why(job: Job, e: Exception, reg: str) -> Stop:
                             f"{NAMES[reg]} has, and carries on with the files already on this PC.", registrar=reg)
         except PWError:
             pass
-    return _as_stop(e, reg)
+    stop = _as_stop(e, reg)
+    if not isinstance(e, (Stop, Refused)) and reg in job.pages and not stop.said:
+        stop.said = await _portal_words(job.pages[reg], reg)
+    return stop
+
+
+async def _portal_words(page, reg: str) -> str:
+    """What the portal's toast or snackbar says right now, for the stop's `said`. Never raises."""
+    try:
+        if reg == CAMS:
+            told = await asyncio.wait_for(widgets.toasts(page, cams.C["toast"]), 1)
+        else:
+            told = await asyncio.wait_for(widgets.toasts(page, kfin.C["snackbar"]), 1)
+        return " ".join(told)[:300]
+    except Exception:
+        return ""
 
 
 async def _keep(job: Job, reg: str, e: Exception) -> None:
@@ -1343,7 +1479,8 @@ def _whose(job: Job, e: Exception) -> str:
 
 
 def _as_stop(e: Exception, registrar: str = "") -> Stop:
-    """Anything that ended a step, as the stop the person reads. The portal's no is quoted; everything else is ours."""
+    """Anything that ended a step, as the stop the person reads. The portal's no is quoted; anything else is the
+    portal not doing what the steps expect."""
     if isinstance(e, Stop):
         e.registrar = e.registrar or registrar
         return e
@@ -1351,6 +1488,5 @@ def _as_stop(e: Exception, registrar: str = "") -> Stop:
     if isinstance(e, Refused):
         return Stop("refused", f"{name} said no", "Nothing was submitted by this step.", said=e.said,
                     registrar=registrar)
-    return Stop("ours", f"Something on {name}'s side isn't what {NAME} expects",
-                "This one is ours to fix, and it has been sent to us. Nothing is sent twice: run again once the "
-                "software says it is fixed.", registrar=registrar)
+    return Stop("ours", f"{name}'s website didn't do what we expected",
+                "Run again in a few minutes. If it keeps happening, Send to support.", registrar=registrar)

@@ -15,12 +15,25 @@ edits this; where it and he disagree, he wins.
   then hands it to Neil. Workers keep their output out of the master's context: tokens matter.
 - **Priorities, in order:** it is reliable; it works or it says why; the UX feels good. After those: low cost, speed.
   Secrecy is not a priority. Simple and working beats clever. What serves neither function nor form goes.
+- **Reliability is reaching the destination** (Neil, 9 Oct). Not "never wrong": whatever happens, even what was never
+  foreseen, the run still gets as far as it can. The portals are lenient and Submit is safe to repeat; the real flow
+  works (real submits approved). So nothing that can go on stops: one registrar's trouble never stops the other, a
+  missing invoice leaves the rest going, an unknown word is shown and carried on with, a portal that doesn't answer is
+  retried (shown on screen), and what went wrong is gathered and reported at the end, with the portal's own words. The
+  person sees what happened and decides; the software never locks them out (Run is never replaced or hidden). A
+  genuine fault always has Send to support.
 - **Old reasons are not trusted.** Comments and docstrings may describe an architecture that is gone ("brain",
   "contract", "SOFTWARE.md"). Read what the code does, question every inherited rule, and clean the stale words in a
   file when touching it.
 - **Neil is the tester, by hand, in the real software, with real credentials.** No test suites, and nothing faked for
   him unless he says "fake". I check my own work before handing it over (type-check, build, a script that drives it)
   and say exactly what was checked and what was not. No screenshots of screens for my own checks (Neil, 8 Oct).
+- **Dev mode** (`uv run app` only; Neil, 9 Oct): everything real (portals, mailbox, Tally, Submit when switched on)
+  except the website, which is not called at all: test@mfdinvoice.co.in with 000000 signs in on the PC, the plan is
+  always on, no ARN is bound, no update is checked, nothing is sent to support. Its data is
+  `%LOCALAPPDATA%\MFDInvoice-dev\`. A dev panel: Submit real or not, show the browser, back to setup, fill everything
+  (from `client/config.toml` `[dev]`; Verify buttons stay for testing setup itself), saved states. None of it may reach
+  the build: not in the window's bundle, not in the exe, and `packaging/build.py` checks.
 - **One working piece at a time:** build it, he runs it, he reports with screenshots, I fix, then the next piece.
 - **He is blunt and fast.** Match the pace: no hedging, no padding, no obvious questions. When I am unsure of
   something he knows (what a portal shows), I say so and he shows me.
@@ -35,8 +48,8 @@ edits this; where it and he disagree, he wins.
 
 ## What must not be touched
 
-- `%LOCALAPPDATA%\MFDInvoice\` is the software's data, in development as in production. It stays through every change,
-  as it would through an update. Only Neil wipes it.
+- `%LOCALAPPDATA%\MFDInvoice\` is the software's data; `%LOCALAPPDATA%\MFDInvoice-dev\` is dev mode's. Both stay
+  through every change, as they would through an update. Only Neil wipes them (dev mode's own reset buttons are his).
 - `Desktop\Automation-old-data\labs\` (moved out of the repo 8 Oct), `.env`, `client/config.toml`, `website/site/.dev.vars`.
 - Real data never goes in the repo: real invoices, CAMS's reports, and his partner's name, GSTIN, PAN and ARN. It
   lives in `Desktop\Automation-old-data\`.
@@ -55,6 +68,10 @@ edits this; where it and he disagree, he wins.
     steps as a signed zip; what the software sends to support, with each run's record (kept 90 days, a daily job
     deletes them); CAMS's mailbacks forwarded to us (Email Routing on `mailback.mfdinvoice.co.in`, kept encrypted for
     the person's PC only, deleted once fetched). Nobody signs in to it.
+- **Each server has a second address** on Cloudflare's workers.dev (`site_fallback`, `server_fallback` in
+  `client/src/client/brand.json`; `hands/reach.py`), tried when ours can't be reached: Jio's MySafeNet and Airtel
+  block mfdinvoice.co.in by name (9 Oct). Run needs the website (either address) and the software's server
+  (either address): no answer, no Run, and no steps on the PC are run instead (Neil, 9 Oct: nothing to be fooled by).
 - **The portal steps are not baked into the software.** `client/src/client/automation/` is zipped, signed
   (`ops/automation.py publish`) and deployed with the server. Before any portal work the software asks which version
   is current, downloads it if new, checks the signature, and runs it locally (`hands/loader.py`). No answer from the
@@ -124,6 +141,13 @@ CAMS → KFintech → Your ARN, name and GSTIN → Signature → Books → Your 
 - No network: a toast at the top right of every screen, "Network not connected. Retrying in 7s · reconnect", until it
   is back. Retries after 1, 5, 10, 30 s, then every 2 min; reconnect checks at once.
 - The consent tick sits just above Verify, under the fields, on both portals' steps.
+- Setup is saved as it goes (Neil, 9 Oct): every step and every Verify kept on this PC (passwords in the vault);
+  reopening the software opens setup where it was left; a Finish that fails keeps everything.
+- Mailbox step: "Select any one option:" on its own line after the description.
+- No hand-drawn mock-ups anywhere: every preview is the real invoice, drawn as a run draws it. A USB token's preview
+  shows its mark ("Digitally signed by …") exactly where a run stamps it, unsigned (no PIN).
+- Uninstalling asks whether to remove all data on this PC too; ticked, the person types DELETE ALL (irreversible:
+  months, invoices, vault, signature). Otherwise the data stays.
 
 ## The run, as Neil decided it
 
@@ -136,8 +160,15 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   that step once. KFintech: reused for 20 minutes of being left alone, then closed and signed in afresh. No sign-out;
   no counting of sign-ins. A CAMS lock says try again in 15 minutes.
 - Status words are matched as whole words, forgivingly (case, extra spaces, a trailing full stop). An unknown word
-  stops and shows the registrar's words. Several rows for one invoice: the most final state wins (Approved over Rejected, whatever the order). Both registrars' final state
-  shows as "Approved" (KFintech's "Payment processed" too).
+  never stops anything (Neil, 9 Oct): the invoice shows the registrar's exact words, counts as with the registrar (not
+  sent again), and the word is reported to us quietly. Only the known "not sent" words make an invoice open, and the
+  known rejection words make it go again with the registrar's reason. Several rows for one invoice: the most final
+  state wins (Approved over Rejected, whatever the order). Both registrars' final state shows as "Approved"
+  (KFintech's "Payment processed" and "Accepted & Payment pending", whose remark is "Approved"). A rejection's reason
+  is the registrar's Remarks for it. CAMS's own guide names its words: PENDING FOR BO REVIEW (with it), APPROVED,
+  REJECTED.
+- Overview's Run is always "Run <Month>" with its menu (both, CAMS only, KFintech only), whatever the month's state;
+  never replaced, never hidden (Neil, 9 Oct). No "See invoices" on Overview.
 - CAMS and KFintech approve on their own; neither reads the PDF. The person's tick at Your check is the real check.
 - Status is read fresh by every run. Submitted and approved invoices are not shown at Your check; rejected ones come
   back with the registrar's words.
@@ -153,6 +184,23 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   Excel gives the month and the ARN (BROKER CODE). Per month it says "October 2026: 5 invoices added"; another ARN's
   pair or a file without its partner is refused with the reason. Its "Add N months" reads them in (CAMS only); a
   run or download uses files on the PC when they hold every invoice CAMS lists now.
+- Every CAMS mailback that reaches the software (forwarded, or in Gmail) is read in, whoever asked for it, CAMS's
+  own site included (Neil, 9 Oct). Its Excel gives the month and ARN (the mail names neither). More invoices than the
+  month's files on this PC (or none there): it replaces them; the same or fewer: ignored. Looked for by itself while
+  the software is open, on Check mail, and as a visible step of Run and Download after Check ("Looking for CAMS's
+  emails already in your mailbox"), before CAMS is asked. Gmail's filter forwards only mail that comes after it
+  exists. Only the last 3 days of mail are looked at (Neil, 9 Oct): in 3 days a month gains a couple of invoices at
+  most; an older mailback is behind, so CAMS is asked again.
+- Forwarding setup (Neil, 9 Oct), a carousel of pictures and words under the choice, Continue off until the last:
+  "Which Gmail do you want to use to forward CAMS mailbacks to us?"; Copy our address and a button to Gmail's
+  Forwarding settings, Add a forwarding address, Gmail's own check, Proceed, OK; back in the software, Gmail's
+  confirmation shows (Confirm); the filter: `from:donotreply@camsonline.com has:attachment` (copyable) typed in
+  Gmail's search box, the filter icon, Forward it to our address, Create filter; last, Settings › Filters and Blocked
+  Addresses shows it, as in the picture, and the person says it does. No links into Gmail: `/u/0/` opens the wrong
+  account when several are signed in (Neil, 9 Oct). The pictures are Neil's screenshots of 9 Oct
+  (`client/window/public/forward/`). Continue needs the claim and the tick, not the proof: a Gmail that had our
+  address before sends no new confirmation, and its first forwarded CAMS mail proves it. No code of ours: Gmail's own confirmation for that Gmail (or a CAMS mail
+  forwarded from it) proves it is theirs. One PC claims a Gmail at a time.
 - Forwarded to us: the email proved in the software is the mailbox whose filter forwards to us; CAMS's mail may pass
   through others first (CAMS's registered email → another Gmail → us), and the server matches any mailbox on the way
   (Neil, 8 Oct). Chains through other providers are seen after launch.
@@ -160,9 +208,10 @@ own check, Submit, status again. Your check comes before anything is prepared, s
   one month as several (Neil, 8 Oct); the email is read in by itself when it comes.
 - "Check mail" (left of Add CAMS's files, only with Gmail or forwarding): CAMS's emails looked for now, for every
   month waiting on one, instead of at the next turn of the background reader.
-- CAMS's files given in a run are checked there and then (month, ARN, zip with its Excel, every invoice CAMS lists
-  now); unusable ones are refused in the same box with the reason, to choose again or skip CAMS. When CAMS lists more
-  than its last email held, the box says which invoices came since.
+- CAMS's files given in a run are checked there and then (month, ARN, zip with its Excel); another month's or ARN's
+  are refused in the same box with the reason, to choose again or skip CAMS. Files holding fewer invoices than CAMS
+  lists now are taken: the run goes on with what they hold and the end says which invoices weren't in them (Neil,
+  9 Oct: CAMS lists 7, the files hold 6, the 6 go). The box says which invoices came since CAMS's last email.
 - Tally: a missing ledger is made by the software, never a stop: the fund house's (Sundry Debtors), IGST, CGST and
   SGST (Duties & Taxes), and "Commission Received" (Sales Accounts) when the company has no sales ledger. Where one
   already exists and the choice is not obvious, the person picks, as before.
@@ -175,8 +224,14 @@ own check, Submit, status again. Your check comes before anything is prepared, s
 - A Submit nobody confirmed (no answer, or not listed after): the next run sends it again; sending twice is fine
   (Neil, 8 Oct). The portal's own "already have it" answer is read as submitted once its words are known (never
   seen yet); until then it stops with the portal's words, and the words go into the steps.
-- A problem at one registrar does not stop the other. Nothing is retried by itself. Stop is at once, except while a
-  Submit's answer is being read. A stop is how a run ended (`run_ended.stop`), never a question.
+- A problem at one registrar does not stop the other, at any step, Check included. Problems are gathered and the end
+  screen reports each. Stop is at once, except while a Submit's answer is being read. A stop is how a run ended
+  (`run_ended.stop`), never a question. A stop never says "ours to fix" or "wait for a fix": it says what happened,
+  the portal's own words (its toast, top right) where it gave any, Run again, and Send to support.
+- Retries, each shown on screen (Neil, 9 Oct): a portal that doesn't answer is retried with a countdown ("CAMS didn't
+  respond, retrying in 7s"), then said, with "try again in a few minutes". KFintech's empty table: another month and
+  back. CAMS's session: signed in again silently ("Signing in to CAMS again"). KFintech is never signed in again by
+  itself (its captcha): "KFintech didn't respond, run again in a few minutes". Submit is never retried by itself.
 - Every run, check and download is sent to the software's server when it ends (kind `run`), with its own log and the
   pictures of the pages. Send to support attaches the latest run's record too. The person sees none of this.
 - Your check: the table only, no invoice preview; its buttons are Cancel and Submit. With books connected it says the

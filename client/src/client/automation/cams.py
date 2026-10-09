@@ -28,7 +28,7 @@ from playwright.async_api import Error as PWError, Page, expect
 
 from client.automation import files, signature, widgets as w, words
 from client.automation.invoices import parties
-from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, quiet, seen, texts
+from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, quiet, seen, tell, texts
 from client.automation.widgets import CAMS as S, grid, missing, toasts
 from client.automation.words import CAMS as REG, MONTHS
 
@@ -115,6 +115,7 @@ async def _signed(page: Page, name: str, do, redo=None):
         if not why or not email:
             raise
     log.info("CAMS ended the session (%s): signing in again, then redoing: %s", why, name)
+    await tell("Signing in to CAMS again")
     await sign_in(page, email)
     with contextlib.suppress(PWError, AssertionError):       # the old toast must not be read as a second end
         await expect(page.locator(C["toast"]).filter(has_text=EXPIRED).first).to_be_hidden(timeout=15_000)
@@ -125,6 +126,18 @@ async def _signed(page: Page, name: str, do, redo=None):
             raise Stop("session_ended", "CAMS ended the session again", "Nothing was submitted. Run again.",
                        said=again, registrar=REG) from e
         raise
+
+
+async def recover(page: Page) -> None:
+    """CAMS didn't respond to a step: load the page afresh, and sign in again if that shows the sign-in form (a reload
+    drops CAMS's session). The caller then redoes its step from CAMS's menus, which `_signed` covers as ever."""
+    log.info("CAMS didn't respond: reloading the page")
+    await page.reload(timeout=SLOW_MS)
+    await quiet(page)
+    email = _email_of.get(page)
+    if email and await dropped(page):
+        await tell("Signing in to CAMS again")
+        await sign_in(page, email)
 
 
 async def enter(page: Page, email: str, want: str) -> set[str]:

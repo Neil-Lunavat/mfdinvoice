@@ -168,10 +168,10 @@ def file_of(base: Path, key: str) -> Path | None:
 
 def _invoice(i: dict) -> dict:
     keys = ("key", "registrar", "amc", "number", "date", "taxable", "cgst", "sgst", "igst", "status", "said",
-            "rejection", "timeline", "gstin", "tally", "books")
+            "rejection", "timeline", "gstin", "tally", "books", "words")
     base = {"key": "", "registrar": "CAMS", "amc": "", "number": "", "date": "", "taxable": 0.0, "cgst": 0.0,
             "sgst": 0.0, "igst": 0.0, "status": "Not submitted", "said": "", "rejection": "", "timeline": [],
-            "gstin": "", "tally": "", "books": ""}
+            "gstin": "", "tally": "", "books": "", "words": ""}
     return {**base, **{k: i[k] for k in keys if k in i}}
 
 

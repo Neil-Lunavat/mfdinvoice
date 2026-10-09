@@ -3,8 +3,9 @@
 PC fetches them, opens each with its own private key, and saves the zip and the Excel into the inbox folder, as
 `mail.py` does from Gmail. The private key and the box's secret never leave this PC's vault.
 
-Setting up: a code to the CAMS email proves it is the person's (`start`, `verify`); then Gmail's own forwarding
-confirmation comes to us, and its code is shown in the software to be typed in Gmail (`gmail_code`).
+Setting up needs no code of ours: this PC claims the Gmail (`claim`), and Gmail's own forwarding confirmation for it,
+or the first CAMS mailback that came through it, proves it is the person's. `state` says whether that has happened
+and carries Gmail's confirmation link or code, to open or type in Gmail.
 """
 
 from __future__ import annotations
@@ -14,7 +15,6 @@ import json
 import logging
 import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -30,10 +30,8 @@ KEY, SECRET, EMAIL, SEEN = "forward_key", "forward_secret", "forward_email", "fo
 TIMEOUT_S = 30.0
 SAID = {
     "bad_email": "That email doesn't look right.",
-    "too_many": "Too many codes for this email just now. Try again in an hour.",
-    "no_code": "Ask for a code first.",
-    "expired": "That code has expired. Ask for a new one.",
-    "wrong_code": "That code isn't right.",
+    "too_many": "Too many tries for this Gmail just now. Try again in an hour.",
+    "busy": "This Gmail is being set up on another PC just now. Try again in 30 minutes.",
 }
 
 
@@ -42,12 +40,11 @@ def configured(store: Store) -> bool:
 
 
 def _call(method: str, path: str, body: dict | None = None, secret: str = "") -> tuple[int, bytes]:
-    req = urllib.request.Request(server.base() + path, method=method,
-                                 data=json.dumps(body).encode() if body is not None else None,
-                                 headers={"Content-Type": "application/json", "User-Agent": server.USER_AGENT,
-                                          **({"Authorization": f"Bearer {secret}"} if secret else {})})
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:        # noqa: S310 - our own server
+        with server.reach.open(path, method=method, timeout=TIMEOUT_S,
+                               data=json.dumps(body).encode() if body is not None else None,
+                               headers={"Content-Type": "application/json", "User-Agent": server.USER_AGENT,
+                                        **({"Authorization": f"Bearer {secret}"} if secret else {})}) as r:
             return r.status, r.read()
     except urllib.error.HTTPError as e:
         return e.code, e.read()
@@ -61,8 +58,8 @@ def _said(raw: bytes) -> str:
     return SAID.get(code, "MFDInvoice's server didn't answer as expected. Try again in a minute.")
 
 
-def start(store: Store, email: str) -> dict:
-    """A code to this email, and this PC's key made (once) for what will be forwarded to it."""
+def claim(store: Store, email: str) -> dict:
+    """This PC asks for the Gmail's box (its key made once); the box is ours once the proof arrives (`state`)."""
     pem = store.get_secret(KEY)
     if pem:
         key = serialization.load_pem_private_key(pem.encode(), password=None)
@@ -73,17 +70,9 @@ def start(store: Store, email: str) -> dict:
     pub = base64.b64encode(key.public_key().public_bytes(serialization.Encoding.DER,
                                                          serialization.PublicFormat.SubjectPublicKeyInfo)).decode()
     try:
-        status, raw = _call("POST", "/forward/start", {"email": email.strip(), "pub": pub})
+        status, raw = _call("POST", "/forward/claim", {"email": email.strip(), "pub": pub})
     except (urllib.error.URLError, OSError) as e:
         log.info("forwarding: the server could not be reached: %s", e)
-        return {"ok": False, "said": "Couldn't reach MFDInvoice's server. Check the internet connection."}
-    return {"ok": True} if status == 200 else {"ok": False, "said": _said(raw)}
-
-
-def verify(store: Store, email: str, code: str) -> dict:
-    try:
-        status, raw = _call("POST", "/forward/verify", {"email": email.strip(), "code": code.strip()})
-    except (urllib.error.URLError, OSError):
         return {"ok": False, "said": "Couldn't reach MFDInvoice's server. Check the internet connection."}
     if status != 200:
         return {"ok": False, "said": _said(raw)}
@@ -93,13 +82,14 @@ def verify(store: Store, email: str, code: str) -> dict:
     return {"ok": True}
 
 
-def _waiting(store: Store) -> list[dict]:
+def _waiting(store: Store) -> tuple[bool, list[dict]]:
     status, raw = _call("GET", "/forward/mail", secret=store.get_secret(SECRET) or "")
     if status == 401:
         raise MailError("Forwarding to MFDInvoice isn't set up on this PC any more. Set it up again in Settings.")
     if status != 200:
         raise MailError("MFDInvoice's server didn't answer about your forwarded emails.")
-    return list(json.loads(raw).get("mails") or [])
+    body = json.loads(raw)
+    return bool(body.get("proved")), list(body.get("mails") or [])
 
 
 def is_gmail_link(text: str) -> bool:
@@ -110,16 +100,18 @@ def is_gmail_link(text: str) -> bool:
     return host == "google.com" or host.endswith(".google.com")
 
 
-def gmail_code(store: Store) -> str:
-    """Gmail's forwarding confirmation, once Gmail has sent it to our address: its code, or its link (Gmail sends
-    only a link today); '' until then."""
+def state(store: Store) -> dict:
+    """Where setting up stands: `proved` (the Gmail is this PC's), and `confirm`, Gmail's forwarding confirmation once
+    Gmail has sent it to our address: its link (Gmail sends only a link today) or code; '' until then."""
     if not configured(store):
-        return ""
+        return {"proved": False, "confirm": ""}
     try:
-        codes = [m["code"] for m in _waiting(store) if m.get("kind") == "confirm" and m.get("code")]
-    except (MailError, urllib.error.URLError, OSError, ValueError):
-        return ""
-    return codes[-1] if codes else ""
+        proved, mails = _waiting(store)
+    except (MailError, urllib.error.URLError, OSError, ValueError) as e:
+        log.info("forwarding: state not read: %s", e)
+        return {"proved": False, "confirm": "", "said": "Couldn't reach MFDInvoice's server."}
+    codes = [m["code"] for m in mails if m.get("kind") == "confirm" and m.get("code")]
+    return {"proved": proved, "confirm": codes[-1] if codes else ""}
 
 
 def _open(store: Store, sealed: bytes) -> bytes:
@@ -138,7 +130,10 @@ def fetch(store: Store, folder: Path) -> list[Path]:
     folder.mkdir(parents=True, exist_ok=True)
     seen = set(json.loads(store.get(SEEN) or "[]"))
     saved: list[Path] = []
-    for m in _waiting(store):
+    proved, mails = _waiting(store)
+    if not proved:
+        return []
+    for m in mails:
         if m.get("kind") != "mailback" or m["id"] in seen:
             continue
         status, sealed = _call("GET", f"/forward/mail/{m['id']}", secret=store.get_secret(SECRET) or "")

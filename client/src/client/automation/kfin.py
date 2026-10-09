@@ -32,7 +32,7 @@ from playwright.async_api import Error as PWError, Page, expect
 
 from client.automation import files, signature, widgets as w, words
 from client.automation.invoices import parties
-from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, seen, texts
+from client.automation.page import SLOW_MS, Changed, Refused, Stop, arns_in, arns_shown, seen, tell, texts
 from client.automation.widgets import KFIN as K, missing
 from client.automation.words import KFIN as REG, MONTHS
 
@@ -378,6 +378,8 @@ async def read_status(page: Page, period: str, known: bool = False) -> list[dict
     try:
         for pause in (0, *AGAIN_AFTER_S):
             if pause:
+                await tell(f"KFintech's table came up empty. Asking again ({AGAIN_AFTER_S.index(pause) + 1} of "
+                           f"{len(AGAIN_AFTER_S)})")
                 await _ask_again(page, period, pause, True)
             for last in (False, True):
                 shown = await (await page.wait_for_function(shows, arg=label, timeout=SLOW_MS)).json_value()
@@ -628,6 +630,8 @@ async def fill_grid(page: Page, period: str, invoices: list[dict], signed: dict[
     want = [i["taxable"] for i in invoices]
     for pause in (0, *AGAIN_AFTER_S):
         if pause:
+            await tell(f"KFintech's table came up empty. Asking again ({AGAIN_AFTER_S.index(pause) + 1} of "
+                       f"{len(AGAIN_AFTER_S)})")
             await _ask_again(page, period, pause, False)
         await source.check()
         await seen(page.locator(U["details_heading"]).filter(has_text=heading))

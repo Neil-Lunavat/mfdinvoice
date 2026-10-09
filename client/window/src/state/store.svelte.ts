@@ -25,6 +25,7 @@ export interface RunLive {
   used: string;                                 // own invoices: "Used 74/26-27 to 78/26-27", '' when none
   enter: Entered[];                             // own invoices without books, submitted: to enter in their books
   left: Left[];                                 // own invoices the books would not take this run
+  notes: string[];                              // what went wrong while the run carried on
   summary: string;                              // the app's one line about how it ended
   total: number;                                // what was submitted, with GST
   stopAsked: boolean;                           // the person pressed Stop
@@ -57,7 +58,7 @@ class Store {
   /** The app has started a run: the run window shows it from here. */
   beginRun(id: string, registrars: Registrar[], what: RunKind, period: string) {
     this.run = { id, what, period, registrars, steps: [], startedAt: Date.now(), ask: null, waitingEmail: null, waitingBooks: null, submitted: {},
-      ended: null, stop: null, used: '', enter: [], left: [], summary: '', total: 0, stopAsked: false };
+      ended: null, stop: null, used: '', enter: [], left: [], notes: [], summary: '', total: 0, stopAsked: false };
     const early = this.early;
     this.early = [];
     for (const p of early) if (!('run' in p) || p.run === id) this.onPush(p);
@@ -114,7 +115,7 @@ class Store {
         break;
       case 'run_ended':
         if (r && r.id === p.run) {
-          r.ended = p.how; r.stop = p.stop; r.used = p.used; r.enter = p.enter ?? []; r.left = p.left ?? []; r.waitingBooks = null; r.summary = p.summary; r.total = p.total; r.waitingEmail = null; r.ask = null;
+          r.ended = p.how; r.stop = p.stop; r.used = p.used; r.enter = p.enter ?? []; r.left = p.left ?? []; r.notes = p.notes ?? []; r.waitingBooks = null; r.summary = p.summary; r.total = p.total; r.waitingEmail = null; r.ask = null;
           r.submitted = { ...r.submitted, ...p.counts };
         }
         break;

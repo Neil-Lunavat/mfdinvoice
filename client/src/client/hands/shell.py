@@ -1,13 +1,19 @@
 """`uv run app`: the app, with its window.
 
-    uv run app                                      (the website in brand.json; SITE=http://127.0.0.1:8787 for a local one)
+    uv run app                                      (a checkout: the dev bench below; installed: the website in brand.json)
 
-One process, two threads. The window (pywebview over WebView2, showing `client/window/dist/` from disk) owns the main
-thread, as Windows requires. Everything else (the website, the portal steps, the files, the mailbox, and the window's
+One process, two threads. The window (pywebview over WebView2, showing the built `client/window/` from disk) owns the
+main thread, as Windows requires. Everything else (the website, the portal steps, the files, the mailbox, and the window's
 side of the boundary, `window.Window`) runs on one asyncio loop in the other thread.
 
-Submit, in a checkout: `uv run app` does everything a run does and stops just before pressing Submit, unless
-`config.toml` in the folder it is started from says `[dev]` `submit = true`. The installed app always submits.
+A checkout (`uv run app`) is a test bench (Neil, 9 Oct): everything is real (portals, the mailbox forwarded through
+the software's server, Tally, Submit when switched on) except the website, which is never called
+(`hands/devsite.py`: test@mfdinvoice.co.in with 000000, the plan always on, nothing bound, nothing sent to support).
+Its data is `%LOCALAPPDATA%/MFDInvoice-dev/` (`brand.DATA`). The window is built with the dev panel into
+`client/window/dist-dev/` (`VITE_DEVAPP=1`); the panel's calls are `hands/devtools.py`. A run stops just before
+pressing Submit unless `config.toml` says `[dev]` `submit = true` or the panel switches it on. The installed app is
+frozen: none of this is in it (`app.spec` leaves the two modules out, `packaging/build.py` checks), it always submits,
+and `dist/` is built with no flag.
 
 The two meet in two places only:
 
@@ -27,6 +33,7 @@ import contextlib
 import json
 import logging
 import logging.handlers
+import os
 import queue
 import shutil
 import sys
@@ -42,9 +49,9 @@ from client.store.db import Store
 
 log = logging.getLogger(__name__)
 
-# The built window: inside the exe when installed, client/window/dist/ in a checkout.
+# The built window: inside the exe when installed; in a checkout client/window/dist-dev/ (with the dev panel).
 DIST = (Path(getattr(sys, "_MEIPASS", "")) / "window" if getattr(sys, "frozen", False)
-        else Path(__file__).resolve().parents[3] / "window" / "dist")
+        else Path(__file__).resolve().parents[3] / "window" / "dist-dev")
 
 # The window's method name -> (the Window coroutine, how its arguments arrive). "kw": one object, spread as keywords.
 METHODS = {
@@ -52,12 +59,13 @@ METHODS = {
     "testMailbox": ("test_mailbox", "kw"), "testCams": ("test_cams", "kw"), "testKfintech": ("test_kfintech", "kw"),
     "prepareSignature": ("prepare_signature", "kw"), "rotateSignature": ("rotate_signature", "pos"),
     "dropSignatureDraft": ("drop_signature_draft", "pos"),
+    "saveSetup": ("save_setup", "pos"), "loadSetup": ("load_setup", "pos"), "dropSetup": ("drop_setup", "pos"),
     "findCertificates": ("find_certificates", "pos"), "testCertificate": ("test_certificate", "kw"),
     "tokenHere": ("token_here", "pos"), "reconnect": ("reconnect", "pos"),
     "finishSetup": ("finish_setup", "pos"), "saveDetails": ("save_details", "pos"), "switchArn": ("switch_arn", "pos"),
     "month": ("month", "pos"), "preview": ("preview", "pos"),
     "exportMonth": ("export_month", "pos"), "openPdf": ("open_pdf", "pos"), "showInFolder": ("show_in_folder", "pos"),
-    "openFolder": ("open_folder", "pos"), "uninstall": ("uninstall", "pos"), "sendIdea": ("send_idea", "kw"), "answerSurvey": ("answer_survey", "pos"), "skipCams": ("skip_cams", "pos"), "forwardStart": ("forward_start", "pos"), "forwardVerify": ("forward_verify", "pos"), "forwardGmailCode": ("forward_gmail_code", "pos"), "forwardConfirm": ("forward_confirm", "pos"), "startRun": ("start_run", "kw"), "stopRun": ("stop_run", "pos"),
+    "openFolder": ("open_folder", "pos"), "uninstall": ("uninstall", "pos"), "sendIdea": ("send_idea", "kw"), "answerSurvey": ("answer_survey", "pos"), "skipCams": ("skip_cams", "pos"), "forwardClaim": ("forward_claim", "pos"), "forwardState": ("forward_state", "pos"), "forwardConfirm": ("forward_confirm", "pos"), "startRun": ("start_run", "kw"), "stopRun": ("stop_run", "pos"),
     "closeRun": ("close_run", "pos"),
     "markNotesRead": ("mark_notes_read", "pos"),
     "sendSupport": ("send_support", "kw"), "open": ("open", "pos"),
@@ -144,8 +152,8 @@ def _submits() -> bool:
 
 
 def _build_window(dist: Path) -> None:
-    """In a checkout, build the window again when its source is newer than the build: a change to the window went
-    unseen by `uv run app` until someone remembered `bun run build` (8 Oct)."""
+    """In a checkout, build the window (with the dev panel, into `dist-dev/`) again when its source is newer than the
+    build: a change to the window went unseen by `uv run app` until someone remembered to build (8 Oct)."""
     src = dist.parent
     newest = max((p.stat().st_mtime for p in [*(src / "src").rglob("*"), *src.glob("*.*")]
                   if p.is_file() and p.name != "bun.lock"), default=0)
@@ -155,10 +163,33 @@ def _build_window(dist: Path) -> None:
     import subprocess
     bun = shutil.which("bun")
     if not bun:
-        sys.exit("The window needs building and bun is not on PATH: run `bun run build` in client/window.")
+        sys.exit("The window needs building and bun is not on PATH: run `bun run build:dev` in client/window.")
     print("Building the window (its source changed)...", flush=True)
-    if subprocess.run([bun, "run", "build"], cwd=src).returncode != 0:
+    if subprocess.run([bun, "run", "build:dev"], cwd=src, env={**os.environ, "VITE_DEVAPP": "1"}).returncode != 0:
         sys.exit("Building the window failed: see above.")
+
+
+def _dev_patch() -> None:
+    """A checkout only: the website is answered on this PC and nothing is sent to support (`hands/devsite.py`).
+    `site.py` and `server.py` hold none of it; their functions are replaced here, at start."""
+    if getattr(sys, "frozen", False):
+        return
+    import importlib
+    dev = importlib.import_module("client.hands.devsite")
+    from client.hands import server, site
+    for name in ("send_code", "verify", "me", "bind", "sign_out", "survey_reply"):
+        setattr(site, name, getattr(dev, name))
+    server.report = dev.report
+
+
+def _dev_install(win: Window, hands: Hands, store: Store) -> None:
+    """A checkout only: the dev panel's methods, on the window and in METHODS (`hands/devtools.py`)."""
+    if getattr(sys, "frozen", False):
+        return
+    import importlib
+    dev = importlib.import_module("client.hands.devsite")
+    dev.arns = lambda: list(win.profiles())
+    METHODS.update(importlib.import_module("client.hands.devtools").install(win, hands, store))
 
 
 def _check_steps(out: Path) -> int:
@@ -192,7 +223,7 @@ def _check_steps(out: Path) -> int:
 def main() -> None:
     ap = argparse.ArgumentParser(description=f"{NAME}, with its window")
     ap.add_argument("--config", type=Path, default=None, help="a config.toml naming another place for the data")
-    ap.add_argument("--window", type=Path, default=DIST, help="the built window (bun run build in client/window)")
+    ap.add_argument("--window", type=Path, default=DIST, help="the built window (bun run build:dev in client/window)")
     ap.add_argument("--show-browser", action="store_true", help="show the browser a run drives, to watch it")
     ap.add_argument("--check-steps", type=Path, default=None, help=argparse.SUPPRESS)   # the build's own check
     ap.add_argument("--updated-from", default="", help=argparse.SUPPRESS)       # the new version, just installed
@@ -213,7 +244,8 @@ def main() -> None:
         _build_window(DIST)
     index = a.window / "index.html"
     if not index.exists():
-        sys.exit(f"The window is not built: {index} is missing. Run `bun run build` in client/window.")
+        sys.exit(f"The window is not built: {index} is missing. Run `bun run build:dev` in client/window.")
+    _dev_patch()
     cfg = _config(a.config)
     cfg.paths.workspace.mkdir(parents=True, exist_ok=True)
     (cfg.paths.workspace / "logs").mkdir(exist_ok=True)
@@ -225,6 +257,8 @@ def main() -> None:
     # Every step a run takes on a page is logged, into the file: it is what we read when something of ours broke.
     logging.getLogger("client").setLevel(logging.DEBUG)
     browser.SHOWN = a.show_browser
+    if not getattr(sys, "frozen", False):
+        log.info("dev bench: the website is not called; data in %s", DATA)
 
     import webview
 
@@ -234,6 +268,7 @@ def main() -> None:
     win = Window(hands, store, pushes)
     win.updated_from, win.update_failed_to = a.updated_from, a.update_failed
     win.submit = _submits()
+    _dev_install(win, hands, store)
     log.info("a run on this PC %s", "presses Submit" if win.submit else "stops just before Submit (config.toml)")
 
     loop = asyncio.new_event_loop()

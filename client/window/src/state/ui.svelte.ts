@@ -1,6 +1,6 @@
 /* Where the person is in the window, and what is open on top. Nothing here comes from the app. */
 
-import type { Invoice, InvoiceSettings, Invoices, ProfileDraft, Registrar, RunKind } from '../bridge';
+import { app, type Invoice, type InvoiceSettings, type Invoices, type ProfileDraft, type Registrar, type RunKind, type SetupState } from '../bridge';
 import type { Clash } from '../logic/clash';
 
 export type Page = 'splash' | 'signin' | 'setup' | 'overview' | 'invoices' | 'downloads' | 'books' | 'settings';
@@ -85,7 +85,38 @@ class Ui {
   close() { this.popups = this.popups.slice(0, -1); }
   get top(): Popup | null { return this.popups.at(-1) ?? null; }
 
+  private resuming = false;
+
+  /* Setup is kept on the PC as it goes (Setup.svelte saves this), so closing the software resumes it. */
+  setupState(): SetupState {
+    return $state.snapshot({
+      step: this.step, reached: this.reached, returnTo: this.returnTo, adding: this.adding, draft: this.draft,
+      read: this.read, booksEmpty: this.booksEmpty, booksBare: this.booksBare
+    });
+  }
+
+  /** Opens setup where it was left, or blank when nothing was kept. `addingToo`: also resume a kept Add an ARN
+   *  (at start-up, when the person already has an ARN); otherwise only a first setup resumes. */
+  async resumeSetup(addingToo = false): Promise<boolean> {
+    if (this.resuming) return false;
+    this.resuming = true;
+    let kept: SetupState | null = null;
+    try { kept = await app.loadSetup(); } catch { kept = null; }
+    this.resuming = false;
+    if (!kept || !kept.draft || (kept.adding && !addingToo)) {
+      if (!addingToo) this.startSetup(false);
+      return false;
+    }
+    this.step = kept.step; this.reached = kept.reached; this.returnTo = kept.returnTo; this.adding = kept.adding;
+    this.draft = { ...blankDraft(), ...kept.draft };
+    this.read = kept.read; this.booksEmpty = kept.booksEmpty; this.booksBare = kept.booksBare;
+    this.page = 'setup';
+    return true;
+  }
+
+  /** A new setup, begun by the person (Add ARN): whatever was kept is dropped. A first setup uses resumeSetup. */
   startSetup(adding: boolean) {
+    if (adding) void app.dropSetup();
     this.adding = adding;
     this.step = 0;
     this.reached = 0;

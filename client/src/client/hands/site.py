@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import urllib.error
-import urllib.request
 
-from client.brand import NAME, SITE
+from client.brand import NAME, SITE, SITE_FALLBACK
 from client.hands.hands import APP_VERSION
+from client.hands.reach import Reach
 
 log = logging.getLogger(__name__)
 
@@ -31,17 +30,19 @@ VERIFY_CODES = ("bad_email", "bad_code", "wrong", "locked", "expired", "pending_
 elsewhere: str | None = None
 
 
+reach = Reach("website", "SITE", SITE, SITE_FALLBACK)
+
+
 def base() -> str:
     """The website's address: the app's one setting (`brand.json`), or `SITE` when a developer points it elsewhere."""
-    return (os.environ.get("SITE") or SITE).rstrip("/")
+    return reach.base()
 
 
 def _post(path: str, body: dict, token: str = "") -> tuple[int, dict]:
-    req = urllib.request.Request(base() + path, data=json.dumps(body).encode(), method="POST", headers={
-        "Content-Type": "application/json", "Accept": "application/json", "User-Agent": USER_AGENT,
-        **({"Authorization": f"Bearer {token}"} if token else {})})
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:          # noqa: S310 - our own site
+        with reach.open(path, data=json.dumps(body).encode(), method="POST", timeout=TIMEOUT_S, headers={
+                "Content-Type": "application/json", "Accept": "application/json", "User-Agent": USER_AGENT,
+                **({"Authorization": f"Bearer {token}"} if token else {})}) as r:
             return r.status, _json(r.read())
     except urllib.error.HTTPError as e:
         return e.code, _learn(e.code, _json(e.read()))
@@ -115,10 +116,9 @@ def me(token: str) -> dict:
     arns, app} or {ok: false, reason}: `bad_token` (the website no longer knows this sign-in, or another PC took the
     account: then `elsewhere` is set) or `unreachable` (no
     definite answer, which is never read as "no plan")."""
-    req = urllib.request.Request(base() + "/api/app/me", headers={
-        "Accept": "application/json", "User-Agent": USER_AGENT, "Authorization": f"Bearer {token}"})
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:          # noqa: S310 - our own site
+        with reach.open("/api/app/me", timeout=TIMEOUT_S, headers={
+                "Accept": "application/json", "User-Agent": USER_AGENT, "Authorization": f"Bearer {token}"}) as r:
             b = _json(r.read())
         if isinstance(b.get("active"), bool):
             return {"ok": True, **b}

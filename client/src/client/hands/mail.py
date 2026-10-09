@@ -102,10 +102,16 @@ def _save_attachments(raw: bytes, folder: Path) -> list[Path]:
     return saved
 
 
-def fetch(store: Store, folder: Path, days: int = 3) -> list[Path]:
-    """Save new mailback attachments into `folder`. Returns the files written this call."""
+# CAMS's emails older than this aren't looked at: in three days a month gains a couple of invoices at most, so an older
+# mailback is behind what CAMS lists and CAMS is asked for a new one instead (Neil, 9 Oct).
+LOOK_BACK_DAYS = 3
+
+
+def fetch(store: Store, folder: Path, days: int | None = None) -> list[Path]:
+    """Save new mailback attachments into `folder`, from the last `LOOK_BACK_DAYS`. Returns the files written this call."""
     if not configured(store):
         return []
+    days = days or LOOK_BACK_DAYS
     folder.mkdir(parents=True, exist_ok=True)
     m = _gmail(store.get("gmail_user"), store.get_secret("gmail_app_password"))
     saved: list[Path] = []

@@ -4,7 +4,7 @@
    contains. Nothing here is the product. */
 
 import type {
-  Answer, App, Ask, CamsFiles, Cert, Condition, Consent, DetailsPatch, Link, Month, NextNumber, Plan, Profile, ProfileDraft,
+  Answer, App, Ask, CamsFiles, Cert, Condition, Consent, DetailsPatch, Link, Month, NextNumber, Plan, Profile, ProfileDraft, SetupState,
   Push, Registrar, RunKind, Snapshot, StepView, Stop, BooksLookQuery, BooksLook, Invoice, Entered, Left
 } from '../types';
 import { NAME } from '../../brand';
@@ -225,6 +225,11 @@ export class FakeApp implements App {
 
   async dropSignatureDraft() {}
 
+  private setupKept: SetupState | null = null;
+  async saveSetup(state: unknown) { this.setupKept = state as SetupState; }
+  async loadSetup() { return this.setupKept; }
+  async dropSetup() { this.setupKept = null; }
+
   async findCertificates() {
     await sleep(700);
     const certs: Cert[] = [{ thumbprint: 'A1B2C3D4E5F60718293A4B5C6D7E8F9012345678', name: 'RAJESH KUMAR MEHTA',
@@ -354,9 +359,13 @@ export class FakeApp implements App {
   async openFolder() {}
   async uninstall() { return 'not_installed'; }
   async skipCams() {}
-  async forwardStart() { await sleep(700); return { ok: true }; }
-  async forwardVerify(_: string, code: string) { await sleep(700); return code === '123456' ? { ok: true } : { ok: false, said: "That code isn't right." }; }
-  async forwardGmailCode() { await sleep(400); return 'https://mail-settings.google.com/mail/vf-example'; }
+  private claimedAt = 0;
+  async forwardClaim() { await sleep(700); this.claimedAt = Date.now(); return { ok: true }; }
+  async forwardState() {
+    await sleep(400);
+    const s = (Date.now() - this.claimedAt) / 1000;
+    return { proved: this.claimedAt > 0 && s > 12, confirm: this.claimedAt > 0 && s > 6 ? 'https://mail-settings.google.com/mail/vf-example' : '' };
+  }
   async forwardConfirm() { await sleep(200); return true; }
   private box: CamsFiles = { added: [], refused: [], waiting: [] };
   private snapBox(): CamsFiles { return { added: [...this.box.added], refused: [...this.box.refused], waiting: [...this.box.waiting], said: this.box.said }; }
@@ -460,7 +469,7 @@ export class FakeApp implements App {
     if (!r) return;
     const c = this.cur;
     if (c && r.what === 'run') { c.month.everRun = true; c.month.lastRun = { how, at: now(), said: how === 'stopped' ? 'This run stopped' : '', portal: '', code: '' }; }
-    this.push({ type: 'run_ended', run: r.id, how, what: r.what, used: more.used ?? '', summary: more.summary ?? '', enter: more.enter ?? [], left: more.left ?? [], counts: more.counts ?? {}, total: more.total ?? 0, stop: more.stop ?? null });
+    this.push({ type: 'run_ended', run: r.id, how, what: r.what, used: more.used ?? '', summary: more.summary ?? '', enter: more.enter ?? [], left: more.left ?? [], notes: [], counts: more.counts ?? {}, total: more.total ?? 0, stop: more.stop ?? null });
     this.run = null;
     this.publish();
   }
@@ -478,7 +487,7 @@ export class FakeApp implements App {
     portal_validation: { title: "CAMS didn't accept 1 of 11 invoices", lines: ['Nothing was submitted. Run again and untick them at Your check; the rest can go.'], said: 'HDFC: Invoice amount does not match the brokerage paid.', reg: 'CAMS' },
     unknown_submit: { title: "CAMS didn't answer the Submit", lines: ["It may or may not have gone through. Nothing is sent twice: the next run reads CAMS's status first and sends only what CAMS doesn't have."], reg: 'CAMS' },
     not_submitting: { title: 'Stopped just before Submit', lines: ['Everything up to here was real, and the registrars have checked the uploads. Submit is switched off on this PC.'] },
-    ours: { title: `Something on CAMS's side isn't what ${NAME} expects`, lines: ['This one is ours to fix, and it has been sent to us. Nothing is sent twice: run again once the software says it is fixed.'], reg: 'CAMS' },
+    ours: { title: `Something on CAMS's side isn't what ${NAME} expects`, lines: ['Run again in a few minutes. If it keeps happening, Send to support.'], reg: 'CAMS' },
     arn_unbound: { title: "This ARN couldn't be added to your account", lines: ["Nothing was submitted. CAMS's files for this month are on this PC, so the next run starts from them."], said: "Another account has this ARN. Send it to support and we'll sort it out.", reg: 'CAMS' },
     both: { title: "These files aren't October 2026's", lines: ["The Excel report is for September 2026. Choose the zip and the Excel from CAMS's email for October 2026."], reg: 'CAMS' },
     unreachable: { title: `${NAME} can't reach its server`, lines: [`${NAME} can't reach its server right now, so it can't be sure it is up to date with the portals.`, 'Nothing was done. Try again in a few minutes.'] }

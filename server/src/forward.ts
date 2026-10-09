@@ -1,19 +1,23 @@
 /* "Forward your CAMS mailbacks to us": the first of the three ways CAMS's email reaches the software (then a Gmail
    app password, then by hand). The person's Gmail forwards CAMS's mailbacks, by a filter, to one address of ours
-   (Cloudflare Email Routing sends it to this Worker). Each mailback names the email CAMS sent it to (its To), so one
-   address serves everyone.
+   (Cloudflare Email Routing sends it to this Worker). No code of ours is sent: only the owner of a Gmail can add a
+   forwarding address to it, so Gmail's own confirmation mail for that Gmail, or the first CAMS mailback that came
+   through it, proves the Gmail is theirs. One PC holds a Gmail's box at a time.
 
-     POST /forward/start   { email, pub }      a code is emailed to that address (it proves the email is theirs)
-     POST /forward/verify  { email, code }     → { ok, secret }: this PC's key for the box from now on
-     GET  /forward/mail    Bearer <secret>     what waits: mailbacks, and Gmail's forwarding confirmation code
-     GET  /forward/mail/<id>  Bearer <secret>  one mailback, locked with this PC's public key
+     POST /forward/claim  { email, pub }      → { ok, secret }: this PC asks for the box; the secret is shown once.
+                                               Pending until the proof arrives; 'busy' (409) while another PC's
+                                               claim is younger than 30 minutes
+     GET  /forward/mail   Bearer <secret>     → { ok, proved, mails }: proved once the claim is the box's; Gmail's
+                                               confirmation shows to a pending claim too, mailbacks only to the proved
+     GET  /forward/mail/<id>  Bearer <secret> one mailback, locked with this PC's public key (the proved secret only)
 
-   Nothing is kept readable here: a mailback is locked (AES-GCM, its key wrapped with the PC's RSA key) the moment it
-   arrives, and deleted 5 minutes after the PC takes it (so a retry can take it again), or after 3 days untaken.
-   Mail from anyone but CAMS (and Gmail's confirmation) is refused. */
+   A box already proved for one PC keeps working for it until another PC's claim is proved. Nothing is kept readable
+   here: a mailback is locked (AES-GCM, its key wrapped with the PC's RSA key) the moment it arrives, and deleted 5
+   minutes after the PC takes it (so a retry can take it again), or after 3 days untaken. Mail from anyone but CAMS
+   (and Gmail's confirmation) is refused. */
 import type { Env } from './index';
 
-const CODE_MINUTES = 15, CODES_PER_HOUR = 5, TRIES = 5, KEEP_TAKEN_MIN = 5, KEEP_DAYS = 3, MAIL_MAX = 20 * 1024 * 1024;
+const BUSY_MINUTES = 30, CLAIMS_PER_HOUR = 10, KEEP_TAKEN_MIN = 5, KEEP_DAYS = 3, MAIL_MAX = 20 * 1024 * 1024;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
@@ -37,12 +41,15 @@ async function readable(message: ForwardableEmailMessage): Promise<string> {
   return out.join('\n');
 }
 
+/* columns added to boxes after the first deploy */
+const ADDED = ['pending_secret TEXT', 'claimed_at TEXT'];
 let ready = false;
 async function schema(env: Env) {
   if (ready) return;
   await env.DB.batch([
-    /* one box per CAMS email (who: its SHA-256): the PC's public key and the hash of its secret, once a code proved
-       the email; a code waiting to be typed */
+    /* one box per Gmail that forwards (who: its SHA-256): the proved PC's public key and the hash of its secret; a PC
+       that claimed it and waits for the proof (pending_pub, pending_secret, claimed_at). code, tries and verified_at
+       served the code emailed until 9 Oct and stay unused; code_at and codes now count the claims in the last hour. */
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS boxes (who TEXT PRIMARY KEY, pub TEXT, secret TEXT, pending_pub TEXT,
       code TEXT, code_at TEXT, codes INTEGER NOT NULL DEFAULT 0, tries INTEGER NOT NULL DEFAULT 0, verified_at TEXT,
       created_at TEXT NOT NULL)`),
@@ -52,50 +59,40 @@ async function schema(env: Env) {
     env.DB.prepare('CREATE INDEX IF NOT EXISTS mails_who ON mails (who)'),
     env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS boxes_secret ON boxes (secret)'),
   ]);
+  const has = new Set((await env.DB.prepare('PRAGMA table_info(boxes)').all<{ name: string }>()).results.map(c => c.name));
+  for (const col of ADDED) if (!has.has(col.split(' ')[0])) await env.DB.prepare(`ALTER TABLE boxes ADD COLUMN ${col}`).run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS boxes_pending ON boxes (pending_secret)').run();
   ready = true;
 }
 
-/* ---- setting it up: a code to the CAMS email, typed in the software ---- */
+/* ---- setting it up: a PC claims a Gmail; the proof comes by mail (see receive) ---- */
 
-async function start(req: Request, env: Env): Promise<Response> {
+async function claim(req: Request, env: Env): Promise<Response> {
   const b = await req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
   const email = String(b.email || '').trim().toLowerCase(), pub = String(b.pub || '');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email) || email.length > 200) return json({ ok: false, error: 'bad_email' }, 400);
   if (!/^[A-Za-z0-9+/=]{200,1200}$/.test(pub)) return json({ ok: false, error: 'bad_key' }, 400);
   const w = await who(email);
-  const row = await env.DB.prepare('SELECT code_at, codes FROM boxes WHERE who = ?').bind(w).first<{ code_at: string | null; codes: number }>();
-  const recent = row?.code_at && Date.now() - Date.parse(row.code_at) < 3600_000;
-  if (recent && row!.codes >= CODES_PER_HOUR) return json({ ok: false, error: 'too_many' }, 429);
-  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0');
-  await env.DB.prepare(`INSERT INTO boxes (who, pending_pub, code, code_at, codes, tries, created_at) VALUES (?, ?, ?, ?, 1, 0, ?)
-      ON CONFLICT (who) DO UPDATE SET pending_pub = excluded.pending_pub, code = excluded.code, code_at = excluded.code_at,
-        codes = CASE WHEN ? THEN boxes.codes + 1 ELSE 1 END, tries = 0`)
-    .bind(w, pub, await sha(code), now(), now(), recent ? 1 : 0).run();
-  await env.EMAIL.send({
-    to: email, from: { name: 'MFDInvoice', email: 'no-reply@mfdinvoice.co.in' },
-    subject: `${code} is your MFDInvoice code`,
-    text: `${code}\n\nType this code in MFDInvoice to receive CAMS's invoice emails through us, forwarded from your mailbox.\n\nIt works for ${CODE_MINUTES} minutes. If you didn't ask for it, ignore this email: nothing changes.\n\n-- MFDInvoice`,
-  });
-  return json({ ok: true });
+  const row = await env.DB.prepare('SELECT pending_pub, pending_secret, claimed_at, code_at, codes FROM boxes WHERE who = ?').bind(w)
+    .first<{ pending_pub: string | null; pending_secret: string | null; claimed_at: string | null; code_at: string | null; codes: number }>();
+  if (row?.pending_secret && row.pending_pub && row.pending_pub !== pub && row.claimed_at
+      && Date.now() - Date.parse(row.claimed_at) < BUSY_MINUTES * 60_000) return json({ ok: false, error: 'busy' }, 409);
+  const recent = !!row?.code_at && Date.now() - Date.parse(row.code_at) < 3600_000;
+  if (recent && row!.codes >= CLAIMS_PER_HOUR) return json({ ok: false, error: 'too_many' }, 429);
+  const secret = hex(crypto.getRandomValues(new Uint8Array(32)).buffer);
+  await env.DB.prepare(`INSERT INTO boxes (who, pending_pub, pending_secret, claimed_at, code_at, codes, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)
+      ON CONFLICT (who) DO UPDATE SET pending_pub = excluded.pending_pub, pending_secret = excluded.pending_secret,
+        claimed_at = excluded.claimed_at, code_at = CASE WHEN ? THEN boxes.code_at ELSE excluded.code_at END,
+        codes = CASE WHEN ? THEN boxes.codes + 1 ELSE 1 END`)
+    .bind(w, pub, await sha(secret), now(), now(), now(), recent ? 1 : 0, recent ? 1 : 0).run();
+  return json({ ok: true, secret });
 }
 
-async function verify(req: Request, env: Env): Promise<Response> {
-  const b = await req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
-  const w = await who(String(b.email || '')), code = String(b.code || '').replace(/\D/g, '');
-  const row = await env.DB.prepare('SELECT code, code_at, tries, pending_pub FROM boxes WHERE who = ?').bind(w)
-    .first<{ code: string | null; code_at: string | null; tries: number; pending_pub: string | null }>();
-  if (!row?.code || !row.code_at || !row.pending_pub) return json({ ok: false, error: 'no_code' }, 400);
-  if (Date.now() - Date.parse(row.code_at) > CODE_MINUTES * 60_000) return json({ ok: false, error: 'expired' }, 400);
-  if (row.tries >= TRIES) return json({ ok: false, error: 'too_many' }, 429);
-  if ((await sha(code)) !== row.code) {
-    await env.DB.prepare('UPDATE boxes SET tries = tries + 1 WHERE who = ?').bind(w).run();
-    return json({ ok: false, error: 'wrong_code' }, 400);
-  }
-  const secret = hex(crypto.getRandomValues(new Uint8Array(32)).buffer);
-  /* the newest PC proved the email: the box is its own from now on */
-  await env.DB.prepare(`UPDATE boxes SET pub = pending_pub, secret = ?, pending_pub = NULL, code = NULL, tries = 0,
-      verified_at = ? WHERE who = ?`).bind(await sha(secret), now(), w).run();
-  return json({ ok: true, secret });
+/* the proof arrived: the pending claim is the box's now (the previous PC's key and secret stop working) */
+async function promote(env: Env, w: string) {
+  await env.DB.prepare(`UPDATE boxes SET pub = pending_pub, secret = pending_secret, verified_at = ?, pending_pub = NULL,
+      pending_secret = NULL, claimed_at = NULL WHERE who = ? AND pending_pub IS NOT NULL AND pending_secret IS NOT NULL`)
+    .bind(now(), w).run();
 }
 
 /* ---- fetching: what waits for this PC ---- */
@@ -103,7 +100,9 @@ async function verify(req: Request, env: Env): Promise<Response> {
 async function boxOf(req: Request, env: Env) {
   const secret = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   if (!/^[0-9a-f]{64}$/.test(secret)) return null;
-  return env.DB.prepare('SELECT who FROM boxes WHERE secret = ?').bind(await sha(secret)).first<{ who: string }>();
+  const h = await sha(secret);
+  const box = await env.DB.prepare('SELECT who, secret FROM boxes WHERE secret = ? OR pending_secret = ?').bind(h, h).first<{ who: string; secret: string | null }>();
+  return box && { who: box.who, proved: box.secret === h };
 }
 
 export async function tidy(env: Env) {
@@ -121,14 +120,14 @@ async function list(req: Request, env: Env): Promise<Response> {
   const box = await boxOf(req, env);
   if (!box) return json({ ok: false, error: 'bad_secret' }, 401);
   await tidy(env);
-  const rows = await env.DB.prepare('SELECT id, kind, subject, code, size, received_at, taken_at FROM mails WHERE who = ? ORDER BY id')
-    .bind(box.who).all();
-  return json({ ok: true, mails: rows.results });
+  const rows = await env.DB.prepare(`SELECT id, kind, subject, code, size, received_at, taken_at FROM mails WHERE who = ?
+      ${box.proved ? '' : "AND kind = 'confirm'"} ORDER BY id`).bind(box.who).all();
+  return json({ ok: true, proved: box.proved, mails: rows.results });
 }
 
 async function one(req: Request, env: Env, id: number): Promise<Response> {
   const box = await boxOf(req, env);
-  if (!box) return json({ ok: false, error: 'bad_secret' }, 401);
+  if (!box?.proved) return json({ ok: false, error: 'bad_secret' }, 401);
   const row = await env.DB.prepare("SELECT id FROM mails WHERE id = ? AND who = ? AND kind = 'mailback'").bind(id, box.who).first();
   const file = row && (await env.FILES.get(`forward/${id}`));
   if (!file) return json({ ok: false, error: 'not_found' }, 404);
@@ -139,8 +138,7 @@ async function one(req: Request, env: Env, id: number): Promise<Response> {
 export async function forwardRoutes(req: Request, env: Env, path: string): Promise<Response | null> {
   if (!path.startsWith('/forward/')) return null;
   await schema(env);
-  if (req.method === 'POST' && path === '/forward/start') return start(req, env);
-  if (req.method === 'POST' && path === '/forward/verify') return verify(req, env);
+  if (req.method === 'POST' && path === '/forward/claim') return claim(req, env);
   if (req.method === 'GET' && path === '/forward/mail') return list(req, env);
   const m = path.match(/^\/forward\/mail\/(\d+)$/);
   if (req.method === 'GET' && m) return one(req, env, Number(m[1]));
@@ -188,6 +186,7 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
     }
     await env.DB.prepare("INSERT INTO mails (who, kind, subject, code, size, received_at) VALUES (?, 'confirm', ?, ?, 0, ?)")
       .bind(await who(gmail), subj.slice(0, 300), need, now()).run();
+    await promote(env, await who(gmail));      // Gmail confirmed it to us: only that Gmail's owner could have asked
     return;
   }
 
@@ -202,12 +201,16 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
   /* whose it is: any mailbox it was for or came through. CAMS writes to the ARN's registered email, which often
      forwards on before the mailbox whose filter sends it here (pritamutha@ → neillunavat3192@ → us, 8 Oct): To and
      Cc, the Delivered-To / X-Forwarded-For / X-Original-To each mailbox adds, and Gmail's forwarding sender
-     (x+caf_=…@gmail.com is x@gmail.com). The box is the email proved in the software: the one that forwards here. */
+     (x+caf_=…@gmail.com is x@gmail.com). The box is the Gmail the person named: the one that forwards here. */
   const sender = message.from.toLowerCase().replace(/\+caf_=[^@]*@/, '@');
   /* the mailbox that sent it here first (Gmail's sender, the latest Delivered-To), then the rest of the way */
   const seen = [...new Set([...emails(sender), ...['delivered-to', 'to', 'cc', 'x-original-to', 'x-forwarded-for'].flatMap(n => emails(h(n)))])];
   for (const to of seen) {
-    const box = await env.DB.prepare('SELECT who, pub FROM boxes WHERE who = ? AND pub IS NOT NULL').bind(await who(to)).first<{ who: string; pub: string }>();
+    const w = await who(to);
+    /* only the Gmail that forwarded it here (the envelope sender) proves a waiting claim: a To or Cc names a mailbox,
+       it doesn't show its owner set anything up */
+    if (emails(sender).includes(to)) await promote(env, w);
+    const box = await env.DB.prepare('SELECT who, pub FROM boxes WHERE who = ? AND pub IS NOT NULL').bind(w).first<{ who: string; pub: string }>();
     if (!box) continue;
     const raw = await new Response(message.raw).arrayBuffer();
     const row = await env.DB.prepare("INSERT INTO mails (who, kind, subject, size, received_at) VALUES (?, 'mailback', ?, ?, ?) RETURNING id")

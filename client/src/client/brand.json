@@ -2,5 +2,7 @@
   "name": "MFDInvoice",
   "site": "https://mfdinvoice.co.in",
   "server": "https://software.mfdinvoice.co.in",
+  "site_fallback": "https://site.develop-tbc.workers.dev",
+  "server_fallback": "https://software.develop-tbc.workers.dev",
   "forward": "cams@mailback.mfdinvoice.co.in"
 }

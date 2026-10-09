@@ -73,8 +73,6 @@
     else { ui.go('invoices'); ui.invoicesMonth = m.period; }
   }
   const stageNames = (bad: boolean) => ['Fetched', 'Signed', 'Checked', 'Submitted', bad ? 'Rejected' : 'Approved'];
-  // CAMS's email hadn't come when the last run went on with KFintech: Run is CAMS's now; both and KFintech are in the menu
-  const camsNext = $derived(!!m.camsWaiting && regs.length > 1);
   const openOf = (r: Registrar) => m.invoices.filter(x => x.registrar === r && !['Waiting approval', 'Approved', 'Submitted'].includes(x.status)).length;
 </script>
 
@@ -101,10 +99,10 @@
     <div class="banner bad" role="alert"><div>
       {#if rej.length === 1}<b>{x.amc} rejected {x.number}.</b> {regName(x.registrar)} says: “{x.rejection}”
       {:else}<b>{rej.length} invoices were rejected.</b> {x.amc}: “{x.rejection}”{/if}</div>
-      <button class="btn secondary sm" onclick={openRejected}>{rej.length === 1 ? 'Open invoice' : 'See invoices'}</button></div>
+      {#if rej.length === 1}<button class="btn secondary sm" onclick={openRejected}>Open invoice</button>{/if}</div>
   {/if}
   {#if banner === 'down'}
-    <div class="banner bad" role="alert"><div><b>{NAME} is having trouble.</b> Your data is safe here. Runs are paused until it's fixed.</div>
+    <div class="banner bad" role="alert"><div><b>{NAME} is having trouble reaching its server.</b> Your data is safe here.</div>
       <button class="btn secondary sm" onclick={() => app.open('status')}>Status</button></div>
   {/if}
   {#if planUnknown && !banner}
@@ -159,37 +157,25 @@
       {/if}
     </div>
     <div class="mc-r">
-      {#if c.rerun.keys.length}
-        <button class="btn run" id="run" data-primary disabled={runOff} onclick={() => open('run')}>{@html icons.playFill}Run the {c.rerun.keys.length} rejected again</button>
-        <span class="about">One run, one sign-in, all of them</span>
-      {:else if !c.canRun}
-        <button class="btn secondary lg" data-primary onclick={() => { ui.go('invoices'); ui.invoicesMonth = period; }}>See invoices</button>
-      {:else}
-        <div class="splitrun">
-          <button class="btn run" id="run" data-primary disabled={runOff} onclick={() => (camsNext ? open('run', 'CAMS') : open('run'))}>{@html icons.playFill}{camsNext ? 'Run CAMS' : `Run ${monthName}`}</button>
-          {#if camsNext || regs.length > 1}
-          <button class="btn run caret" aria-label="More ways to run" aria-haspopup="menu" aria-expanded={ui.menu === 'run'} disabled={runOff}
-            onclick={e => { e.stopPropagation(); ui.menu = ui.menu === 'run' ? '' : 'run'; }}>{@html icons.caret}</button>
-          {/if}
-          {#if ui.menu === 'run'}
-            <div class="menu" role="menu">
-              {#if camsNext}
-                <button role="menuitem" onclick={() => open('run')}>Run both <span>CAMS and KFintech</span></button>
-                <button role="menuitem" onclick={() => open('run', 'KFINTECH')}>Run KFintech only <span>{m.invoices.length ? `${openOf('KFINTECH')} to do` : ''}</span></button>
-              {:else if regs.length > 1}
-                {#each regs as r (r)}
-                  <button role="menuitem" onclick={() => open('run', r)}>Run {regName(r)} only <span>{m.invoices.length ? `${openOf(r)} to do` : ''}</span></button>
-                {/each}
-              {/if}
-            </div>
-          {/if}
-        </div>
-        {#if banner === 'offline'}<span class="about red">No internet</span>
-        {:else if banner === 'down'}<span class="about red">Paused until it's fixed</span>
-        {:else if planUnknown}<span class="about red">Plan not checked</span>
-        {:else if needsConsent}<span class="about red">Needs your confirmation</span>
-        {:else if missing.length}<span class="about red">{missing[0].text}</span>{/if}
-      {/if}
+      <div class="splitrun">
+        <button class="btn run" id="run" data-primary disabled={runOff} onclick={() => open('run')}>{@html icons.playFill}Run {monthName}</button>
+        {#if regs.length > 1}
+        <button class="btn run caret" aria-label="More ways to run" aria-haspopup="menu" aria-expanded={ui.menu === 'run'} disabled={runOff}
+          onclick={e => { e.stopPropagation(); ui.menu = ui.menu === 'run' ? '' : 'run'; }}>{@html icons.caret}</button>
+        {/if}
+        {#if ui.menu === 'run' && regs.length > 1}
+          <div class="menu" role="menu">
+            {#each regs as r (r)}
+              <button role="menuitem" onclick={() => open('run', r)}>Run {regName(r)} only <span>{m.invoices.length ? `${openOf(r)} to do` : ''}</span></button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      {#if banner === 'offline'}<span class="about red">No internet</span>
+      {:else if banner === 'down'}<span class="about red">Server not reachable</span>
+      {:else if planUnknown}<span class="about red">Plan not checked</span>
+      {:else if needsConsent}<span class="about red">Needs your confirmation</span>
+      {:else if missing.length}<span class="about red">{missing[0].text}</span>{/if}
     </div>
   </div>
 

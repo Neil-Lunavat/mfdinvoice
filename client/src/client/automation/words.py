@@ -18,11 +18,13 @@ LONG = ["January", "February", "March", "April", "May", "June", "July", "August"
 
 # The status words the two registrars wrote on 7 Oct 2026, compared after `norm`, whole, never as substrings. What each
 # means: "open" the registrar does not have it, so it can be sent; "with" it has it and has not decided, so it must not
-# be sent again; "done" approved; "rejected" it came back, to be sent again. A word not listed is unknown, and a run
-# that meets one stops and shows it (`Month.read_status`): a guess could send an invoice twice or never.
-CAMS_WORDS = {"FILE NOT UPLOADED": "open", "APPROVED": "done", "REJECTED": "rejected"}
+# be sent again; "done" approved; "rejected" it came back, to be sent again. Only the known "open" words make an invoice
+# open and only the known rejection words make it go again. Any other word is "unknown": the registrar has it, so it is
+# shown in the registrar's own words, never sent again, and never a stop (`Month.read_status` logs it).
+# CAMS's own guide (GST_Invoice_Upload_Process_Flow.pdf, 9 Oct) names PENDING FOR BO REVIEW: uploaded, waiting for review
+CAMS_WORDS = {"FILE NOT UPLOADED": "open", "PENDING FOR BO REVIEW": "with", "APPROVED": "done", "REJECTED": "rejected"}
 KFIN_WORDS = {"SIGNED INVOICE UPLOAD PENDING": "open", "UPLOADED & VERIFICATION PENDING": "with",
-              "PAYMENT PROCESSED": "done"}
+              "PAYMENT PROCESSED": "done", "ACCEPTED & PAYMENT PENDING": "done", "REJECTED": "rejected"}
 
 # The fund houses CAMS names by a code, for when neither its report nor the invoice gives the name. Read off the
 # September 2026 mailback: the code in each PDF's file name against the name printed on that invoice.
@@ -62,14 +64,14 @@ def norm(said: str | None) -> str:
 def meaning(registrar: str, said: str | None) -> str:
     """'open', 'with', 'done', 'rejected' or 'unknown': what the registrar's status words mean (see CAMS_WORDS)."""
     s = norm(said)
-    # only the exact known words count: KFintech's rejection word has not been seen, so it is unknown until it is
+    # only the exact known words count; any other word is "unknown"
     return (CAMS_WORDS if registrar == CAMS else KFIN_WORDS).get(s) or "unknown"
 
 
 def is_final(registrar: str, status: str | None) -> bool:
     """Is this invoice already with its registrar, so that sending it again would be a duplicate? A rejection is not:
-    that is the invoice coming back to be sent again. An unknown word is not either; the run stops on it first."""
-    return meaning(registrar, status) in ("with", "done")
+    that is the invoice coming back to be sent again. An unknown word is: the registrar has it, in its own words."""
+    return meaning(registrar, status) in ("with", "done", "unknown")
 
 
 def status_of(row: dict) -> str:
@@ -81,7 +83,7 @@ def status_of(row: dict) -> str:
         return "Rejected"
     if got == "done":
         return "Approved"
-    if got == "with":
+    if got in ("with", "unknown"):
         return "Waiting approval"
     if row.get("sentAt"):
         return "Submitted"

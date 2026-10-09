@@ -36,7 +36,7 @@
       saving = true;
       const r = await app.finishSetup({ ...$state.snapshot(ui.draft), consent: consentOf($state.snapshot(ui.draft)) }, ui.adding);
       saving = false;
-      if (r.ok) { ui.adding = false; ui.go('overview'); }
+      if (r.ok) { ui.adding = false; ui.go('overview'); }   // the app has dropped the kept setup
       else store.toast(r.said);
       return;
     }
@@ -44,8 +44,16 @@
     to(ui.step + 1);
   }
   function change(i: number) { ui.returnTo = LAST; to(i); }
-  function cancelAdd() { ui.adding = false; ui.go('overview'); }
+  function cancelAdd() { void app.dropSetup(); ui.adding = false; ui.go('overview'); }
 
+  // setup is kept on the PC as it goes (debounced), so closing the software resumes it; leaving the screen cancels a pending save
+  $effect(() => {
+    const state = ui.setupState();
+    const t = setTimeout(() => { void app.saveSetup(state).catch(() => {}); }, 400);
+    return () => clearTimeout(t);
+  });
+
+  // a restored photo lives in the draft: only a setup without one forgets the app's unkept photo
   onMount(() => { if (!ui.draft.signature.image) void app.dropSignatureDraft(); to(ui.step); });
 </script>
 

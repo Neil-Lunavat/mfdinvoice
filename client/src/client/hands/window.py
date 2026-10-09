@@ -58,6 +58,7 @@ log = logging.getLogger(__name__)
 LINKS = {"site": SITE, "signup": f"{SITE}/signin?from=app", "status": f"{SITE}/support", "billing": f"{SITE}/account", "help": f"{SITE}/setup"}
 PLAN_EVERY_S = 5 * 60          # the plan is read again this often while the app is open
 PICKUP_EVERY_S = 90            # a month waiting for CAMS's email looks for it this often
+PICKUP_IDLE_S = 10 * 60        # with none waiting, the mailbox is still looked in this often
 RETRY_EVERY_S = 15             # ... and this often while the website could not be reached
 UNREACHABLE = f"{NAME} can't reach its website right now. Try again in a minute."
 NO_STEPS = f"{NAME} can't reach its server right now, so it can't be sure it is up to date with the portals."
@@ -140,10 +141,12 @@ class Window:
                     shutil.rmtree(d)
 
     async def _pickup_loop(self) -> None:
-        """While the software is open: CAMS's email for a month whose run went on without it is read in when it comes
-        (Neil, 7 Oct). Only while some month waits for one; never while something else is running."""
+        """While the software is open: every CAMS mailback for an ARN whose mailbox is read by itself is read in, whoever
+        asked for it. Every PICKUP_EVERY_S while some month waits for one, else every PICKUP_IDLE_S; never while a run
+        is going."""
         while True:
-            await asyncio.sleep(PICKUP_EVERY_S)
+            waiting = any(local.cams_waiting(self.base(arn)) for arn in self.profiles())
+            await asyncio.sleep(PICKUP_EVERY_S if waiting else PICKUP_IDLE_S)
             try:
                 await self._pickup()
             except Exception:
@@ -162,10 +165,38 @@ class Window:
     async def _pickup(self) -> dict:
         waiting = [(arn, period) for arn in self.profiles() for period in local.cams_waiting(self.base(arn))]
         out: dict = {"got": [], "waiting": [p for a, p in waiting if a == self.selected()], "said": ""}
-        if not waiting or self._task is not None:
+        if self._task is not None:
+            return out
+        reading = [a for a, p in self.profiles().items() if (p.get("mailbox") or {}).get("provider") in ("gmail", "forward")]
+        if not reading:
             return out
         auto = await loader.latest()
-        if not hasattr(auto, "pickup"):
+        if hasattr(auto, "mailbacks"):
+            # every mailback for this ARN in the mailbox is read in, whoever asked for it (a run, or the person on CAMS)
+            async with self._portal:
+                for arn in reading:
+                    host = Host(self, arn, "")
+                    try:
+                        got = (await auto.mailbacks(host)).get("got") or []
+                    except Exception as e:
+                        log.info("CAMS's emails for %s couldn't be read in: %r", arn, e)
+                        continue
+                    finally:
+                        await host.close()
+                    for g in got:
+                        label = local.labels(g["period"])[0]
+                        n = f"{g['count']} invoice{'' if g['count'] == 1 else 's'}"
+                        self._log(f"CAMS's invoices for {label} came by email: {n}", registrar="CAMS", tone="plain", who="")
+                        self._note("cams_came", f"CAMS's invoices for {label} are in", "overview",
+                                   f"{n}, read from CAMS's email")
+                        if arn == self.selected():
+                            out["got"].append({"period": g["period"], "count": g["count"]})
+            if out["got"]:
+                got_periods = {g["period"] for g in out["got"]}
+                out["waiting"] = [p for p in out["waiting"] if p not in got_periods]
+                await self.changed()
+            return out
+        if not waiting or not hasattr(auto, "pickup"):          # steps older than `mailbacks`
             return out
         async with self._portal:
             for arn, period in waiting:
@@ -609,24 +640,20 @@ class Window:
 
     # --- setup, and every Change -----------------------------------------------------------------------------
 
-    async def forward_start(self, email: str) -> dict:
-        """Forwarding CAMS's mailbacks to us: a code is emailed to the CAMS email (hands/forward.py)."""
+    async def forward_claim(self, email: str) -> dict:
+        """Forwarding CAMS's mailbacks to us: this PC claims the Gmail that will forward (hands/forward.py)."""
         from client.hands import forward
-        return await asyncio.to_thread(forward.start, self.store, email)
+        return await asyncio.to_thread(forward.claim, self.store, email)
 
-    async def forward_verify(self, email: str, code: str) -> dict:
+    async def forward_state(self) -> dict:
+        """{proved, confirm}: whether the Gmail is this PC's, and Gmail's confirmation link or code once it has come."""
         from client.hands import forward
-        return await asyncio.to_thread(forward.verify, self.store, email, code)
-
-    async def forward_gmail_code(self) -> str:
-        """What Gmail's forwarding confirmation asks for: its code, or (Gmail today) its confirmation link."""
-        from client.hands import forward
-        return await asyncio.to_thread(forward.gmail_code, self.store)
+        return await asyncio.to_thread(forward.state, self.store)
 
     async def forward_confirm(self) -> bool:
         """Opens Gmail's forwarding confirmation link in the person's browser; only a link on google.com is opened."""
         from client.hands import forward
-        link = await asyncio.to_thread(forward.gmail_code, self.store)
+        link = (await asyncio.to_thread(forward.state, self.store)).get("confirm", "")
         if not forward.is_gmail_link(link):
             return False
         webbrowser.open(link)
@@ -784,7 +811,51 @@ class Window:
                                          "take the photo in daylight."}
         png = ops_sig.png(im)
         self._cleaned = (png, cx, cy)
+        with contextlib.suppress(OSError):               # kept beside setup's draft, so a restart keeps the photo
+            png_file, meta_file = self._setup_files()
+            png_file.parent.mkdir(parents=True, exist_ok=True)
+            png_file.write_bytes(png)
+            meta_file.write_text(json.dumps({"cx": cx, "cy": cy}), encoding="utf-8")
         return {"ok": True, "image": ops_sig.data_url(png)}
+
+    # --- setup, kept as it goes ----------------------------------------------------------------
+
+    def _setup_files(self) -> tuple[Path, Path]:
+        folder = self.workspace / "signatures"
+        return folder / "_setup.png", folder / "_setup.json"
+
+    async def save_setup(self, state: dict) -> None:
+        """The window's setup state (step, draft, what the portals showed), as one JSON in the vault: it holds the
+        CAMS email and more that are credentials. Written as the person goes, so closing the software resumes it."""
+        self.store.put_secret("setup_draft", json.dumps(state, ensure_ascii=False))
+
+    async def load_setup(self) -> dict | None:
+        """The setup state saved by `save_setup`, or None. A signature photo kept with it is read back, so Finish
+        keeps it."""
+        try:
+            raw = self.store.get_secret("setup_draft")
+            state = json.loads(raw) if raw else None
+        except (ValueError, OSError):
+            state = None
+        if not isinstance(state, dict):
+            return None
+        self._cleaned = None
+        sig = (state.get("draft") or {}).get("signature") or {}
+        if sig.get("way") == "image" and sig.get("image"):
+            png_file, meta_file = self._setup_files()
+            try:
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                self._cleaned = (png_file.read_bytes(), float(meta["cx"]), float(meta["cy"]))
+            except (OSError, ValueError, KeyError, TypeError):
+                self._cleaned = None
+        return state
+
+    async def drop_setup(self) -> None:
+        """Setup's saved state and its signature photo: finished, or an Add an ARN cancelled."""
+        self.store.put_secret("setup_draft", None)
+        for f in self._setup_files():
+            with contextlib.suppress(OSError):
+                f.unlink()
 
     # --- a USB token -------------------------------------------------------------------------
 
@@ -928,6 +999,7 @@ class Window:
             log.exception("the books chosen at setup could not be kept")        # the Books tab asks again
         self.store.put("selected_arn", arn)
         self._log(f"Set up {arn}")
+        await self.drop_setup()
         await self.read_plan()
         return {"ok": True}
 
@@ -995,7 +1067,8 @@ class Window:
     async def preview_invoice(self, settings: dict, number: str) -> str:
         """The person's own invoice with the settings on screen, laid out and drawn exactly as a run draws it, with an
         example fund house and their signature where it will go: its first page, as a data URL. `settings` also
-        carries the name and GSTIN on screen, and `signatureSize`. '' when it cannot be drawn (a preview is never
+        carries the name and GSTIN on screen, `signatureSize`, and the way being set up (`way`, `certName`; with a USB token
+        the mark is drawn, not signed). '' when it cannot be drawn (a preview is never
         worth an error; the reason is in the log)."""
         try:
             auto = await loader.current()
@@ -1011,12 +1084,14 @@ class Window:
                                         settings.get("gstin") or p.get("gstin") or "")
         page_w, page_h = template["page"]
         return self._signed_page(auto, auto.layout.draw(template, inv, me), page_w, page_h,
-                                 settings.get("signatureSize"), "invoice-preview.pdf")
+                                 settings.get("signatureSize"), "invoice-preview.pdf", settings.get("way") or "",
+                                 settings.get("certName") or "")
 
     async def preview_registrar(self, kind: str, name: str = "", gstin: str = "", arn: str = "",
-                                signatureSize: int = 100) -> str:  # noqa: N803
+                                signatureSize: int = 100, way: str = "", certName: str = "") -> str:  # noqa: N803
         """An example of a registrar's own invoice (`kind`: cams or kfintech), made out to this person, with their
-        signature where a run puts it: its first page, as a data URL. '' when it cannot be drawn."""
+        signature where a run puts it: its first page, as a data URL. `way` and `certName` are the signature being set up
+        on screen ('' = the saved one); a USB token's mark is drawn, never signed. '' when it cannot be drawn."""
         p = self.profile() or {}
         try:
             auto = await loader.current()
@@ -1025,18 +1100,27 @@ class Window:
             ops, page_w, page_h = auto.registrar.example(kind, name or p.get("name") or "",
                                                          gstin or p.get("gstin") or "", arn or p.get("arn") or "")
             return await asyncio.to_thread(self._signed_page, auto, ops, page_w, page_h, signatureSize,
-                                           f"{kind}-preview.pdf")
+                                           f"{kind}-preview.pdf", way, certName)
         except Exception:
             log.exception("the %s preview could not be drawn", kind)
             return ""
 
-    def _signed_page(self, auto, ops: list[dict], page_w: float, page_h: float, size, name: str) -> str:
+    def _signed_page(self, auto, ops: list[dict], page_w: float, page_h: float, size, name: str, way: str = "",
+                     cert_name: str = "") -> str:
         """Draw this draw-list with the signature on screen placed by the run's own rule, and return its first page.
+        A USB token only ever gets its mark (`ops_sign.MarkDoor`): a preview never signs, never reaches the token.
         One at a time: the previews share the signature's draft file, and two drawn at once (CAMS's and KFintech's,
         after the size slider is let go) read it half-written (8 Oct)."""
         with _DRAWING:
-            door = ops_sign.Door(lambda: self._signature_on_screen(size))
-            sig = door.info()
+            saved = sign_image.meta_of(self.signature_file(self.selected()))
+            if (way or saved.get("way")) == ops_sign.DSC:
+                door = ops_sign.MarkDoor(cert_name or (saved.get("cert") or {}).get("name") or "")
+                sig = door.info()
+            else:
+                path = self._signature_on_screen(size)
+                door = ops_sign.Door(lambda: path)
+                # image way on screen but only a token saved: no image to draw, and the token is never reached
+                sig = {} if sign_image.meta_of(path).get("way") == ops_sign.DSC else door.info()
             if sig.get("present"):
                 ops = auto.layout.sign(ops, sig, page_w, page_h)
             out = self.workspace / "previews" / name
@@ -1262,7 +1346,7 @@ class Window:
 
     async def uninstall(self) -> str:
         """Settings › Uninstall: start the uninstaller the installer left beside the program, then close so it can
-        remove it. It asks to confirm itself, and removes the program only: the person's data stays. '' when it
+        remove it. It asks itself whether to remove the person's data too. '' when it
         started; 'not_installed' from a checkout."""
         app = update.installed()
         exe = app / "unins000.exe" if app else None
@@ -1359,7 +1443,7 @@ class Window:
                 (host.record / "what-happened.txt").parent.mkdir(parents=True, exist_ok=True)
                 (host.record / "what-happened.txt").open("a", encoding="utf-8").write(f"{type(e).__name__}: {e}\n")
             out = {"how": "stopped", "stop": {"kind": "ours", "title": f"Something in {NAME} went wrong",
-                                              "lines": ["This one is ours to fix, and it has been sent to us."],
+                                              "lines": ["Run again. If it keeps happening, Send to support."],
                                               "said": "", "registrar": "", "so_far": ""}}
         finally:
             await host.close()
@@ -1453,6 +1537,7 @@ class Window:
             self._push({"type": "run_ended", "run": run, "how": out.get("how") or "stopped", "what": what,
                         "used": out.get("used") or "", "summary": out.get("summary") or out.get("news") or "",
                         "enter": out.get("enter") or [], "left": out.get("left") or [],
+                        "notes": list(out.get("notes") or []),
                         "counts": out.get("counts") or {}, "total": out.get("total") or 0,
                         "stop": {"kind": stop["kind"], "title": stop["title"], "said": stop.get("said") or "",
                                  "lines": list(stop.get("lines") or []), "so_far": stop.get("so_far") or "",

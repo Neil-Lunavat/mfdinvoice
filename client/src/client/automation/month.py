@@ -24,14 +24,15 @@ month.json:
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
 
 from client.automation import words
-from client.automation.page import Stop
 from client.automation.words import CAMS, KFIN
-from client.brand import NAME
+
+log = logging.getLogger(__name__)
 
 FOLDER = {CAMS: "cams", KFIN: "kfintech"}
 
@@ -85,7 +86,8 @@ class Month:
                            "listed": bool(self.rows), "submittedOn": sent[0][:10] if sent else ""})
         for r in self.rows.values():
             r["status"] = words.status_of(r)
-            r["rejection"] = (r.get("remarks") or r.get("said") or "") if r["status"] == "Rejected" else ""
+            r["words"] = str(r.get("said") or "").strip() if words.meaning(r["registrar"], r.get("said")) == "unknown" else ""
+            r["rejection"] =(r.get("remarks") or r.get("said") or "") if r["status"] == "Rejected" else ""
             r["timeline"] = _timeline(r)
         _write(self.dir / "month.json", self.facts)
         order = sorted(self.rows.values(), key=lambda r: (r["registrar"], str(r.get("amc", "")).lower()))
@@ -101,17 +103,14 @@ class Month:
         return row
 
     def read_status(self, registrar: str, reading: list[dict], after_press: bool = False) -> str:
-        """The registrar's status page was read: its words are the truth about what it has. A word never seen stops
-        the run with it quoted (guessing could send an invoice twice or never); it is ours: a portal changed, or a
-        word we have not met. Right after a Submit (`after_press`) the invoices are already gone, so nothing is
-        raised: the unknown words are returned ("" when none) for the caller to say after it has recorded the send."""
+        """The registrar's status page was read: its words are the truth about what it has. Never raises. A word never
+        seen means the registrar has the invoice: it is logged, shown in the registrar's own words and never sent
+        again. The unknown words are returned as "key: word; ..." ("" when none) for the caller to note.
+        `after_press` is kept for callers; it changes nothing."""
         strange = [r for r in reading if words.meaning(registrar, r.get("status")) == "unknown"]
+        for r in strange:
+            log.warning("unknown status word from %s: %r on %s", registrar, r.get("status"), r.get("key"))
         said_strange = "; ".join(sorted({f"{r['key']}: {(r.get('status') or '').strip() or '(empty)'}" for r in strange}))
-        if strange and not after_press:
-            name = words.NAMES[registrar]
-            raise Stop("ours", f"{name} showed a status {NAME} doesn't know",
-                       "Nothing was sent. This one is ours to fix, and it has been sent to us.", said=said_strange,
-                       registrar=registrar)
         at = now()
         self.facts.setdefault("status", {})[registrar] = reading
         self.facts["checkedAt"] = at
@@ -146,7 +145,7 @@ class Month:
         self.save()
 
 
-RANK = {"done": 4, "with": 3, "rejected": 2, "open": 1, "unknown": 0}
+RANK = {"done": 4, "with": 3, "unknown": 3, "rejected": 2, "open": 1}
 
 
 def latest(reading: list[dict], registrar: str = "") -> dict[str, dict]:

@@ -96,7 +96,7 @@
           <tr data-i tabindex="0" onclick={() => open(x)} onkeydown={e => { if (e.key === 'Enter') { e.stopPropagation(); open(x); } }}>
             <td>{x.amc} <span class="reg">{regTag(x.registrar)}</span></td><td class="mono">{x.number}</td>
             <td class="num">{n2(x.taxable)}</td><td class="num">{n2(gst(x))}</td><td class="num">{n2(total(x))}</td>
-            <td><span class="chip {chipTone(x.status)}" title={x.said ? `${x.registrar === 'CAMS' ? 'CAMS' : 'KFintech'}: ${x.said}` : undefined}>{x.status}</span></td></tr>
+            <td><span class="chip {x.words ? 'wait' : chipTone(x.status)}" title={x.said ? `${x.registrar === 'CAMS' ? 'CAMS' : 'KFintech'}: ${x.said}` : undefined}>{x.words || x.status}</span></td></tr>
         {:else}
           <tr><td colspan="6" class="empty">{rows.length ? 'No invoices match.' : unlisted || 'Nothing fetched for this month yet.'}</td></tr>
         {/each}

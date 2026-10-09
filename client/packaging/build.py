@@ -14,6 +14,9 @@ steps:
    signature and imports every module in them (`--check-steps`). A build whose exe cannot is not packed
 5. the installer: Inno Setup with `installer.iss`, into `packaging/dist/`
 
+The window is always built here fresh, into `dist/`, with no dev flag; and the build fails if the checkout's test bench
+(the dev panel in the window, `hands/devsite.py`, `hands/devtools.py`) is found in the window's files or in the exe.
+
 The same commit gives the same inputs every time: locked dependencies on both sides, a fixed hash seed, and the
 commit's own time as every timestamp (`SOURCE_DATE_EPOCH`, Inno's `TouchDate`). Unsigned, on purpose: no step here
 expects a certificate.
@@ -78,6 +81,31 @@ def version_file(path: Path, name: str, version: str) -> None:
 """, encoding="utf-8")
 
 
+DEV_PANEL = (b"MFDINVOICE-DEV-PANEL", b"devBackToSetup", b"devFill", b"devSaveState")
+DEV_MODULES = (b"client.hands.devsite", b"client.hands.devtools", b"hands.devsite", b"hands.devtools")
+
+
+def no_dev_window(dist: Path) -> None:
+    """The window's build holds none of the dev panel (App.svelte loads it only when VITE_DEVAPP is 1)."""
+    for f in dist.rglob("*"):
+        if f.is_file():
+            data = f.read_bytes()
+            for mark in DEV_PANEL:
+                if mark in data:
+                    sys.exit(f"The dev panel is in the window's build ({f.name} holds {mark.decode()}). Not packed.")
+
+
+def no_dev_modules(exe_dir: Path, work: Path) -> None:
+    """The exe holds neither dev module: not in PyInstaller's tables of what it packed, nor in the exe or its archive."""
+    files = [*work.rglob("*.toc"), *exe_dir.rglob("*.pyz"), *exe_dir.glob("*.exe"), *exe_dir.rglob("*.pkg")]
+    for f in files:
+        data = f.read_bytes()
+        for mark in DEV_MODULES:
+            if mark in data:
+                sys.exit(f"The dev test bench is in the exe ({f.name} names {mark.decode()}). Not packed.")
+    print(f"\nNo dev panel in the window, no dev module in the exe ({len(files)} files looked at).", flush=True)
+
+
 def check_steps(exe: Path) -> None:
     """Run the built exe's own check, with its data in a folder of this build's, so nothing of the person's is
     touched: it must get the published steps, check our signature and import all of them."""
@@ -116,8 +144,11 @@ def main() -> None:
     version = tomllib.loads((client / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     print(f"Building {name} {version} from {commit[:7]}")
 
+    window_env = {k: v for k, v in os.environ.items() if k != "VITE_DEVAPP"}      # the shipped window: no dev flag, ever
+    shutil.rmtree(client / "window" / "dist", ignore_errors=True)
     run("bun", "install", "--frozen-lockfile", cwd=client / "window")
-    run("bun", "run", "build", cwd=client / "window")
+    run("bun", "run", "build", cwd=client / "window", env=window_env)
+    no_dev_window(client / "window" / "dist")
 
     version_file(WORK / "version.txt", name, version)
     env = {**os.environ, "PYTHONHASHSEED": "0", "SOURCE_DATE_EPOCH": str(when),
@@ -127,6 +158,7 @@ def main() -> None:
     run("uv", "run", "--frozen", "--no-dev", "--group", "build", "pyinstaller", "packaging/app.spec", "--noconfirm",
         "--clean", "--distpath", str(WORK / "exe"), "--workpath", str(WORK / "pyinstaller"), cwd=client, env=env)
 
+    no_dev_modules(WORK / "exe" / name, WORK / "pyinstaller")
     check_steps(WORK / "exe" / name / f"{name}.exe")
 
     OUT.mkdir(exist_ok=True)

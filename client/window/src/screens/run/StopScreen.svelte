@@ -11,7 +11,7 @@
   import Editor from '../setup/Editor.svelte';
   import Entered from './Entered.svelte';
 
-  let { stop, enter = [], left = [], onclose, onagain }: { stop: Stop; enter?: EnteredRow[]; left?: Left[]; onclose: () => void; onagain: () => void } = $props();
+  let { stop, enter = [], left = [], notes = [], onclose, onagain }: { stop: Stop; enter?: EnteredRow[]; left?: Left[]; notes?: string[]; onclose: () => void; onagain: () => void } = $props();
 
   const sc = $derived(stopScreen(stop));
   // both registrars stopped: one heading, and each registrar's stop in its own block (Neil, 8 Oct)
@@ -52,6 +52,10 @@
       {#if stop.kind === 'arn_mismatch'}<p class="line">To run a different ARN, add it from the ARN menu at the top left.</p>{/if}
     {/if}
     <Entered {enter} {left} />
+    {#if notes.length}
+      <div class="sofar"><div class="label">Along the way</div>
+        <ul>{#each notes as n (n)}<li class="line">{n}</li>{/each}</ul></div>
+    {/if}
     {#if stop.so_far && !all.length}<div class="sofar"><div class="label">This run</div><div>{stop.so_far}</div></div>{/if}
   </div>
   <div class="rm-foot">

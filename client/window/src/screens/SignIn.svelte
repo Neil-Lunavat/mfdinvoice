@@ -97,7 +97,7 @@
     if (r.ok) {
       other = null;
       const s = store.snap;
-      if (s?.arns.length) ui.go('overview'); else ui.startSetup(false);
+      if (s?.arns.length) ui.go('overview'); else void ui.resumeSetup();
       return;
     }
     if (r.reason === 'pending_deletion') { deleting = r.deleteAfter; return; }
@@ -169,7 +169,8 @@
       </div>
     {:else}
       <div class="field enter"><span class="label" style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:500">Email</span>
-        <div class="sentline">Code sent to <b>{maskEmail(sentTo)}</b>.<a href="#different" onclick={e => { e.preventDefault(); different(); }}>Use a different email</a></div></div>
+        <div class="sentline">Code sent to <b>{maskEmail(sentTo)}</b>.<a href="#different" onclick={e => { e.preventDefault(); different(); }}>Use a different email</a></div>
+        <span class="hint">Not in your inbox? Look in Spam, and mark it Not spam.</span></div>
       <div class="enter">
         <div class="field"><span id="codelabel" style="font-size:13px;font-weight:500">Code</span>
           <div class="otp" class:shake role="group" aria-labelledby="codelabel">

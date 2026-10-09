@@ -184,6 +184,7 @@ export interface Invoice {
   igst: number;
   status: Status;
   said: string;                    // the registrar's own words for the status (shown on hover)
+  words?: string;                  // the registrar's own status words when they are ones we haven't seen; shown instead of our status
   rejection: string;               // the registrar's words when it rejected it, else ''
   timeline: { what: string; when: string; who?: string }[];   // when: ISO date
   gstin: string;                   // the fund house's GSTIN, as its invoice prints it; '' on one read before it was kept
@@ -382,7 +383,8 @@ export type Push =
       used: string;                                      // own invoices: "Used 74/26-27 to 78/26-27"
       enter: Entered[];                                  // own invoices without books, submitted: to enter in their books
       left: Left[];                                      // own invoices the books would not take this run
-      summary: string;                                   // "17 invoices submitted for October. 2 left for later."
+      notes?: string[];                                  // what went wrong while the run carried on
+      summary: string;                                // "17 invoices submitted for October. 2 left for later."
       counts: Partial<Record<Registrar, number>>; total: number;
       stop: Stop | null }                                // why it stopped; null when it finished or the person stopped it
   | { type: 'update_progress'; pct: number }             // downloading; at 100 the app hands over to the installer
@@ -427,6 +429,13 @@ export type ZohoConnect = { ok: true } | { ok: false; state: 'cancelled' | 'deni
 
 export type DetailsPatch = Partial<Omit<ProfileDraft, 'arn' | 'consent' | 'ticks'>>;
 
+/** Everything the window holds for a setup in progress (state/ui.svelte.ts), as kept on the PC by saveSetup. */
+export interface SetupState {
+  step: number; reached: number; returnTo: number | null; adding: boolean; draft: ProfileDraft;
+  read: { cams: string; kf: string; gstin: string; version: number; taken: number };
+  booksEmpty: boolean; booksBare: boolean;
+}
+
 /** Every answer the website gives to sign-in, in its own code (`website/site/API.md`); `unreachable`: no answer. */
 export type CodeRefusal = 'bad_email' | 'no_account' | 'wait' | 'locked' | 'too_many_codes' | 'send_failed' | 'unreachable';
 export type VerifyRefusal = 'bad_email' | 'bad_code' | 'wrong' | 'locked' | 'expired' | 'pending_deletion' | 'other_pc' | 'unreachable';
@@ -463,6 +472,11 @@ export interface App {
   rotateSignature(): Promise<{ image: string }>;
   /** A photo that was prepared and then not kept (Discard, Cancel, a setup begun afresh): forget it. */
   dropSignatureDraft(): Promise<void>;
+  /** Setup is kept as it goes (the window's whole setup state, one JSON, in the vault), so closing the software
+   *  resumes where it was left. loadSetup also brings back a kept signature photo; dropSetup forgets all of it. */
+  saveSetup(state: unknown): Promise<void>;
+  loadSetup(): Promise<SetupState | null>;
+  dropSetup(): Promise<void>;
   /** The signing certificates on the USB tokens plugged in now. */
   findCertificates(): Promise<{ certs: Cert[] }>;
   /** A test signature with this certificate: the token's own software asks for its PIN (on route 'pin', a `pin` Ask
@@ -481,22 +495,22 @@ export interface App {
   preview(key: string): Promise<string>;                  // the signed PDF's first page as a data URL, '' if none yet
   /** The person's own invoice with these settings, drawn on this PC with their signature where it goes: its first
       page as a data URL, '' when it could not be drawn. `signatureSize`: the size on screen, 60-140. */
-  previewInvoice(settings: InvoiceSettings & { name?: string; gstin?: string; signatureSize?: number }, number: string): Promise<string>;
+  previewInvoice(settings: InvoiceSettings & { name?: string; gstin?: string; signatureSize?: number; way?: string; certName?: string }, number: string): Promise<string>;
   /** An example of a registrar's own invoice, made out to this person, with their signature where a run puts it:
       its first page as a data URL, '' when it could not be drawn. */
-  previewRegistrar(p: { kind: 'cams' | 'kfintech'; name: string; gstin: string; arn: string; signatureSize: number }): Promise<string>;
+  previewRegistrar(p: { kind: 'cams' | 'kfintech'; name: string; gstin: string; arn: string; signatureSize: number; way?: string; certName?: string }): Promise<string>;
   exportMonth(period: string): Promise<Result<{ name: string }>>;
   openPdf(key: string): Promise<void>;
   showInFolder(key: string): Promise<void>;
   openFolder(what: Registrar | 'files', period?: string): Promise<void>;
   uninstall(): Promise<string>;
   skipCams(run: string): Promise<void>;                    // while CAMS's email is awaited: go on with KFintech
-  /** Forwarding CAMS's mailbacks to us: a code to the CAMS email, then that code typed here proves it is theirs. */
-  forwardStart(email: string): Promise<{ ok: boolean; said?: string }>;
-  forwardVerify(email: string, code: string): Promise<{ ok: boolean; said?: string }>;
-  /** Gmail's forwarding confirmation once Gmail has sent it to our address: its code, or its link (an https URL;
-   *  Gmail sends only a link today); '' until then. */
-  forwardGmailCode(): Promise<string>;
+  /** Forwarding CAMS's mailbacks to us: this PC claims the Gmail that will forward. No code of ours: Gmail's own
+   *  confirmation for it, or the first CAMS mailback through it, proves it is theirs. */
+  forwardClaim(email: string): Promise<{ ok: boolean; said?: string }>;
+  /** `proved`: the Gmail is this PC's. `confirm`: Gmail's forwarding confirmation once it has reached us, its link
+   *  (an https URL; Gmail sends only a link today) or code; '' until then. */
+  forwardState(): Promise<{ proved: boolean; confirm: string; said?: string }>;
   /** Opens Gmail's confirmation link in the browser; false when there is none (or it isn't on google.com). */
   forwardConfirm(): Promise<boolean>;
   /** What importing a month into the person's books (Tally or Zoho Books) would do. Nothing in the books changes. */

@@ -10,12 +10,29 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Awaitable, Callable
 
 from playwright.async_api import Locator, Page, expect
 
 log = logging.getLogger(__name__)
 
 SLOW_MS = 60_000                 # the portals are slow; nothing here gives up sooner
+
+
+# What a portal module says on the running step while it quietly works something out ("Signing in to CAMS again",
+# "KFintech's table came up empty. Asking again (1 of 3)"). The modules have no Job: the run sets this hook in
+# `flow._guarded` and clears it when it ends. With none set (a checkout's scripts), saying is a no-op.
+tell_hook: Callable[[str], Awaitable[None]] | None = None
+
+
+async def tell(line: str) -> None:
+    """Show `line` on the step that is running. Never raises."""
+    log.info("said on the step: %s", line)
+    if tell_hook is not None:
+        try:
+            await tell_hook(line)
+        except Exception:
+            log.debug("the step line could not be shown", exc_info=True)
 
 
 class Refused(Exception):

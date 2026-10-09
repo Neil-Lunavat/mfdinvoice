@@ -1,8 +1,8 @@
 <script lang="ts">
   /* One invoice, as a popup (#18): the invoice itself on the left; details, timeline and actions on the right.
      A rejection shows the registrar's words and "Send to support"; we never guess why.
-     There is no per-invoice fix and no single-invoice upload: rejections are sent again together, from Overview's
-     "Run the N rejected again", in one run and one sign-in. */
+     There is no per-invoice fix and no single-invoice upload: rejections are sent again together, by Overview's Run,
+     in one run and one sign-in. */
   import { app, type Invoice } from '../../bridge';
   import { dayMon, dayMonYear, inr, n2, regName } from '../../logic/format';
   import { gst, total } from '../../logic/month';
@@ -28,7 +28,7 @@
 
 <Modal wide label="{x.amc} invoice" onclose={() => ui.close()}>
   <div class="ip-grid">
-    <div class="ip-prev"><MiniInvoice key={x.key} amc={x.amc} number={x.number} taxable={x.taxable} gst={gst(x)} igst={x.igst > 0} total={total(x)} /></div>
+    <div class="ip-prev"><MiniInvoice key={x.key} /></div>
     <aside class="drawer in-pop">
       <div class="d-hd"><div><div class="d-s">{x.amc} · <span class="mono">{x.number}</span></div><div class="d-big">{inr(total(x))}</div></div>
         <button class="icon-btn" aria-label="Close" onclick={() => ui.close()}>{@html icons.close}</button></div>
@@ -48,9 +48,10 @@
         <div class="label">Timeline</div>
         <div class="pf">
           {#each x.timeline as t, i (i)}
-            {@const k = t === last ? tick(t.what) : ''}
+            {@const own = t === last && !!x.words}
+            {@const k = own ? 'wt' : t === last ? tick(t.what) : ''}
             <div class="row"><span class="tick {k}">{#if k === 'no'}!{:else if k === 'wt'}·{:else}{@html icons.tickSm}{/if}</span>
-              <span title={t === last && x.said ? `${reg}: ${x.said}` : undefined}>{t.what}</span>
+              <span title={t === last && x.said ? `${reg}: ${x.said}` : undefined}>{own ? x.words : t.what}</span>
               <span class="v">{t.when ? dayMon(t.when) : ''}{t.who ? ` · ${t.who}` : ''}</span></div>
           {/each}
         </div>

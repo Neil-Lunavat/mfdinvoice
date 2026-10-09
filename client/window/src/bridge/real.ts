@@ -8,7 +8,7 @@
    The app holds its pushes until `listen` is called, so nothing it says before the page has loaded is lost. */
 
 import type {
-  Answer, App, CamsFiles, Cert, CodeRefusal, Consent, DetailsPatch, InvoiceSettings, Link, MailProvider, NextNumber, Month, Place, ProfileDraft, Push,
+  Answer, App, CamsFiles, Cert, CodeRefusal, Consent, DetailsPatch, InvoiceSettings, Link, MailProvider, NextNumber, Month, Place, ProfileDraft, Push, SetupState,
   Registrar, Result, RunKind, Snapshot, SurveyAnswers, VerifyRefusal, BooksLookQuery, BooksLook, BooksSetup, ZohoConnect, TallyPick, ZohoPick
 } from './types';
 
@@ -62,6 +62,9 @@ export class RealApp implements App {
   prepareSignature(photo: { bytes: string }) { return this.call<Result<{ image: string }>>('prepareSignature', photo); }
   rotateSignature() { return this.call<{ image: string }>('rotateSignature'); }
   dropSignatureDraft() { return this.call<void>('dropSignatureDraft'); }
+  saveSetup(state: unknown) { return this.call<void>('saveSetup', state); }
+  loadSetup() { return this.call<SetupState | null>('loadSetup'); }
+  dropSetup() { return this.call<void>('dropSetup'); }
   findCertificates() { return this.call<{ certs: Cert[] }>('findCertificates'); }
   testCertificate(c: { thumbprint: string; route: Cert['route'] }) {
     return this.call<{ ok: true } | { ok: false; said: string; other: boolean }>('testCertificate', c);
@@ -74,17 +77,16 @@ export class RealApp implements App {
 
   month(period: string) { return this.call<Month>('month', period); }
   preview(key: string) { return this.call<string>('preview', key); }
-  previewInvoice(settings: InvoiceSettings & { name?: string; gstin?: string; signatureSize?: number }, number: string) { return this.call<string>('previewInvoice', settings, number); }
-  previewRegistrar(p: { kind: 'cams' | 'kfintech'; name: string; gstin: string; arn: string; signatureSize: number }) { return this.call<string>('previewRegistrar', p); }
+  previewInvoice(settings: InvoiceSettings & { name?: string; gstin?: string; signatureSize?: number; way?: string; certName?: string }, number: string) { return this.call<string>('previewInvoice', settings, number); }
+  previewRegistrar(p: { kind: 'cams' | 'kfintech'; name: string; gstin: string; arn: string; signatureSize: number; way?: string; certName?: string }) { return this.call<string>('previewRegistrar', p); }
   exportMonth(period: string) { return this.call<Result<{ name: string }>>('exportMonth', period); }
   openPdf(key: string) { return this.call<void>('openPdf', key); }
   showInFolder(key: string) { return this.call<void>('showInFolder', key); }
   openFolder(what: Registrar | 'files', period?: string) { return this.call<void>('openFolder', what, period ?? ''); }
   uninstall() { return this.call<string>('uninstall'); }
   skipCams(run: string) { return this.call<void>('skipCams', run); }
-  forwardStart(email: string) { return this.call<{ ok: boolean; said?: string }>('forwardStart', email); }
-  forwardVerify(email: string, code: string) { return this.call<{ ok: boolean; said?: string }>('forwardVerify', email, code); }
-  forwardGmailCode() { return this.call<string>('forwardGmailCode'); }
+  forwardClaim(email: string) { return this.call<{ ok: boolean; said?: string }>('forwardClaim', email); }
+  forwardState() { return this.call<{ proved: boolean; confirm: string; said?: string }>('forwardState'); }
   forwardConfirm() { return this.call<boolean>('forwardConfirm'); }
   sendIdea(s: { text: string; picture?: { name: string; data: string } }) { return this.call<{ sent: boolean }>('sendIdea', s); }
   answerSurvey(id: number, answers: SurveyAnswers | null) { return this.call<{ sent: boolean }>('answerSurvey', id, answers); }

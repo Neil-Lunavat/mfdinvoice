@@ -6,7 +6,7 @@
   import { untrack } from 'svelte';
   import { app, type InvoiceSettings, type Signature } from '../bridge';
 
-  let { settings, number, name, gstin, signature = null }: { settings: InvoiceSettings; number: string; name: string; gstin: string; signature?: Signature | null } = $props();
+  let { settings, number, name, gstin, signature = null, way = '', certName = '' }: { settings: InvoiceSettings; number: string; name: string; gstin: string; signature?: Signature | null; way?: string; certName?: string } = $props();
 
   let big = $state(false);
   let image = $state('');
@@ -15,7 +15,7 @@
 
   $effect(() => {
     void signature?.image;                                 // a new photo, or a turned one, is drawn afresh
-    const ask = { ...$state.snapshot(settings), name, gstin, signatureSize: signature?.size ?? 100 }, n = number, mine = ++seq;
+    const ask = { ...$state.snapshot(settings), name, gstin, signatureSize: signature?.size ?? 100, way: way || signature?.way || '', certName: certName || signature?.cert?.name || '' }, n = number, mine = ++seq;
     phase = untrack(() => image) ? 'shown' : 'loading';
     const t = setTimeout(async () => {
       const got = await app.previewInvoice(ask, n);

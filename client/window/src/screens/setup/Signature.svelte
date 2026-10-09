@@ -8,7 +8,7 @@
   import { dayMonYear } from '../../logic/format';
   import { store } from '../../state/store.svelte';
   import { icons } from '../../ui/icons';
-  import SampleInvoice from '../../ui/SampleInvoice.svelte';
+  import RegistrarPreview from '../../ui/RegistrarPreview.svelte';
 
   /* The USB token way is offered (Neil, 7 Oct: the proof of concept signed with a real token). Its first real use is a
      distributor's; what goes wrong comes back as an "ours" report. */
@@ -155,7 +155,8 @@
         <button role="tab" aria-selected={tab === 'CAMS'} class:on={tab === 'CAMS'} onclick={() => (tab = 'CAMS')}>CAMS invoice</button>
         <button role="tab" aria-selected={tab === 'KFINTECH'} class:on={tab === 'KFINTECH'} onclick={() => (tab = 'KFINTECH')}>KFintech invoice</button>
       </div>
-      <div class="inv"><SampleInvoice kind={tab} name={d.name} gstin={d.gstin} image="" mark={d.signature.cert.name} /></div>
+      {#if tab === 'CAMS'}<RegistrarPreview kind="cams" name={d.name} gstin={d.gstin} arn={d.arn} signature={d.signature} way="dsc" certName={d.signature.cert.name} />
+      {:else}<RegistrarPreview kind="kfintech" name={d.name} gstin={d.gstin} arn={d.arn} signature={d.signature} way="dsc" certName={d.signature.cert.name} />{/if}
     {/if}
   </div>
 {/if}

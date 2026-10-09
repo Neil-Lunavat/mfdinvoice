@@ -19,10 +19,9 @@ export const isWithRegistrar = (x: Invoice) => isApproved(x) || isWaiting(x);
 /** Still to be sent by a run. */
 export const isOpen = (x: Invoice) => !isWithRegistrar(x) && !isRejected(x);
 
-/* The month card's states. Every state with nothing fetched yet offers Run: only a run reads what the registrars have
+/* The month card's states. Run is offered in every state, always: only a run reads what the registrars have
    (Check status reads CAMS's status page, which lists an invoice only once it has been uploaded), so a month card that
-   offered only "Check now" could never be got going again. That was the 25 Sep demo: a first run crashed before it
-   fetched anything, and Overview had no Run button left.
+   hid Run could never be got going again.
 
      first_run    never run, nothing fetched
      stopped      nothing fetched, and this month's last run stopped: say what happened, run again
@@ -42,14 +41,8 @@ export interface Card {
   waiting: number;
   rejected: number;
   byRegistrar: Record<Registrar, number>;
-  canRun: boolean;        // the month card offers Run (Run can still be off for a hard day)
   lastStopped: string;    // this month's last run stopped: its heading, else ''
-  /** Rejections, when they are all that is left to send: the button says "Run the 3 rejected again". A run takes
-      every invoice the registrars do not have, so it takes these. Empty otherwise. */
-  rerun: { keys: string[]; registrars: Registrar[] };
 }
-
-const RUNNABLE: CardState[] = ['first_run', 'stopped', 'not_listed', 'not_fetched', 'to_do', 'partly'];
 
 export function card(m: Month): Card {
   const xs = m.invoices, open = xs.filter(isOpen);
@@ -72,13 +65,8 @@ export function card(m: Month): Card {
     state, count: xs.length, total: totalOf(xs), open: open.length, openTotal: totalOf(open),
     sent, approved, waiting, rejected,
     byRegistrar: { CAMS: xs.filter(x => x.registrar === 'CAMS').length, KFINTECH: xs.filter(x => x.registrar === 'KFINTECH').length },
-    canRun: RUNNABLE.includes(state),
     // "not listed yet" is over once the month's invoices are here
-    lastStopped: stopped && !(last!.code === 'not_listed' && xs.length) ? last!.said || 'The run stopped' : '',
-    rerun: rejected && !RUNNABLE.includes(state)
-      ? { keys: xs.filter(isRejected).map(x => x.key),
-          registrars: (['CAMS', 'KFINTECH'] as Registrar[]).filter(r => xs.some(x => isRejected(x) && x.registrar === r)) }
-      : { keys: [], registrars: [] }
+    lastStopped: stopped && !(last!.code === 'not_listed' && xs.length) ? last!.said || 'The run stopped' : ''
   };
 }
 

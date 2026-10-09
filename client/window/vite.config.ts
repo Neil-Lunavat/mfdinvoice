@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import BRAND from '../src/client/brand.json';
 
@@ -25,18 +25,24 @@ function brand(): Plugin {
   return { name: 'brand', transformIndexHtml: html => html.replace('%NAME%', BRAND.name) };
 }
 
-export default defineConfig({
-  base: './',
-  define: { __BRAND__: JSON.stringify(BRAND) },
-  plugins: [svelte(), fromDisk(), brand()],
-  build: {
-    outDir: 'dist',
-    target: 'chrome110',          // WebView2 is evergreen Chromium
-    modulePreload: false,
-    assetsInlineLimit: 200_000,   // fonts go inside the CSS: nothing to fetch, ever
-    cssCodeSplit: false,
-    rollupOptions: {
-      output: { format: 'iife' }
+/* The dev panel (src/dev/AppDevPanel.svelte) is in a checkout's window only: `uv run app` builds with VITE_DEVAPP=1
+   (or `--mode devapp`) into dist-dev/. The shipped build (`bun run build` into dist/) never sets it, and
+   packaging/build.py fails if the panel's marker is found in dist/. */
+export default defineConfig(({ mode }) => {
+  const devApp = mode === 'devapp' || loadEnv(mode, '.', 'VITE_').VITE_DEVAPP === '1';
+  return {
+    base: './',
+    define: { __BRAND__: JSON.stringify(BRAND), 'import.meta.env.VITE_DEVAPP': JSON.stringify(devApp ? '1' : '') },
+    plugins: [svelte(), fromDisk(), brand()],
+    build: {
+      outDir: 'dist',
+      target: 'chrome110',          // WebView2 is evergreen Chromium
+      modulePreload: false,
+      assetsInlineLimit: 200_000,   // fonts go inside the CSS: nothing to fetch, ever
+      cssCodeSplit: false,
+      rollupOptions: {
+        output: { format: 'iife' }
+      }
     }
-  }
+  };
 });

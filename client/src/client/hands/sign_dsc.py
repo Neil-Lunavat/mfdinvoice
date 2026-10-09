@@ -21,7 +21,7 @@ from pyhanko.pdf_utils import layout, text
 from pyhanko.pdf_utils.font.basic import SimpleFontEngineFactory
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.sign import fields, signers
-from pyhanko.stamp import TextStampStyle
+from pyhanko.stamp import TextStamp, TextStampStyle
 from pyhanko_certvalidator.registry import SimpleCertificateStore
 
 FIELD = "Signature1"
@@ -71,12 +71,32 @@ class Token(signers.Signer):
         return raw if rsa else algos.DSASignature.from_p1363(raw).dump()
 
 
+def box_of(place: dict) -> tuple[float, float, float, float]:
+    """The mark's box on its page (left, bottom, right, top), from the place the steps worked out."""
+    x, y = float(place["x"]), float(place["y"])
+    return (round(x, 2), round(y, 2), round(x + float(place["w"]), 2), round(y + float(place["h"]), 2))
+
+
+def mark_only(src: Path, out: Path, places: list[dict], name: str) -> None:
+    """A preview of `sign`: the same mark, in the same box, drawn with the same style and lines - and no signature.
+    It never reaches the token and never asks for a PIN."""
+    p = places[0]
+    x0, y0, x1, y1 = box_of(p)
+    writer = IncrementalPdfFileWriter(io.BytesIO(src.read_bytes()), strict=False)
+    stamp = TextStamp(writer, MARK, text_params={"name": name},
+                      box=layout.BoxConstraints(width=x1 - x0, height=y1 - y0))
+    stamp.apply(int(p["page"]) - 1, x0, y0)
+    buf = io.BytesIO()
+    writer.write(buf)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(buf.getvalue())
+
+
 def sign(src: Path, out: Path, places: list[dict], token: Token, name: str) -> None:
     """Sign one PDF: a real signature over the whole document, its mark in the first box. A document signature has
     one mark, so one box is used."""
     p = places[0]
-    x, y = float(p["x"]), float(p["y"])
-    box = (round(x, 2), round(y, 2), round(x + float(p["w"]), 2), round(y + float(p["h"]), 2))
+    box = box_of(p)
     writer = IncrementalPdfFileWriter(io.BytesIO(src.read_bytes()), strict=False)
     meta = signers.PdfSignatureMetadata(field_name=FIELD, md_algorithm="sha256", name=name,
                                         subfilter=fields.SigSeedSubFilter.PADES)
