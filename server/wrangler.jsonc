@@ -26,8 +26,13 @@
   "routes": [{ "pattern": "software.mfdinvoice.co.in", "custom_domain": true }],
   // Daily at 03:00 IST (21:30 UTC): reports older than 90 days are deleted, with their records (src/index.ts forget)
   "triggers": { "crons": ["30 21 * * *"] },
-  // the code that proves a CAMS email is the person's, for forwarding (src/forward.ts), from no-reply@mfdinvoice.co.in
+  // emails the owner (ALERT_TO) when a run breaks, from no-reply@mfdinvoice.co.in (src/index.ts alert)
   "send_email": [{ "name": "EMAIL" }],
+  // Cloudflare's rate limiter: POST /report and a record's upload, 10 a minute per sender (src/index.ts); the hourly and
+  // daily caps are counted in D1
+  "ratelimits": [{ "name": "REPORTS", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
+  // who is emailed when a run breaks
+  "vars": { "ALERT_TO": "neillunavat3192@gmail.com" },
   // Secret (set by `bun run first`): ADMIN_KEY, for /admin/*
   "observability": { "enabled": true }
 }

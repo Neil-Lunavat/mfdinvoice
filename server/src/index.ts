@@ -13,7 +13,13 @@
      /forward/*, and mail to the forwarding address               CAMS's mailbacks forwarded to us (forward.ts)
 
    Nobody signs in here. A report says which account and ARN it is from in its own words; that is information for
-   whoever reads it, not a check. What keeps the endpoint from being filled is its size limits and a count per sender.
+   whoever reads it, not a check. What keeps the endpoint from being filled is its size limits and three caps: 10 a
+   minute per sender (Cloudflare's rate limiter, REPORTS), 60 an hour per sender (counted in D1), and a total for the
+   day (DAY_REPORTS reports, DAY_BYTES of logs and records; the `days` table). The same D1 holds the forwarding boxes,
+   so it must not be flooded: a report's log lives in R2 (logs/<id>.txt), not in D1.
+
+   When a run breaks (kind ours or problem, or a run that ended in a stop that is not an ordinary one) the owner is
+   emailed (ALERT_TO), at most MAIL_DAY a day. That never fails the report.
 
    Every day (the cron in wrangler.jsonc) a report older than KEEP_DAYS is deleted, with its record: the website's
    Privacy page promises it (KEEP in website/site/src/consts.ts says the same number). */
@@ -24,10 +30,17 @@ export interface Env {
   DB: D1Database;
   FILES: R2Bucket;
   ADMIN_KEY: string;
+  ALERT_TO: string;
+  REPORTS: { limit(o: { key: string }): Promise<{ success: boolean }> };
   EMAIL: { send(m: { to: string; from: { name: string; email: string }; subject: string; text: string }): Promise<unknown> };
 }
 
 const LOG_MAX = 80_000, RECORD_MAX = 20 * 1024 * 1024, PER_HOUR = 60, KEEP_DAYS = 90;
+const DAY_REPORTS = 5000, DAY_BYTES = 3 * 1024 ** 3, MAIL_DAY = 30;
+/* how a run ended when nothing broke: no email for these */
+const CALM = ['well', 'stopped', 'nothing_to_do', 'not_listed', 'ended', 'not_submitting'];
+/* India's day, as stats() has it */
+const today = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
@@ -51,18 +64,24 @@ async function schema(env: Env) {
     version TEXT, steps TEXT, pc TEXT, log TEXT, record INTEGER NOT NULL DEFAULT 0, sender TEXT, created_at TEXT NOT NULL)`).run();
   const has = new Set((await env.DB.prepare('PRAGMA table_info(reports)').all<{ name: string }>()).results.map(c => c.name));
   for (const col of ADDED) if (!has.has(col.split(' ')[0])) await env.DB.prepare(`ALTER TABLE reports ADD COLUMN ${col}`).run();
+  /* what came in today, for the caps (day is India's): reports, bytes (logs and records), alert emails sent */
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS days (day TEXT PRIMARY KEY, reports INTEGER NOT NULL DEFAULT 0,
+    bytes INTEGER NOT NULL DEFAULT 0, mailed INTEGER NOT NULL DEFAULT 0)`).run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS reports_created ON reports (created_at)').run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS reports_run ON reports (run)').run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS reports_email ON reports (email)').run();
   ready = true;
 }
 
-async function report(req: Request, env: Env): Promise<Response> {
+async function report(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (Number(req.headers.get('content-length') || 0) > 256 * 1024) return json({ ok: false, error: 'too_big' }, 413);
   let b: Record<string, unknown>;
   try { b = await req.json(); } catch { return json({ ok: false, error: 'bad_json' }, 400); }
   await schema(env);
   const sender = req.headers.get('cf-connecting-ip') || '';
+  if (!(await env.REPORTS.limit({ key: sender })).success) return json({ ok: false, error: 'too_many' }, 429);
+  const day = await env.DB.prepare('SELECT reports FROM days WHERE day = ?').bind(today()).first<{ reports: number }>();
+  if ((day?.reports ?? 0) >= DAY_REPORTS) return json({ ok: false, error: 'full_today' }, 429);
   const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM reports WHERE sender = ? AND created_at > ?')
     .bind(sender, new Date(Date.now() - 3600_000).toISOString()).first<{ n: number }>();
   if ((recent?.n ?? 0) >= PER_HOUR) return json({ ok: false, error: 'too_many' }, 429);
@@ -73,20 +92,51 @@ async function report(req: Request, env: Env): Promise<Response> {
         run, ended, seconds)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`)
     .bind(key, kind, str(b.email, 200), str(b.arn, 40), str(b.message, 4000), str(b.where, 200), str(b.version, 40),
-      str(b.steps, 40), str(b.pc, 400), typeof b.log === 'string' ? b.log.slice(-LOG_MAX) : '', sender, now(),
+      str(b.steps, 40), str(b.pc, 400), '', sender, now(),
       str(b.run, 80) || null, str(b.ended, 40) || null, seconds).first<{ id: number }>();
+  const log = typeof b.log === 'string' ? b.log.slice(-LOG_MAX) : '';
+  if (log) await env.FILES.put(`logs/${row!.id}.txt`, log, { httpMetadata: { contentType: 'text/plain; charset=utf-8' } });
+  await env.DB.prepare(`INSERT INTO days (day, reports, bytes) VALUES (?, 1, ?)
+    ON CONFLICT(day) DO UPDATE SET reports = reports + 1, bytes = bytes + excluded.bytes`).bind(today(), log.length).run();
+  const ended = str(b.ended, 40);
+  if (kind === 'ours' || kind === 'problem' || (kind === 'run' && ended && !CALM.includes(ended)))
+    ctx.waitUntil(alert(env, { id: row!.id, kind, ended, email: str(b.email, 200), arn: str(b.arn, 40), version: str(b.version, 40),
+      steps: str(b.steps, 40), pc: str(b.pc, 400), place: str(b.where, 200), seconds, message: str(b.message, 4000), log }));
   return json({ ok: true, id: row!.id, key });
 }
 
+/* Tells the owner a run broke. Plain text only (the report's words are anyone's); it never fails the report. */
+async function alert(env: Env, r: { id: number; kind: string; ended: string; email: string; arn: string; version: string;
+    steps: string; pc: string; place: string; seconds: number | null; message: string; log: string }) {
+  try {
+    const sent = await env.DB.prepare(`INSERT INTO days (day, mailed) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET mailed = mailed + 1
+      WHERE mailed < ? RETURNING mailed`).bind(today(), MAIL_DAY).first();
+    if (!sent) return;
+    const line = (s: string) => s.replace(/[\r\n]+/g, ' ');
+    await env.EMAIL.send({
+      to: env.ALERT_TO, from: { name: 'MFDInvoice', email: 'no-reply@mfdinvoice.co.in' },
+      subject: line(`Run broke: ${r.ended || r.kind} · ${r.email || 'no email'} · ${r.arn}`),
+      text: [`report ${r.id}`, `kind ${r.kind}`, `ended ${r.ended}`, `email ${r.email}`, `arn ${r.arn}`, `version ${r.version}`,
+        `steps ${r.steps}`, `pc ${r.pc}`, `place ${r.place}`, `seconds ${r.seconds ?? ''}`, `message ${r.message}`, '',
+        r.log.split('\n').slice(-80).join('\n'), '', `Pull it: uv run --project client python ops/reports.py ${r.id}`].join('\n'),
+    });
+  } catch (e) { console.error('alert email failed', r.id, e); }
+}
+
 async function record(req: Request, env: Env, id: number, key: string): Promise<Response> {
+  if (!(await env.REPORTS.limit({ key: req.headers.get('cf-connecting-ip') || '' })).success) return json({ ok: false, error: 'too_many' }, 429);
   await schema(env);
   const row = await env.DB.prepare('SELECT key, record FROM reports WHERE id = ?').bind(id).first<{ key: string; record: number }>();
   if (!row || row.key !== key) return json({ ok: false, error: 'not_found' }, 404);
   if (Number(req.headers.get('content-length') || 0) > RECORD_MAX) return json({ ok: false, error: 'too_big' }, 413);
   const body = await req.arrayBuffer();
   if (!body.byteLength || body.byteLength > RECORD_MAX) return json({ ok: false, error: 'too_big' }, 413);
+  const day = await env.DB.prepare('SELECT bytes FROM days WHERE day = ?').bind(today()).first<{ bytes: number }>();
+  if ((day?.bytes ?? 0) + body.byteLength > DAY_BYTES) return json({ ok: false, error: 'full_today' }, 429);
   await env.FILES.put(`records/${id}.zip`, body, { httpMetadata: { contentType: 'application/zip' } });
   await env.DB.prepare('UPDATE reports SET record = ? WHERE id = ?').bind(body.byteLength, id).run();
+  await env.DB.prepare(`INSERT INTO days (day, bytes) VALUES (?, ?)
+    ON CONFLICT(day) DO UPDATE SET bytes = bytes + excluded.bytes`).bind(today(), body.byteLength).run();
   return json({ ok: true });
 }
 
@@ -188,8 +238,10 @@ async function admin(req: Request, env: Env, path: string, url: URL): Promise<Re
     return file ? new Response(file.body, { headers: { 'content-type': 'application/zip', 'cache-control': 'no-store' } }) : json({ ok: false, error: 'not_found' }, 404);
   }
   if (one) {
-    const row = await env.DB.prepare(`SELECT ${LIST}, log FROM reports WHERE id = ?`).bind(Number(one[1])).first<{ id: number; run: string | null }>();
+    const row = await env.DB.prepare(`SELECT ${LIST}, log FROM reports WHERE id = ?`).bind(Number(one[1])).first<{ id: number; run: string | null; log: string | null }>();
     if (!row) return json({ ok: false, error: 'not_found' }, 404);
+    /* the log is in R2; rows from before that still hold it here */
+    if (!row.log) row.log = (await (await env.FILES.get(`logs/${row.id}.txt`))?.text()) ?? '';
     /* the same run's other reports: the run's own (kind run or ours), and what a person sent about it */
     const same = row.run ? (await env.DB.prepare(`SELECT ${LIST} FROM reports WHERE run = ? AND id != ? ORDER BY id`)
       .bind(row.run, row.id).all()).results : [];
@@ -207,7 +259,7 @@ async function admin(req: Request, env: Env, path: string, url: URL): Promise<Re
   return json({ ok: false, error: 'not_found' }, 404);
 }
 
-/* Deletes what is past KEEP_DAYS: the zips first, then their rows, so a row never points at nothing it would need.
+/* Deletes what is past KEEP_DAYS: the zips and logs first, then their rows, so a row never points at nothing it would need.
    A thousand at a time (R2's limit for one delete); a day with more carries on the next day. */
 export async function forget(env: Env) {
   await schema(env);
@@ -218,16 +270,17 @@ export async function forget(env: Env) {
   if (!ids.length) return 0;
   const zips = old.results.filter(r => r.record > 0).map(r => `records/${r.id}.zip`);
   if (zips.length) await env.FILES.delete(zips);
+  await env.FILES.delete(ids.map(id => `logs/${id}.txt`));
   await env.DB.prepare(`DELETE FROM reports WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).run();
   console.log(`forgot ${ids.length} reports from before ${before}, ${zips.length} with a record`);
   return ids.length;
 }
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url), path = url.pathname.replace(/\/+$/, '') || '/';
     try {
-      if (req.method === 'POST' && path === '/report') return await report(req, env);
+      if (req.method === 'POST' && path === '/report') return await report(req, env, ctx);
       const rec = path.match(/^\/report\/(\d+)\/record$/);
       if (req.method === 'PUT' && rec) return await record(req, env, Number(rec[1]), url.searchParams.get('key') || '');
       if ((req.method === 'GET' || req.method === 'POST') && path.startsWith('/admin/')) return await admin(req, env, path, url);

@@ -14,7 +14,7 @@
    A box already proved for one PC keeps working for it until another PC's claim is proved. Nothing is kept readable
    here: a mailback is locked (AES-GCM, its key wrapped with the PC's RSA key) the moment it arrives, and deleted 5
    minutes after the PC takes it (so a retry can take it again), or after 3 days untaken. Mail from anyone but CAMS
-   (and Gmail's confirmation) is refused. */
+   (and Gmail's confirmation) is dropped and logged, never bounced. */
 import type { Env } from './index';
 
 const BUSY_MINUTES = 30, CLAIMS_PER_HOUR = 10, KEEP_TAKEN_MIN = 5, KEEP_DAYS = 3, MAIL_MAX = 20 * 1024 * 1024;
@@ -182,7 +182,7 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
     if (!need || !gmail) {
       const hosts = [...body.matchAll(/https:\/\/[^\s"'<>()/]+\/[^\s"'<>()]{0,20}/g)].map(m => m[0]);
       console.log(`forwarding confirmation not understood: subject ${JSON.stringify(subj)}, code ${code ? 'found' : 'missing'}, link ${links[0] ? 'found' : 'missing'}, gmail ${gmail ? 'found' : 'missing'}, urls ${JSON.stringify([...new Set(hosts)].slice(0, 12))}`);
-      return message.setReject('Not a forwarding confirmation this address understands.');
+      return;      // dropped quietly, never bounced: a bounce lands in the person's own Gmail
     }
     await env.DB.prepare("INSERT INTO mails (who, kind, subject, code, size, received_at) VALUES (?, 'confirm', ?, ?, 0, ?)")
       .bind(await who(gmail), subj.slice(0, 300), need, now()).run();
@@ -190,8 +190,9 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
     return;
   }
 
-  /* every refusal is logged with what it saw (`wrangler tail software`): the sender only gets a bounce */
-  const refuse = (why: string, saw: string) => { console.log(`refused: ${why} ${saw}`); message.setReject(why); };
+  /* nothing is ever bounced (a bounce would reach the person's own Gmail): a refused mail is accepted and dropped,
+     logged with what it saw (`wrangler tail software` shows why) */
+  const refuse = (why: string, saw: string) => { console.log(`refused: ${why} ${saw}`); };
 
   /* a CAMS mailback: from CAMS, signed by CAMS (Cloudflare refuses mail that fails CAMS's own DMARC) */
   if (!/@camsonline\.com\b/.test(from)) return refuse('This address takes only CAMS mailbacks for MFDInvoice.', `from ${JSON.stringify(from)}`);
@@ -199,7 +200,7 @@ export async function receive(message: ForwardableEmailMessage, env: Env): Promi
   if (auth.trim() && !/dkim=pass[^;]*camsonline\.com/i.test(auth)) return refuse('Not signed by CAMS.', `auth ${JSON.stringify(auth.slice(0, 1500))}`);
   if (message.rawSize > MAIL_MAX) return refuse('Too large.', `size ${message.rawSize}`);
   /* whose it is: any mailbox it was for or came through. CAMS writes to the ARN's registered email, which often
-     forwards on before the mailbox whose filter sends it here (pritamutha@ → neillunavat3192@ → us, 8 Oct): To and
+     forwards on before the mailbox whose filter sends it here (the person's Gmail → another Gmail → us, 8 Oct): To and
      Cc, the Delivered-To / X-Forwarded-For / X-Original-To each mailbox adds, and Gmail's forwarding sender
      (x+caf_=…@gmail.com is x@gmail.com). The box is the Gmail the person named: the one that forwards here. */
   const sender = message.from.toLowerCase().replace(/\+caf_=[^@]*@/, '@');
