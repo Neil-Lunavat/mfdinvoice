@@ -1,9 +1,9 @@
 """Spreadsheets, archives and a PDF's text, read and written on this PC.
 
 CAMS's upload page says, in its own words, "Use Prefilled Template … Do not alter any core system values", and the
-emailed .xls is that template. So the sheet is never rebuilt from values: `sheet_fill` copies the file and writes only
-the cells it is told to, and everything it does not touch keeps the type it already had. That is what stops a payment
-month of `092026` quietly becoming the number `92026`.
+emailed .xls is that template. `sheet_fill` reads that template and writes a new workbook from its cells, changing only the
+cells it is told to, and every text cell is written as text (format "@"). That is what stops a payment month of
+`092026` quietly becoming the number `92026`.
 """
 
 from __future__ import annotations
@@ -91,9 +91,9 @@ def make_zip(out: Path, members: list[Path]) -> Path:
 
 
 def sheet_fill(src: Path, out: Path, edits: list[dict], keep: set[int] | None = None) -> Path:
-    """Copy a registrar's own template and write only the cells named in `edits` ({row, column, value}; row 0 is the
-    first under the headings). Cells nobody edits are never touched, so they keep their original type. With `keep`
-    (row numbers, counted as in `edits`), every other row is left out of the copy."""
+    """Read a registrar's own template and write a new workbook from its cells, changing only those named in `edits`
+    ({row, column, value}; row 0 is the first under the headings). Numbers stay numbers; text, including every edited
+    value, is written as text. With `keep` (row numbers, counted as in `edits`), every other row is left out."""
     out.parent.mkdir(parents=True, exist_ok=True)
     if src.suffix.lower() == ".xls":
         book = xlrd.open_workbook(src)

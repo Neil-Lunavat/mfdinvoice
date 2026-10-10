@@ -34,7 +34,6 @@ Rules that hold throughout:
 from __future__ import annotations
 
 import asyncio
-import inspect
 import logging
 import re
 import shutil
@@ -61,6 +60,8 @@ MAIL_GIVE_UP_S = 10 * 60
 DATE_IF_RENUMBERED = True
 MIN_SHOWN_S = 0.5                # "Fetching your last invoice number" stays on screen at least this long
 RETRY_IN_S = 7                   # a portal that didn't respond is tried once more after this many seconds, counted down
+# what ends a step on a portal: its own no, a page that isn't what was expected, a wait that ran out
+PORTAL_TROUBLE = (Stop, Refused, Changed, PWError, AssertionError)
 IDLE_S = 20 * 60                 # KFintech left alone longer than this is signed in to afresh (tested safe, 4 Oct 2026)
 
 
@@ -71,7 +72,7 @@ class Job:
         self.own = host.profile["invoices"]["source"] == "own"
         # own invoices with books connected: the books give the invoice numbers, and are written to before Sign
         self.kind = books.connected(host.base) if self.own else ""
-        self.books = (books.open(self.kind, host.base, period, host.profile, token=getattr(host, "books_token", None))
+        self.books = (books.open(self.kind, host.base, period, host.profile, token=host.books_token)
                       if self.kind else None)
         self.bname = books.name(self.kind)
         self.month = Month(host.base, period)
@@ -107,6 +108,7 @@ class Job:
         self.notes: list[str] = []             # what went wrong while the run carried on: shown at the end
         self.used: list[str] = []
         self.steps: list[dict] = []
+        self.step_reg: dict[str, str] = {}       # the registrar each step is working on now ("" when on neither)
         self.portals_at = time.monotonic()       # when this run last did anything on a portal's page
 
     # --- what the window shows ----------------------------------------------------------------------------------------
@@ -116,7 +118,9 @@ class Job:
                       for i, n in enumerate(names)]
         await self.host.steps(self.steps)
 
-    async def at(self, name: str, line: str) -> None:
+    async def at(self, name: str, line: str, reg: str = "") -> None:
+        """`reg` is the registrar this step is working on, when it is working on one: `_whose` answers with it."""
+        self.step_reg[name] = reg
         for s in self.steps:
             if s["name"] == name:
                 s.update(state="running", line=line)
@@ -146,7 +150,7 @@ class Job:
         """What a portal module (`page.tell`) says while it works something out: shown on the step that is running."""
         name = next((s["name"] for s in self.steps if s["state"] == "running"), "")
         if name:
-            await self.at(name, line)
+            await self.at(name, line, self.step_reg.get(name, ""))
 
     async def patient(self, reg: str, do: Callable[[], Awaitable]):
         """Run one portal read or prepare step (`do()` makes a fresh coroutine). A portal that doesn't respond (the page
@@ -164,10 +168,10 @@ class Job:
         who = NAMES[reg]
         for left in range(RETRY_IN_S, 0, -1):
             if name:
-                await self.at(name, f"{who} didn't respond. Retrying in {left}s")
+                await self.at(name, f"{who} didn't respond. Retrying in {left}s", reg)
             await asyncio.sleep(1)
         if name:
-            await self.at(name, f"Trying {who} again")
+            await self.at(name, f"Trying {who} again", reg)
         try:
             if reg == CAMS:
                 await cams.recover(self.pages[CAMS])
@@ -177,7 +181,7 @@ class Job:
             raise Stop("portal_slow", f"{who} didn't respond", "Run again in a few minutes.",
                        said=await _portal_words(self.pages[reg], reg), registrar=reg) from e
         if name:
-            await self.at(name, line)
+            await self.at(name, line, reg)
         return got
 
     def active(self) -> list[str]:
@@ -193,12 +197,12 @@ class Job:
                 continue
             try:
                 await self._enter_one(reg, step)
-            except (Stop, Refused, Changed, PWError, AssertionError) as e:
+            except PORTAL_TROUBLE as e:
                 await self.stopped(reg, e)
 
     async def _enter_one(self, reg: str, step: str) -> None:
         host = self.host
-        await self.at(step, f"Signing in to {NAMES[reg]}")
+        await self.at(step, f"Signing in to {NAMES[reg]}", reg)
         if reg == KFIN:
             user, password = host.secret("kfintech_username"), host.secret("kfintech_password")
             if not user or not password:
@@ -261,14 +265,14 @@ class Job:
         for reg in self.active():
             try:
                 await self._status_one(reg, listing_only)
-            except (Stop, Refused, Changed, PWError, AssertionError) as e:
+            except PORTAL_TROUBLE as e:
                 await self.stopped(reg, e)                   # this registrar is left out; the other goes on
         m.save()
         await self.host.changed()
 
     async def _status_one(self, reg: str, listing_only: bool) -> None:
         m, page = self.month, self.pages[reg]
-        await self.at("Check", f"Reading what {NAMES[reg]} {'lists' if listing_only else 'already has'}")
+        await self.at("Check", f"Reading what {NAMES[reg]} {'lists' if listing_only else 'already has'}", reg)
         if reg == KFIN:
             # invoices KFintech listed for this month before: an empty table now is its site's trouble
             known = bool((m.facts.get("status") or {}).get(KFIN)) or bool((m.facts.get("fetched") or {}).get(KFIN))
@@ -336,7 +340,7 @@ class Job:
         if KFIN in self.active():
             have, folder = fetched.get(KFIN), m.folder(KFIN, "fetched")
             if not (_kfin_files_good(have, self.listed[KFIN]) and _newest(folder, ".zip")):
-                await self.at("Get", "Downloading KFintech's invoices")
+                await self.at("Get", "Downloading KFintech's invoices", KFIN)
                 fetched.pop(KFIN, None)
                 try:
                     got = await self.patient(KFIN, lambda: kfin.fetch(self.pages[KFIN], self.period,
@@ -346,7 +350,7 @@ class Job:
                     else:
                         fetched[KFIN] = {"at": now(), "listed": self.listed[KFIN]}
                         self.host.activity(f"Downloaded KFintech's invoices for {self.kf_label}", KFIN)
-                except (Stop, Refused, Changed, PWError, AssertionError) as e:
+                except PORTAL_TROUBLE as e:
                     await self.stopped(KFIN, e)              # KFintech is left out; CAMS goes on
                 self.portals_at = time.monotonic()
                 m.save()
@@ -358,7 +362,7 @@ class Job:
                     if await self._cams_get():
                         fetched[CAMS] = {"at": now(), "listed": self.listed[CAMS]}
                         m.facts.pop("asked", None)
-                except (Stop, Refused, Changed, PWError, AssertionError) as e:
+                except PORTAL_TROUBLE as e:
                     await self.stopped(CAMS, e)              # CAMS is left out; KFintech goes on
                 m.save()
 
@@ -382,7 +386,7 @@ class Job:
         # whichever request it answered: CAMS isn't asked again. The mailbox is looked in first when it is read by itself
         looking = not (by_hand or waiting)
         if looking:
-            await self.at("Get", "Looking for CAMS's emails already in your mailbox")
+            await self.at("Get", "Looking for CAMS's emails already in your mailbox", CAMS)
         shown = time.monotonic()
         found = await self._month_mail(fetch=looking)
         if looking:
@@ -390,7 +394,7 @@ class Job:
         if found:
             return self._take_cams(found, "Found CAMS's email for {} in your mailbox")
         if not waiting:
-            await self.at("Get", f"Asking CAMS to email {self.label}'s invoices")
+            await self.at("Get", f"Asking CAMS to email {self.label}'s invoices", CAMS)
             async def ask() -> str:                      # (after a reload the listing is read again first)
                 if not await cams.ready_to_ask(page):
                     await cams.list_month(page, self.period)
@@ -414,24 +418,16 @@ class Job:
                 self.aside[CAMS] = "CAMS's email is asked for"
                 return False
         else:
-            await self.at("Get", "Waiting for CAMS's email")
+            await self.at("Get", "Waiting for CAMS's email", CAMS)
             # Skip CAMS (KFintech goes on) or, CAMS alone, Don't wait (Neil, 8 Oct): the email is read in when it comes.
-            # A software too old for Don't wait offers Skip CAMS only with KFintech; older still, neither.
-            skip = getattr(host, "skip_wanted", None)
-            alone = KFIN not in self.active()
-            if skip and "alone" in inspect.signature(host.waiting_email).parameters:
-                await host.waiting_email(asked["at"], asked["ref"], skip=True, alone=alone)
-            elif skip and not alone:
-                await host.waiting_email(asked["at"], asked["ref"], skip=True)
-            else:
-                skip = None
-                await host.waiting_email(asked["at"], asked["ref"])
+            skip = host.skip_wanted
+            await host.waiting_email(asked["at"], asked["ref"], skip=True, alone=KFIN not in self.active())
             deadline = time.monotonic() + MAIL_GIVE_UP_S
             while True:
                 pair = await self._ours(await host.mail_look(asked["ref"])) or await self._month_mail(fetch=False)
                 if pair:
                     break
-                if skip and skip():
+                if skip():
                     # CAMS's request stands (`asked` is kept): its email is read when it comes, and asked for no more
                     self.skipped.add(CAMS)
                     self.aside[CAMS] = "CAMS's email hadn't come; it's read when it does"
@@ -456,7 +452,7 @@ class Job:
         """CAMS's two files, chosen by the person; None when they skipped CAMS instead. Files that can't be this run's
         (another month or ARN, a zip not of its Excel) are refused there and then,
         with the reason, and the person chooses again or skips CAMS (Neil, 8 Oct)."""
-        await self.at("Get", "Choose CAMS's invoice files")
+        await self.at("Get", "Choose CAMS's invoice files", CAMS)
         said = self.behind
         while True:
             got = await self._files(said)
@@ -472,11 +468,7 @@ class Job:
 
     async def _files(self, said: str) -> dict:
         skip = KFIN in self.active()
-        if "message" in inspect.signature(self.host.files).parameters:
-            return await self.host.files(self.label, skip=skip, message=said)
-        if said and said != self.behind:                # a software too old to say why: the run stops on it instead
-            raise Stop("wrong_files", "These files can't be used", said, registrar=CAMS)
-        return await self.host.files(self.label, skip=skip)
+        return await self.host.files(self.label, skip=skip, message=said)
 
     def _unusable(self, pair: list[Path]) -> str:
         """Why this zip and Excel can't be this run's, in a sentence; empty when they can."""
@@ -514,12 +506,8 @@ class Job:
 
     async def _month_mail(self, fetch: bool) -> list[Path] | None:
         """The newest of CAMS's emails on this PC (the mailbox's, or added on Downloads) that is this ARN's month and
-        holds every invoice CAMS lists now, whichever request it answered (Neil, 7 Oct). None when there is none, or the
-        software is too old to say."""
-        look = getattr(self.host, "mail_pairs", None)
-        if look is None:
-            return None
-        for zip_file, xls in await look(fetch):
+        holds every invoice CAMS lists now, whichever request it answered (Neil, 7 Oct). None when there is none."""
+        for zip_file, xls in await self.host.mail_pairs(fetch):
             try:
                 rows = await asyncio.to_thread(cams.read_report, xls, self.period)
             except (Stop, Changed, OSError, ValueError):
@@ -541,25 +529,23 @@ class Job:
         m = self.month
         self.locked = self.issued().locked if self.own and not self.books else {}
         if CAMS in self.active():
-            await self.at("Read", "Reading CAMS's invoices")
+            await self.at("Read", "Reading CAMS's invoices", CAMS)
             try:
                 await asyncio.to_thread(self._read_cams)
                 if self.late:
                     self.note(self.late)
                 # the files are this ARN's month, as emailed by CAMS: an ARN set up without KFintech is bound now
-                confirm = getattr(self.host, "confirm_arn", None)
-                if confirm:
-                    ok, said = await confirm()
-                    if not ok:
-                        raise Stop("arn_unbound", "This ARN couldn't be added to your account", "Nothing was submitted. "
-                                   "CAMS's files for this month are on this PC, so the next run starts from them.",
-                                   said=said, registrar=CAMS)
+                ok, said = await self.host.confirm_arn()
+                if not ok:
+                    raise Stop("arn_unbound", "This ARN couldn't be added to your account", "Nothing was submitted. "
+                               "CAMS's files for this month are on this PC, so the next run starts from them.",
+                               said=said, registrar=CAMS)
             except Stop as e:
                 if not e.registrar:
                     raise
                 await self.stopped(CAMS, e)                  # CAMS is left out; KFintech goes on
         if KFIN in self.active():
-            await self.at("Read", "Reading KFintech's invoices")
+            await self.at("Read", "Reading KFintech's invoices", KFIN)
             await asyncio.to_thread(self._read_kfin)
             # KFintech lists it and its download holds no file for it (seen 7 Oct): said, and the rest go on
             self.no_file = [k for k in self.listed.get(KFIN, []) if k not in self.items]
@@ -1010,7 +996,7 @@ class Job:
             m.save()
 
         if reg == CAMS:
-            await self.at(name, "Preparing CAMS's upload")
+            await self.at(name, "Preparing CAMS's upload", CAMS)
             folder = m.folder(CAMS, "upload", empty=True)
             out_zip, out_sheet = folder / f"CAMS_{self.period}.zip", folder / f"CAMS_{self.period}.xlsx"
             await asyncio.to_thread(cams.pack, sending, self.report, self.report_file, self.signed, numbers,
@@ -1020,7 +1006,7 @@ class Job:
                 return await cams.attach(page, out_zip, out_sheet)
             review = await self.patient(CAMS, open_and_attach)
             await host.picture(page, "cams-review")
-            await self.at(name, "Checking CAMS read the upload right")
+            await self.at(name, "Checking CAMS read the upload right", CAMS)
             rows = [r for r in self.report if r[cams.CAMS_INVOICE] in set(sending)]
             unfilled = [r for r in self.report if r[cams.CAMS_INVOICE] not in set(sending)]
             diffs = cams.compare(rows, review, unfilled, numbers)
@@ -1030,7 +1016,7 @@ class Job:
                 m.save()
                 raise Stop("mismatch", "CAMS read the upload differently", "Nothing was submitted. The next run gets "
                            "CAMS's invoices again.", said="\n".join(self._diff(d) for d in diffs[:6]), registrar=CAMS)
-            await self.at(name, "CAMS is checking every invoice")
+            await self.at(name, "CAMS is checking every invoice", CAMS)
             verdict = await cams.press_continue(page, sending)
             await host.picture(page, "cams-validation")
             bad = verdict["refused"] + [{"key": k, "remarks": "not in CAMS's list"} for k in verdict["absent"]]
@@ -1043,11 +1029,11 @@ class Job:
                                           for b in bad[:8]), registrar=CAMS)
             button = await cams.find_submit(page)
         else:
-            await self.at(name, "Filling in KFintech's page")
+            await self.at(name, "Filling in KFintech's page", KFIN)
             ones = [{**self.items[k]["one"], "date": self.items[k]["dated"]} if self.items[k].get("dated")
                     else self.items[k]["one"] for k in sending]
             filled = await self.patient(KFIN, lambda: kfin.fill_grid(page, self.period, ones, self.signed, numbers))
-            await self.at(name, "Checking KFintech's page")
+            await self.at(name, "Checking KFintech's page", KFIN)
             await kfin.verify_grid(page, filled)
             await host.picture(page, "kfintech-ready")
             button = await kfin.find_submit(page)
@@ -1061,7 +1047,7 @@ class Job:
 
         # Written down before it is pressed, so a press nobody answered is still known about. The person's own
         # numbers are these invoices' for good from here.
-        await self.at(name, f"Submitting to {name}")
+        await self.at(name, f"Submitting to {name}", reg)
         m.facts.setdefault("pressed", {})[reg] = {"at": now(), "keys": sending}
         if numbers:
             if issued:                                   # without books: given for good now
@@ -1077,7 +1063,7 @@ class Job:
             if reg == CAMS:
                 answered, said = await cams.click_submit(page, button, sending)
             else:
-                answered, said, _all = await kfin.click_submit(page, button)
+                answered, said = await kfin.click_submit(page, button)
         finally:
             host.hold_stop(False)
         await host.picture(page, f"{reg.lower()}-after-submit")
@@ -1087,7 +1073,7 @@ class Job:
                        f"{name}'s status first and sends only what {name} doesn't have.", said=said, registrar=reg)
 
         # The registrar's own status page says what it has now.
-        await self.at(name, f"Reading what {name} has now")
+        await self.at(name, f"Reading what {name} has now", reg)
         if reg == CAMS:
             reading = await cams.read_status(page, self.period)
         else:
@@ -1189,9 +1175,6 @@ async def run(host, period: str, registrars: list[str]) -> dict:
 
 async def _run(job: Job) -> dict:
     host = job.host
-    if job.books and not (hasattr(host, "books_waiting") and (job.kind != "zoho" or hasattr(host, "books_token"))):
-        raise Stop("setup", f"This version of {NAME} can't put invoices into {job.bname}",
-                   "Update it, then run again. Nothing was submitted.")
     await job.enter()
     await job.status()
     job.anything_to_do()
@@ -1245,7 +1228,7 @@ async def _run(job: Job) -> dict:
             continue
         try:
             await job.send(reg, ticked)
-        except (Stop, Refused, Changed, PWError, AssertionError) as e:
+        except PORTAL_TROUBLE as e:
             job.problems[reg] = await _why(job, e, reg)
             await _keep(job, reg, e)
             await job.failed()
@@ -1320,12 +1303,9 @@ async def mailbacks(host) -> dict:
     CAMS's own site). A month with no CAMS files on this PC takes it; a month that has some takes it only when it holds
     more invoices than they do; the same or fewer, it is ignored. The mailbox is looked in once.
     {got: [{period, count}]}."""
-    look = getattr(host, "mail_pairs", None)
     arn = re.sub(r"\D", "", str(host.profile.get("arn") or ""))
     out: dict = {"got": []}
-    if look is None:
-        return out
-    for zip_file, xls in await look(True):
+    for zip_file, xls in await host.mail_pairs(True):
         try:
             mine = await asyncio.to_thread(cams.added, zip_file, xls)
         except Stop as e:
@@ -1379,8 +1359,8 @@ async def check(host, period: str, registrars: list[str]) -> dict:
     async def steps(job: Job) -> dict:
         if _checked_just_now(job.month):
             # read under ten minutes ago: it looks like a check and the portals are left alone (Neil, 7 Oct)
-            for line in [f"Signing in to {NAMES[r]}" for r in job.regs] + [f"Reading what {NAMES[r]} has" for r in job.regs]:
-                await job.at("Check", line)
+            for r, line in [(r, f"Signing in to {NAMES[r]}") for r in job.regs] + [(r, f"Reading what {NAMES[r]} has") for r in job.regs]:
+                await job.at("Check", line, r)
                 await asyncio.sleep(SHOWN_AGAIN_S)
             return {"how": "done", "news": job.month.facts.get("checkNews") or job.check_line(), "notes": job.notes}
         await job.enter()
@@ -1474,8 +1454,8 @@ async def _keep(job: Job, reg: str, e: Exception) -> None:
 def _whose(job: Job, e: Exception) -> str:
     if isinstance(e, Refused) and e.who:
         return CAMS if e.who == "CAMS" else KFIN
-    running = next((s["line"] for s in job.steps if s["state"] == "running"), "")
-    return CAMS if "CAMS" in running else KFIN if "KFintech" in running else ""
+    running = next((s["name"] for s in job.steps if s["state"] == "running"), "")
+    return job.step_reg.get(running, "")
 
 
 def _as_stop(e: Exception, registrar: str = "") -> Stop:

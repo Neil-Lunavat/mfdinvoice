@@ -1,4 +1,4 @@
-"""CAMS: every page a run touches, and what its files mean. `run.py` calls these in order; nothing here decides what
+"""CAMS: every page a run touches, and what its files mean. `flow.py` calls these in order; nothing here decides what
 comes next.
 
 Two CAMS facts shape all of it.
@@ -641,7 +641,7 @@ async def find_submit(page: Page):
     return button
 
 
-async def click_submit(page: Page, button, sending: list[str] | None = None) -> tuple[bool, str]:
+async def click_submit(page: Page, button, sending: list[str]) -> tuple[bool, str]:
     """Click Submit and read CAMS's answer. Returns (did CAMS answer within a minute, its words); the words are empty
     when every invoice in `sending` has a row saying SUCCESS.
 
@@ -672,9 +672,7 @@ async def click_submit(page: Page, button, sending: list[str] | None = None) -> 
     said = []
     if (head := (await title.inner_text()).strip()) != "Success":
         said.append(head)
-    if sending is None:
-        said += [f"{' '.join(r[:-1])}: {r[-1]}" for r in rows if r and r[-1].strip().upper() != "SUCCESS"]
-    for key in sending or []:
+    for key in sending:
         mine = [r for r in rows if any(c.partition(" / ")[0].strip() == key for c in r)]
         if not mine:
             said.append(f"{key}: no row in CAMS's answer")

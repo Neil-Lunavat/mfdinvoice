@@ -102,11 +102,10 @@ class Month:
         row.update(facts)
         return row
 
-    def read_status(self, registrar: str, reading: list[dict], after_press: bool = False) -> str:
+    def read_status(self, registrar: str, reading: list[dict]) -> str:
         """The registrar's status page was read: its words are the truth about what it has. Never raises. A word never
         seen means the registrar has the invoice: it is logged, shown in the registrar's own words and never sent
-        again. The unknown words are returned as "key: word; ..." ("" when none) for the caller to note.
-        `after_press` is kept for callers; it changes nothing."""
+        again. The unknown words are returned as "key: word; ..." ("" when none) for the caller to note."""
         strange = [r for r in reading if words.meaning(registrar, r.get("status")) == "unknown"]
         for r in strange:
             log.warning("unknown status word from %s: %r on %s", registrar, r.get("status"), r.get("key"))

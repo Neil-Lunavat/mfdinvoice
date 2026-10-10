@@ -775,15 +775,13 @@ async def _why_disabled(page: Page, button) -> str:
     return "\n".join(x for x in said if x)
 
 
-async def click_submit(page: Page, button) -> tuple[bool, str, bool]:
-    """Click the button and wait for KFintech's answer: (did it answer within a minute, its words, did it say every
-    invoice went in)."""
+async def click_submit(page: Page, button) -> tuple[bool, str]:
+    """Click the button and wait for KFintech's answer: (did it answer within a minute, its words)."""
     await button.click()
     done = page.locator(C["alert"]).filter(
         has_text=re.compile(f"{U['done_ok']}|{U['done_partial']}|fail|error", re.I))
     try:
         await seen(done.first)
     except Changed:
-        return False, " ".join(await alerts(page)), False
-    told = " ".join(await alerts(page))
-    return True, told, U["done_ok"] in told
+        return False, " ".join(await alerts(page))
+    return True, " ".join(await alerts(page))
