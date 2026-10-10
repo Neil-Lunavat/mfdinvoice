@@ -1480,7 +1480,7 @@ def _whose(job: Job, e: Exception) -> str:
 
 def _as_stop(e: Exception, registrar: str = "") -> Stop:
     """Anything that ended a step, as the stop the person reads. The portal's no is quoted; anything else is the
-    portal not doing what the steps expect."""
+    portal not doing what the steps expect, except a file error on this PC, which is not blamed on the portal."""
     if isinstance(e, Stop):
         e.registrar = e.registrar or registrar
         return e
@@ -1488,5 +1488,9 @@ def _as_stop(e: Exception, registrar: str = "") -> Stop:
     if isinstance(e, Refused):
         return Stop("refused", f"{name} said no", "Nothing was submitted by this step.", said=e.said,
                     registrar=registrar)
+    if isinstance(e, OSError) and getattr(e, "filename", None):
+        return Stop("ours", "Something on this PC got in the way",
+                    f"{Path(e.filename).name}: {e.strerror or type(e).__name__}",
+                    "Run again. If it keeps happening, Send to support.", registrar=registrar)
     return Stop("ours", f"{name}'s website didn't do what we expected",
                 "Run again in a few minutes. If it keeps happening, Send to support.", registrar=registrar)

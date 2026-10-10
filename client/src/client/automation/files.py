@@ -16,7 +16,7 @@ import openpyxl
 import pdfplumber
 import xlrd
 
-from client.automation.page import Changed
+from client.automation.page import Changed, Stop
 
 # KFintech's spreadsheets carry no default style, and openpyxl says so on every one. It changes nothing read.
 warnings.filterwarnings("ignore", message="Workbook contains no default style")
@@ -56,7 +56,8 @@ def sheet_read(path: Path, sheet: str = "", max_rows: int = 5000) -> list[list[s
 
 
 def zip_extract(path: Path, folder: Path) -> list[Path]:
-    """Unpack an archive flat into a folder. A file already there is replaced, so nothing is ever there twice."""
+    """Unpack an archive flat into a folder. A file already there with the same contents is left alone; a different
+    one is replaced, so nothing is ever there twice; one held open by another program stops with its name."""
     folder.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     with zipfile.ZipFile(path) as z:
@@ -67,8 +68,16 @@ def zip_extract(path: Path, folder: Path) -> list[Path]:
             if not name:
                 continue
             dest = folder / name
-            with z.open(info) as src, dest.open("wb") as dst:
-                dst.write(src.read())
+            data = z.read(info)
+            try:
+                same = dest.exists() and dest.read_bytes() == data
+            except OSError:
+                same = False
+            if not same:
+                try:
+                    dest.write_bytes(data)
+                except PermissionError:
+                    raise Stop("wrong_files", f"{name} is open in another program", "Close it, then Run again.")
             written.append(dest)
     return written
 

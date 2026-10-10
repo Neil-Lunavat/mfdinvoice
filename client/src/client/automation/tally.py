@@ -17,6 +17,8 @@ all kept here:
 - One invoice per request, so a refusal is tied to its invoice, in Tally's own words.
 - Never ask Tally for a single object (`<TYPE>Object</TYPE>`): it crashes TallyPrime 7.1. A date must say
   `TYPE="Date"`, or Tally uses the period its own screen is on.
+- Tally writes CR and LF inside a name as `&#13;` and `&#10;`; names are read and sent back exactly so (10 Oct, a
+  ledger named with a trailing line break).
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ import urllib.request
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-from xml.sax.saxutils import escape as e
+from xml.sax.saxutils import escape
 
 from client.automation import files, numbering, words
 from client.automation.invoices.layout import state_name
@@ -150,9 +152,22 @@ def _g(body: str, tag: str) -> str:
     return _unxml(m.group(1).strip()) if m else ""
 
 
+_NAMED = {"apos": "'", "quot": '"', "lt": "<", "gt": ">", "amp": "&"}
+
+
 def _unxml(s: str) -> str:
-    return (s.replace("&apos;", "'").replace("&quot;", '"').replace("&lt;", "<").replace("&gt;", ">")
-            .replace("&amp;", "&"))
+    """One pass, so `&amp;#13;` is the text `&#13;`, never a line break."""
+    def one(m: re.Match) -> str:
+        r = m.group(1)
+        if r[0] != "#":
+            return _NAMED[r]
+        return chr(int(r[2:], 16) if r[1] in "xX" else int(r[1:]))
+    return re.sub(r"&(#\d+|#x[0-9a-fA-F]+|apos|quot|lt|gt|amp);", one, s)
+
+
+def e(s: str) -> str:
+    """Escaped for Tally's XML, line breaks and quotes included (`e()` is also used inside attributes)."""
+    return escape(s, {"\r": "&#13;", "\n": "&#10;", '"': "&quot;"})
 
 
 def _said(text: str) -> tuple[bool, str]:
