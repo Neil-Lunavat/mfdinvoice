@@ -3,13 +3,17 @@ import Layout from '../layouts/Layout.astro';
 import '../styles/kit.css';
 import Brand from '../components/Brand.astro';
 import { NAME } from '../consts';
+import { turnstileSite } from '../lib/server/turnstile';
+export const prerender = false;
+/* the Turnstile site key, "" when the check is off */
+const site = turnstileSite();
 ---
 <Layout title={`Sign in · ${NAME}`} description="We'll email you a 6-digit code. New here? The same code creates your account." path="/signin" nav="none" footer={false}>
 <header class="top">
   <Brand />
 </header>
 
-<main>
+<main data-ts={site}>
   <div>
     <div class="card" id="card"></div>
     <p class="agree">By continuing you agree to the <a href="/terms">Terms</a> and the <a href="/privacy">Privacy policy</a>.</p>
@@ -80,6 +84,27 @@ const fromApp = q.get('from') === 'app';
 const mask = a => { const [u, d] = a.split('@'); return u[0] + '•••@' + d; };
 let timer;
 
+/* Turnstile (only when the page was given a site key): one widget, drawn fresh in each step's #ts; its token is single-use */
+const site = document.querySelector('main')!.dataset.ts || '';
+let widget: string | undefined;
+const tsToken = (): string => (site && widget !== undefined ? (window as any).turnstile?.getResponse(widget) || '' : '');
+const tsReset = () => { try { if (widget !== undefined) (window as any).turnstile?.reset(widget); } catch (e) {} };
+function tsMount() {
+  const slot = document.getElementById('ts');
+  if (!site || !slot) return;
+  const t = (window as any).turnstile;
+  if (!t) { setTimeout(tsMount, 200); return; }
+  try { if (widget !== undefined) t.remove(widget); } catch (e) {}
+  widget = t.render(slot, { sitekey: site });
+}
+if (site) {
+  const sc = document.createElement('script');
+  sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; sc.async = true;
+  document.head.appendChild(sc);
+}
+const CHECK = 'Please complete the check above.';
+const CHALLENGE = 'Please complete the check above, then send the code again.';
+
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const TOO_MANY = 'Too many tries. Wait 10 minutes, then send a new code.';
 function sendError(r): string {
@@ -98,6 +123,7 @@ function emailStep(prefill = '') {
     <span class="mark big"><svg viewBox="0 0 24 24"><use href="#tk"/></svg></span>
     <div><h1>Sign in</h1><p class="sub">We'll email you a 6-digit code.</p></div>
     <div class="field"><label for="email">Email</label><input id="email" class="input" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(prefill)}"><span class="err" id="eerr" hidden></span></div>
+    ${site ? '<div id="ts"></div>' : ''}
     <button class="btn primary" id="send" ${validEmail(prefill) ? '' : 'disabled'}>Send code</button>
     <p class="new">New here? The same code creates your account.</p>
   </div>`;
@@ -106,13 +132,17 @@ function emailStep(prefill = '') {
   email.onkeydown = e => { if (e.key === 'Enter' && !send.disabled) send.click(); };
   send.onclick = async () => {
     const addr = email.value.trim().toLowerCase();
+    const token = tsToken();
+    if (site && !token) { $('eerr').textContent = CHECK; $('eerr').hidden = false; return; }
     send.disabled = true; send.innerHTML = '<span class="spin"></span>Sending';
-    const r = await post('/api/auth/code', { email: addr });
+    const r = await post('/api/auth/code', { email: addr, turnstile: token });
+    tsReset();
     /* a code sent under 45 s ago is still good: go on to it */
     if (r.ok || r.error === 'wait') return codeStep(addr, r.ok ? 45 : r.wait);
     send.disabled = false; send.textContent = 'Send code';
-    $('eerr').textContent = sendError(r); $('eerr').hidden = false;
+    $('eerr').textContent = r.error === 'challenge' ? CHALLENGE : sendError(r); $('eerr').hidden = false;
   };
+  tsMount();
   setTimeout(() => email.focus(), 50);
 }
 
@@ -124,6 +154,7 @@ function codeStep(addr, wait = 45) {
     <div class="field"><label>Code</label><div class="otp" id="otp">${'<input maxlength="1" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit">'.repeat(6)}</div><span class="hint" id="chint">Six digits, from the email.</span></div>
     <label class="check"><input type="checkbox" id="keep" checked> Keep me signed in</label>
     <button class="btn primary" id="go" disabled>Continue</button>
+    ${site ? '<div id="ts"></div>' : ''}
     <p class="resend" id="resend"></p>
   </div>`;
   $('diff').onclick = e => { e.preventDefault(); clearTimeout(timer); emailStep(addr); };
@@ -175,15 +206,20 @@ function codeStep(addr, wait = 45) {
     else {
       r.innerHTML = '<a href="#">Resend code</a>';
       r.querySelector('a').onclick = async e => {
-        e.preventDefault(); r.textContent = 'Sending…';
-        const res = await post('/api/auth/code', { email: addr });
+        e.preventDefault();
+        const token = tsToken();
+        if (site && !token) { r.textContent = CHECK; s = 0; timer = setTimeout(tick, 4000); return; }
+        r.textContent = 'Sending…';
+        const res = await post('/api/auth/code', { email: addr, turnstile: token });
+        tsReset();
         if (res.ok) { r.textContent = 'Code sent again.'; reset(); hint('Six digits, from the email.'); s = 45; timer = setTimeout(tick, 1500); }
         else if (res.error === 'wait') { s = res.wait; tick(); }
-        else { r.textContent = sendError(res); s = 0; timer = setTimeout(tick, 4000); }
+        else { r.textContent = res.error === 'challenge' ? CHALLENGE : sendError(res); s = 0; timer = setTimeout(tick, 4000); }
       };
     }
   };
   tick();
+  tsMount();
   setTimeout(() => boxes[0].focus(), 300);
 }
 

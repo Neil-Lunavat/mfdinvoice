@@ -44,6 +44,17 @@ export async function overview() {
     signups: signups!.n, trialsEnding: trialsEnding!.n, plansEnding: plansEnding!.n };
 }
 
+/* ARNs that came back on another free trial (a trial is once per email, not per ARN, on purpose): how many ARNs, the
+   trials beyond each one's first, and the newest 50 with their emails. Read-only, from `trials`. */
+export async function backOnTrial() {
+  const [tot, list] = await Promise.all([
+    one<{ arns: number; extra: number }>(`SELECT COUNT(*) AS arns, COALESCE(SUM(n - 1), 0) AS extra FROM (SELECT COUNT(*) AS n FROM trials GROUP BY arn HAVING COUNT(*) > 1)`),
+    env.DB.prepare(`SELECT arn, COUNT(*) AS trials, group_concat(email, ', ') AS emails, MAX(started_at) AS last FROM trials GROUP BY arn HAVING COUNT(*) > 1 ORDER BY last DESC LIMIT 50`)
+      .all<{ arn: string; trials: number; emails: string; last: string }>(),
+  ]);
+  return { arns: tot!.arns, extra: tot!.extra, rows: list.results };
+}
+
 /* The numbers on the tabs. */
 export const tabCounts = async () => {
   const r = await one<{ p: number; s: number }>(`SELECT (SELECT COUNT(*) FROM orders WHERE provider = 'upi' AND status = 'review') AS p,

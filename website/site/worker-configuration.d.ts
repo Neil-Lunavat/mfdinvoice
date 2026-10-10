@@ -16,6 +16,8 @@ interface __BaseEnv_Env {
 	ACCESS_AUD_WRITE: "b9508d63cffafdc5b17e952b0416c2ac8f62ab098117c533e08fe81d5e92f5e2";
 	ADMINS: "develop.tbc@gmail.com";
 	WRITERS: "develop.tbc@gmail.com";
+	TURNSTILE_SITE: string;
+	TURNSTILE_SECRET: string;
 	RAZORPAY_KEY_ID: string;
 	RAZORPAY_KEY_SECRET: string;
 	RAZORPAY_WEBHOOK_SECRET: string;
@@ -35,7 +37,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "PAYMENTS" | "CASHFREE_MODE" | "SITE_ORIGIN" | "CONTROL_HOST" | "WRITE_HOST" | "ACCESS_TEAM" | "ACCESS_AUD_CONTROL" | "ACCESS_AUD_WRITE" | "ADMINS" | "WRITERS" | "RAZORPAY_KEY_ID" | "RAZORPAY_KEY_SECRET" | "RAZORPAY_WEBHOOK_SECRET" | "BRAIN_SECRET" | "EMAIL_CONSOLE" | "CASHFREE_APP_ID" | "CASHFREE_SECRET_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "PAYMENTS" | "CASHFREE_MODE" | "SITE_ORIGIN" | "CONTROL_HOST" | "WRITE_HOST" | "ACCESS_TEAM" | "ACCESS_AUD_CONTROL" | "ACCESS_AUD_WRITE" | "ADMINS" | "WRITERS" | "TURNSTILE_SITE" | "TURNSTILE_SECRET" | "RAZORPAY_KEY_ID" | "RAZORPAY_KEY_SECRET" | "RAZORPAY_WEBHOOK_SECRET" | "BRAIN_SECRET" | "EMAIL_CONSOLE" | "CASHFREE_APP_ID" | "CASHFREE_SECRET_KEY">> {}
 }
 
 // Begin runtime types

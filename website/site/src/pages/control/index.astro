@@ -4,15 +4,16 @@
    are on the Software tab's dashboard. */
 import Panel from '../../layouts/Panel.astro';
 import { accessUser } from '../../lib/server/access';
-import { overview, tabCounts } from '../../lib/server/admin';
+import { overview, tabCounts, backOnTrial } from '../../lib/server/admin';
 import { rupees } from '../../lib/price';
-import { istWhen } from '../../lib/server/util';
+import { PRICE } from '../../consts';
+import { istWhen, istShort } from '../../lib/server/util';
 import { softwareStats } from '../../lib/server/software';
 export const prerender = false;
 
 const me = await accessUser(Astro.request, 'control');
 if (!me) return new Response('Forbidden', { status: 403 });
-const [o, counts, st] = await Promise.all([overview(), tabCounts(), softwareStats()]);
+const [o, counts, st, back] = await Promise.all([overview(), tabCounts(), softwareStats(), backOnTrial()]);
 const runsToday = st ? st.days.filter(d => d.day === st.today).reduce((n, d) => n + d.n, 0) : null;
 /* ours not marked Fixed: reports of kind ours, and runs that ended ours */
 const toFix = st ? st.open.filter(x => x.kind === 'ours' || x.kind === 'run').reduce((n, x) => n + x.n, 0) : null;
@@ -31,9 +32,23 @@ const toFix = st ? st.open.filter(x => x.kind === 'ours' || x.kind === 'run').re
     <a class="stat" href="/accounts?f=trial"><span>Free trials running</span><b>{o.plans.trial}</b><small>{o.trialsEnding} ending in the next 7 days</small></a>
     <a class="stat" href="/accounts?f=active"><span>Plans ending soon</span><b>{o.plansEnding}</b><small>Paid or gift, in the next 30 days</small></a>
     <a class="stat" href="/accounts"><span>Sign-ups, last 7 days</span><b>{o.signups}</b></a>
+    <a class="stat" href="#backTrial"><span>ARNs back on a free trial</span><b>{back.arns}</b><small>{back.extra} extra trial{back.extra === 1 ? '' : 's'} · about {rupees(back.arns * PRICE.first * 100)} a year at list price</small></a>
     <a class="stat" href="/gifts?status=waiting"><span>Gifts not yet used</span><b>{o.gifts}</b></a>
     <a class:list={['stat', { hot: o.deletions > 0 }]} href="/accounts?f=deleting"><span>Deletions pending</span><b>{o.deletions}</b><small>{o.nextDeletion ? `Deletes after ${istWhen(o.nextDeletion)}` : 'Each goes a day after it is asked, at 2:00 am'}</small></a>
   </div>
+
+  <section class="pc" id="backTrial">
+    <div class="pc-h"><h2>ARNs back on a free trial</h2></div>
+    {back.rows.length === 0 ? <p class="empty">None yet.</p> :
+    <table class="t cards"><thead><tr><th>ARN</th><th>Trials</th><th>Emails</th><th>Last trial</th></tr></thead><tbody>
+      {back.rows.map(r => <tr>
+        <td data-l="ARN">{r.arn}</td>
+        <td data-l="Trials">{r.trials}</td>
+        <td data-l="Emails">{r.emails}</td>
+        <td data-l="Last trial">{istShort(r.last)}</td>
+      </tr>)}
+    </tbody></table>}
+  </section>
 
   <section class="pc">
     <div class="pc-h"><h2>Scheduled jobs</h2></div>
