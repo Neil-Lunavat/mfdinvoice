@@ -1,8 +1,8 @@
 <script lang="ts">
   import { NAME } from '../brand';
   /* Sign in, with the website: email, then a 6-digit code on the same screen (#2). This PC stays signed in.
-     There is no "Create account": the website makes the account the first time an email signs in. Every answer the
-     website gives is said in its own words. */
+     There is no "Create account": an account is made on the website only, and this signs in to one (`no_account`
+     otherwise). Every answer the website gives is said in its own words. */
   import { onDestroy, onMount } from 'svelte';
   import { app, type CodeRefusal, type VerifyRefusal } from '../bridge';
   import { ago, dayMonYear, hhmm, maskEmail } from '../logic/format';

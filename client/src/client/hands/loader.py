@@ -3,8 +3,13 @@
 The steps (`client.automation`) are not part of the installed app. Before any portal work the app asks the server which
 version is current (`latest`). If this PC does not have it, it is downloaded as one zip, and the zip must carry our
 signature: an Ed25519 signature over its bytes, made with a key only we hold and checked against the public key below.
-A zip that does not check is deleted and never run. No answer from the server means no portal work: a portal may have
-changed, and steps that are behind could do the wrong thing.
+A zip that does not check is never run. No answer from the server means no portal work: a portal may have changed, and
+steps that are behind could do the wrong thing.
+
+The zip and its manifest (`{"sha256", "signature"}`) are kept beside the extracted folders: `KEPT/<version>.zip`,
+`KEPT/<version>.json`. Every time steps are taken from disk the zip is checked again and extracted fresh into the
+folder, so a file changed on this PC since the download is gone before anything is imported. A folder without its zip
+and manifest (an older install) is not used.
 
 In a checkout (`uv run app`) the steps are the ones in `client/src/client/automation/`, so a change is tried at once.
 Set AUTOMATION=server to make a checkout fetch them the way an installed app does.
@@ -20,6 +25,7 @@ import hashlib
 import importlib
 import importlib.util
 import io
+import json
 import logging
 import os
 import shutil
@@ -76,9 +82,13 @@ async def current():
         return _checkout()
     if _loaded["module"] is not None:
         return _loaded["module"]
-    kept = sorted((p for p in KEPT.glob("*") if (p / "__init__.py").is_file()), key=lambda p: p.stat().st_mtime)
+    kept = sorted((p for p in KEPT.glob("*.json") if p.with_suffix(".zip").is_file()),
+                  key=lambda p: p.with_suffix(".zip").stat().st_mtime)
     if kept:
-        return _use(kept[-1], kept[-1].name)
+        try:
+            return _from_kept(kept[-1].name.removesuffix(".json"))
+        except (NotOurs, OSError, ValueError, KeyError, zipfile.BadZipFile) as e:
+            log.warning("the kept steps %s do not check (%s)", kept[-1].name, e)
     return await latest()
 
 
@@ -93,27 +103,57 @@ def _have(manifest: dict):
     want = str(manifest["version"])
     if _loaded["version"] == want:
         return _loaded["module"]
-    folder = KEPT / _safe(want)
-    if not (folder / "__init__.py").is_file():
-        data = server.download(str(manifest["file"]))
-        if data is None:
-            raise Unreachable()
-        check(data, str(manifest["sha256"]), str(manifest["signature"]))
-        tmp = folder.with_name(folder.name + ".part")
-        shutil.rmtree(tmp, ignore_errors=True)
-        with zipfile.ZipFile(io.BytesIO(data)) as z:
-            for info in z.infolist():
-                target = (tmp / info.filename).resolve()
-                if tmp.resolve() not in target.parents and target != tmp.resolve():
-                    raise NotOurs(f"a path in the zip leaves its folder: {info.filename}")
-            z.extractall(tmp)
-        shutil.rmtree(folder, ignore_errors=True)
-        tmp.replace(folder)
-        log.info("the steps %s were downloaded and checked", want)
-        for old in KEPT.glob("*"):                        # the one before is kept, in case; the rest go
-            if old.is_dir() and old != folder and old.name != _safe(_loaded["version"]):
+    name = _safe(want)
+    try:
+        if _manifest_of(name).get("sha256", "").lower() == str(manifest["sha256"]).lower():
+            return _from_kept(name)
+    except (NotOurs, OSError, ValueError, KeyError, zipfile.BadZipFile) as e:
+        log.info("the kept steps %s are not usable (%s); downloading them again", want, e)
+    data = server.download(str(manifest["file"]))
+    if data is None:
+        raise Unreachable()
+    check(data, str(manifest["sha256"]), str(manifest["signature"]))
+    KEPT.mkdir(parents=True, exist_ok=True)
+    (KEPT / f"{name}.zip").write_bytes(data)
+    (KEPT / f"{name}.json").write_text(
+        json.dumps({"sha256": str(manifest["sha256"]), "signature": str(manifest["signature"])}), encoding="utf-8")
+    before = _safe(_loaded["version"])
+    module = _from_kept(name)
+    log.info("the steps %s were downloaded and checked", want)
+    for old in KEPT.glob("*"):                            # the one before is kept, in case; the rest go
+        stem = old.name.removesuffix(".part").removesuffix(".zip").removesuffix(".json")
+        if stem not in (name, before) or old.name.endswith(".part"):
+            if old.is_dir():
                 shutil.rmtree(old, ignore_errors=True)
-    return _use(folder, want)
+            else:
+                old.unlink(missing_ok=True)
+    return module
+
+
+def _manifest_of(name: str) -> dict:
+    got = json.loads((KEPT / f"{name}.json").read_text(encoding="utf-8"))
+    if not isinstance(got, dict) or not (KEPT / f"{name}.zip").is_file():
+        raise NotOurs("the kept steps have no zip or no manifest")
+    return got
+
+
+def _from_kept(name: str):
+    """The steps kept under this name: the zip is checked again, extracted fresh into its folder, and imported."""
+    kept = _manifest_of(name)
+    data = (KEPT / f"{name}.zip").read_bytes()
+    check(data, str(kept["sha256"]), str(kept["signature"]))
+    folder = KEPT / name
+    tmp = folder.with_name(folder.name + ".part")
+    shutil.rmtree(tmp, ignore_errors=True)
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        for info in z.infolist():
+            target = (tmp / info.filename).resolve()
+            if tmp.resolve() not in target.parents and target != tmp.resolve():
+                raise NotOurs(f"a path in the zip leaves its folder: {info.filename}")
+        z.extractall(tmp)
+    shutil.rmtree(folder, ignore_errors=True)
+    tmp.replace(folder)
+    return _use(folder, name)
 
 
 def check(data: bytes, sha256: str, signature: str) -> None:

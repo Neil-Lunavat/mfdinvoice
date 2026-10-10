@@ -22,5 +22,5 @@ export function runOffOf(s: Snapshot): boolean {
   const p = s.profile;
   if (!p) return true;
   const banner = opening({ updateRequired: !!s.update, condition: s.condition, signedIn: !!s.account, hasArn: s.arns.length > 0 }).banner;
-  return !!banner || missingOf(p).length > 0 || planBlocksRun(s.plan, s.arn) || !consentCurrent(p.consent);
+  return !!banner || missingOf(p).length > 0 || planBlocksRun(s.plan, s.arn, p) || !consentCurrent(p.consent);
 }

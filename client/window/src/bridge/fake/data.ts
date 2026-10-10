@@ -69,7 +69,7 @@ export type MonthState = 'first_run' | 'stopped' | 'not_listed' | 'not_fetched' 
 export function october(state: MonthState, second = false): Month {
   const base = octoberInvoices(second);
   const m: Month = {
-    period: 'OCT-2026', label: 'October 2026', kfLabel: 'September 2026', deadline: '2026-10-15',
+    period: 'OCT-2026', label: 'October 2026', kfLabel: 'September 2026',
     checkedAt: CHECKED, listed: true, notListed: [], everRun: true, submittedOn: '', lastRun: null, invoices: base
   };
   const stopped = (said: string, code: string, portal = ''): Month['lastRun'] => ({ how: 'stopped', at: '2026-10-08T10:04:00', said, portal, code });
@@ -106,7 +106,7 @@ export function earlier(period: string, second = false): Month {
       'Approved', `2026-${mm}-04`, 'OFFICE-PC');
   });
   return {
-    period, label, kfLabel: EARLIER[idx]?.[1] ?? 'March 2026', deadline: `2026-${mm}-15`,
+    period, label, kfLabel: EARLIER[idx]?.[1] ?? 'March 2026',
     checkedAt: CHECKED, listed: true, notListed: [], everRun: true, submittedOn: `2026-${mm}-04`,
     lastRun: { how: 'done', at: `2026-${mm}-04T10:20:00`, said: '', portal: '', code: '' }, invoices
   };

@@ -3,13 +3,15 @@
 Each server has a second address on Cloudflare's workers.dev (`brand.json`: `site_fallback`, `server_fallback`).
 A call tries the main address first; only when it could not connect (no route, reset, timeout, DNS) is the second
 tried. An HTTP answer of any status means the server was reached and is returned as it is. Whichever answered is
-used for the rest of the session. With an environment override (`SITE`, `SERVER`) there is no second address.
+used for the rest of the session. In a checkout (`uv run app`) an environment override (`SITE`, `SERVER`) points the
+calls elsewhere, with no second address; in the installed software it is ignored.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import sys
 import urllib.error
 import urllib.request
 
@@ -21,9 +23,13 @@ class Reach:
         self.label, self.env, self.main, self.fallback = label, env, main, fallback
         self.on_fallback = False
 
+    def override(self) -> str:
+        """The developer's address for this server, only in a checkout: the installed software ignores it."""
+        return "" if getattr(sys, "frozen", False) else os.environ.get(self.env, "")
+
     def base(self) -> str:
         """The address calls go to now."""
-        override = os.environ.get(self.env)
+        override = self.override()
         if override:
             return override.rstrip("/")
         return self.fallback if self.on_fallback and self.fallback else self.main
@@ -35,7 +41,7 @@ class Reach:
             req = urllib.request.Request(base + path, data=data, method=method, headers=headers or {})
             return urllib.request.urlopen(req, timeout=timeout)         # noqa: S310 - our own server
 
-        if os.environ.get(self.env) or not self.fallback:
+        if self.override() or not self.fallback:
             return attempt(self.base())
         first, second = (self.fallback, self.main) if self.on_fallback else (self.main, self.fallback)
         try:

@@ -26,7 +26,7 @@ class Hands:
         self.browser = browser_mod.Browser(CDP_PORT, cfg.paths.workspace / "browser-profile", self._ua_cache())
         # Which ARN this app is working for, and where its signature is. The window replaces both (Add ARN, the
         # switcher).
-        self.arn = lambda: cfg.distributor.arn or ""
+        self.arn = lambda: ""
         self.signature_path = lambda: cfg.paths.signature
         self.hwnd = lambda: 0             # the window's handle, set by the shell: a token's PIN box opens over it
         self.browser_used_at = 0.0        # when a run last let go of the browser (monotonic); 0: not yet

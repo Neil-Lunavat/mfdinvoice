@@ -35,4 +35,5 @@ export function planLine(p: Plan | null): string {
 }
 
 /** Run turns off while the plan can't be read, or there is none to run on. */
-export const planBlocksRun = (p: Plan | null, arn = '') => !!p && (p.state === 'unknown' || planScreen(p, arn) !== null);
+export const planBlocksRun = (p: Plan | null, arn = '', prof?: { bindOnRun?: boolean; bindAsked?: boolean } | null) =>
+  !!p && (p.state === 'unknown' || planScreen(p, arn, prof) !== null);

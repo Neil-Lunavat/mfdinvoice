@@ -27,7 +27,6 @@ export const dayMon = (iso: string) => { const d = parse(iso); return `${d.getDa
 export const dayMonYear = (iso: string) => { const d = parse(iso); return `${dayMon(iso)} ${d.getFullYear()}`; };
 /** "3 October" */
 export const dayMonth = (iso: string) => { const d = parse(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
-/** "09:12" */
 /** How long ago, in a few words: "just now", "5 minutes ago", "2 hours ago", "yesterday", "3 days ago", else the date. */
 export function ago(iso: string, now = Date.now()) {
   const t = Date.parse(iso);
@@ -59,8 +58,6 @@ export function daysBetween(fromIso: string, toIso: string) {
   const a = parse(fromIso.slice(0, 10)), b = parse(toIso.slice(0, 10));
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
-
-/** "6 days to the 15th". Never red, never a banner. */
 
 /** "0:42", "12:05" */
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;

@@ -78,6 +78,27 @@ ON_THIS_PC = ("kfintech_password", "gmail_app_password", "cams_email", "kfintech
               "forward_secret")
 
 
+def plan_blocks(licence: dict | None, arn: str, profile: dict | None) -> str:
+    """"" when the plan lets this ARN run, else why not. The same rule as the window's `logic/plan.ts` (`planScreen`
+    and `planBlocksRun`), so a run cannot start from anywhere the window would not start it. `licence` is what
+    `read_plan` keeps; `profile` carries `bindOnRun` (an ARN set up without KFintech, bound by its first run) and
+    `bindAsked` (Activate free trial was pressed)."""
+    if not licence:
+        return "Your plan couldn't be checked just now."
+    state, prof = licence.get("state", "unknown"), profile or {}
+    if state == "unknown":
+        return "Your plan couldn't be checked just now."
+    if state == "ended":
+        return "No plan is running for this ARN."
+    if state == "none":
+        if licence.get("trialUsed"):
+            return "No plan is running for this ARN."
+        return "" if prof.get("bindOnRun") and prof.get("bindAsked") else "No plan is running for this ARN."
+    if state == "active" and arn and arn not in (licence.get("arns") or []):
+        return "" if prof.get("bindOnRun") else "This ARN isn't on your plan."
+    return ""
+
+
 class Window:
     """The app, as the window sees it. `send(push)` delivers one push; every public coroutine is an `App` method."""
 
@@ -947,8 +968,6 @@ class Window:
         arn = draft["arn"].strip().upper()
         if arn in self.profiles():
             return {"ok": False, "said": f"{arn} is already on this account."}
-        if refused := await self._rule_46(invoices_of(draft)["last"]):
-            return {"ok": False, "said": refused}
         if len(self.profiles()) >= 6:
             return {"ok": False, "said": "One account holds up to 6 ARNs. For more, talk to us."}
         if not (draft.get("consent") or {}).get("version"):
@@ -1042,8 +1061,6 @@ class Window:
                 p[key] = patch[key].strip()
                 what = "Your details changed"
         if "invoices" in patch:
-            if refused := await self._rule_46(invoices_of({"invoices": patch["invoices"]})["last"]):
-                return {"ok": False, "said": refused}
             before = invoices_of(p)
             p["invoices"] = invoices_of({"invoices": patch["invoices"]})
             what = ("Invoices: your own, in your number series" if p["invoices"]["source"] == "own"
@@ -1180,20 +1197,9 @@ class Window:
 
     # --- the person's books: Tally or Zoho Books, one per ARN -------------------------------------------------------
 
-    async def _rule_46(self, text: str) -> str:
-        """"" when this invoice number may be stored, else why not: GST Rule 46 allows at most 16 characters, only
-        letters, digits, - and / (the same rule as the window's `logic/numbering.ts`)."""
-        text = (text or "").strip()
-        if not text or re.fullmatch(r"[A-Za-z0-9/-]{1,16}", text):
-            return ""
-        return "GST allows up to 16 characters: letters, digits, - and / only."
-
     async def _books(self):
-        """The steps' books half. Steps kept from before Zoho Books existed are replaced by the current ones."""
-        auto = await loader.current()
-        if not hasattr(getattr(auto, "books", None), "open"):
-            auto = await loader.latest()
-        return auto.books
+        """The steps' books half, from the steps this PC has."""
+        return (await loader.current()).books
 
     def zoho_token(self, arn: str, fresh: bool = False) -> dict:
         """Zoho Books' access token for this ARN, for the steps: {token, api}, {gone: words} or {off: words}."""
@@ -1382,13 +1388,13 @@ class Window:
         p = self.profile()
         if not p:
             return {"run": "", "said": "No ARN is set up."}
+        if blocked := plan_blocks(local.get(self.store, "licence"), p["arn"], p):
+            return {"run": "", "said": blocked}
         if self._books_busy:
             return {"run": "", "said": "An import into your books is going. Try again when it has ended."}
         books = bool(local.books_kept(self.base(p["arn"]))["kind"])
         if last and last.get("text") and invoices_of(p)["source"] == "own" and not books:
             # the number may skip ahead, never go below the highest this software has used this financial year
-            if refused := await self._rule_46(str(last["text"])):
-                return {"run": "", "said": refused}
             top = local.issued_top(self.base(p["arn"]))
             if top and local.below(str(last["text"]).strip(), int(last.get("at", -1)), top):
                 return {"run": "", "said": f"{top} has already been used this financial year, so your last invoice "

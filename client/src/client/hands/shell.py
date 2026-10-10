@@ -32,7 +32,7 @@ import threading
 from pathlib import Path
 
 from client.brand import DATA, NAME
-from client.config import Config, Distributor, Paths, load
+from client.config import Config, Paths, load
 from client.hands import browser, ops_picture, update
 from client.hands.hands import Hands
 from client.hands.window import Window
@@ -127,8 +127,7 @@ def _config(path: Path | None) -> Config:
     if path is not None:
         return load(path)
     ws = DATA / "workspace"
-    return Config(distributor=Distributor(arn=""),
-                  paths=Paths(signature=ws / "signature.png", workspace=ws, inbox=ws / "inbox", db=ws / "client.db"))
+    return Config(paths=Paths(signature=ws / "signature.png", workspace=ws, inbox=ws / "inbox", db=ws / "client.db"))
 
 
 def _check_steps(out: Path) -> int:

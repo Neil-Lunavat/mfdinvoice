@@ -34,7 +34,7 @@ reach = Reach("website", "SITE", SITE, SITE_FALLBACK)
 
 
 def base() -> str:
-    """The website's address: the app's one setting (`brand.json`), or `SITE` when a developer points it elsewhere."""
+    """The website's address: the app's one setting (`brand.json`), or, in a checkout only, `SITE` when a developer points it elsewhere."""
     return reach.base()
 
 

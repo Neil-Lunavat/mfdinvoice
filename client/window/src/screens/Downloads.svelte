@@ -13,7 +13,7 @@
 
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const FIRST = 'APR-2026';                     // CAMS's and KFintech's GST invoices began with April 2026
+  const FIRST = 'MAY-2026';                     // CAMS's and KFintech's GST invoices began with May 2026
 
   const s = $derived(store.snap!);
   const p = $derived(s.profile!);

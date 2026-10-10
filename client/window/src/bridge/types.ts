@@ -226,7 +226,6 @@ export interface Month {
   period: string;                  // CAMS's payment month, e.g. "OCT-2026"
   label: string;                   // "October 2026"
   kfLabel: string;                 // KFintech's trail month for the same invoices: "September 2026"
-  deadline: string;                // unused: the person keeps their own dates
   checkedAt: string;               // ISO date-time of the last status check, '' if never
   listed: boolean;                 // its invoices are on this PC, or a registrar listed them at the last look
   notListed: Registrar[];          // the registrars that did not list the month yet, at the last look

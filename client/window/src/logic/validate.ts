@@ -13,11 +13,15 @@ export function gstinOk(g: string): boolean {
   return GS[(36 - (s % 36)) % 36] === g[14];
 }
 
+/** GST state codes (the first two characters of a GSTIN), with the state's name. */
 export const STATES: Record<string, string> = {
-  '27': 'Maharashtra', '24': 'Gujarat', '29': 'Karnataka', '07': 'Delhi', '33': 'Tamil Nadu', '19': 'West Bengal',
-  '09': 'Uttar Pradesh', '08': 'Rajasthan', '36': 'Telangana', '32': 'Kerala', '23': 'Madhya Pradesh', '06': 'Haryana',
-  '03': 'Punjab', '10': 'Bihar', '21': 'Odisha', '37': 'Andhra Pradesh', '30': 'Goa', '22': 'Chhattisgarh',
-  '20': 'Jharkhand', '18': 'Assam', '05': 'Uttarakhand', '02': 'Himachal Pradesh', '01': 'Jammu and Kashmir', '04': 'Chandigarh'
+  '01': 'Jammu and Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh', '05': 'Uttarakhand',
+  '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan', '09': 'Uttar Pradesh', '10': 'Bihar', '11': 'Sikkim',
+  '12': 'Arunachal Pradesh', '13': 'Nagaland', '14': 'Manipur', '15': 'Mizoram', '16': 'Tripura', '17': 'Meghalaya',
+  '18': 'Assam', '19': 'West Bengal', '20': 'Jharkhand', '21': 'Odisha', '22': 'Chhattisgarh', '23': 'Madhya Pradesh',
+  '24': 'Gujarat', '26': 'Dadra and Nagar Haveli and Daman and Diu', '27': 'Maharashtra', '29': 'Karnataka',
+  '30': 'Goa', '31': 'Lakshadweep', '32': 'Kerala', '33': 'Tamil Nadu', '34': 'Puducherry',
+  '35': 'Andaman and Nicobar Islands', '36': 'Telangana', '37': 'Andhra Pradesh', '38': 'Ladakh'
 };
 
 export const panOf = (g: string) => g.slice(2, 12);

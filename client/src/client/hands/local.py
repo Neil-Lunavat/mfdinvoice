@@ -79,11 +79,9 @@ def month(base: Path, period: str) -> dict:
     m = _read(base, period, "month", {})
     m = m if isinstance(m, dict) else {}
     label, kf_label = labels(period)
-    y = int(period.split("-")[1])
     listed_now = m.get("listedNow") if isinstance(m.get("listedNow"), dict) else {}
     return {
         "period": period, "label": label, "kfLabel": kf_label,
-        "deadline": date(y, MONTHS.index(period.split("-")[0]) + 1, 15).isoformat(),
         "checkedAt": m.get("checkedAt", ""), "listed": bool(m.get("listed")) or any(listed_now.values()),
         "notListed": [r for r in ("CAMS", "KFINTECH") if listed_now.get(r) is False],
         "everRun": any(_read(base, p, "month", {}).get("lastRun") for p in periods(base)),

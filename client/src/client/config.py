@@ -10,11 +10,6 @@ DEFAULT_PATH = Path("config.toml")
 
 
 @dataclass(frozen=True)
-class Distributor:
-    arn: str
-
-
-@dataclass(frozen=True)
 class Paths:
     signature: Path
     workspace: Path
@@ -24,7 +19,6 @@ class Paths:
 
 @dataclass(frozen=True)
 class Config:
-    distributor: Distributor
     paths: Paths
 
 
@@ -34,7 +28,6 @@ def load(path: Path = DEFAULT_PATH) -> Config:
     p = raw["paths"]
     workspace = (base / p["workspace"]).resolve()
     return Config(
-        distributor=Distributor(arn=raw["distributor"]["arn"]),
         paths=Paths(
             signature=(base / p["signature"]).resolve(),
             workspace=workspace,
